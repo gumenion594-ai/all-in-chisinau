@@ -5,7 +5,7 @@ const deacc = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").to
 // ---------------------------------------------------------------- small read-only map used on pages
 function miniMap(el, { center = CENTER, zoom = 12, interactive = true } = {}) {
   const P = pal();
-  const m = new maplibregl.Map({ container: el, center, zoom, interactive, attributionControl: false, maxBounds: BOUNDS, minZoom: 8.6, maxZoom: 18,
+  const m = new maplibregl.Map({ container: el, center, zoom, interactive, attributionControl: false, maxBounds: [[DBOX[0] - 0.05, DBOX[1] - 0.04], [DBOX[2] + 0.05, DBOX[3] + 0.04]], minZoom: 8.6, maxZoom: 18,
     style: { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": P.bg } }] } });
   m.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: "© OpenStreetMap" }));
   if (interactive) m.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
@@ -30,7 +30,7 @@ function miniMap(el, { center = CENTER, zoom = 12, interactive = true } = {}) {
 
 // ---------------------------------------------------------------- Ghid turistic: 3 questions, then a plan on a map
 const GI = {   // interest → [ro, en, colour, quota per day, total cap, filter]
-  trips: ["Excursii în apropiere (până la ~50 km)", "Day trips nearby (up to ~50 km)", "#0b7285", 3, 99, (p) => p.trip || (p.c === "religion" && /manastir/.test(deacc(p.n))) || (p.c === "monument" && ["castle", "archaeological_site"].includes(p.k)) || (p.c === "museum" && /aer liber|etnograf|satului/.test(deacc(p.n)))],
+  trips: ["Excursii în apropiere (până la ~25 km)", "Day trips nearby (up to ~25 km)", "#0b7285", 3, 99, (p) => p.trip || (p.c === "religion" && /manastir/.test(deacc(p.n))) || (p.c === "monument" && ["castle", "archaeological_site"].includes(p.k)) || (p.c === "museum" && /aer liber|etnograf|satului/.test(deacc(p.n)))],
   hist: ["Istorie și monumente", "History & monuments", "#c2410c", 3, 99, (p) => p.c === "monument" && ["monument", "building", "castle", "ruins", "archaeological_site", "church", "yes"].includes(p.k) && !/^buncar/.test(deacc(p.n))],
   mem: ["Memoriale", "Memorials", "#7c2d12", 1, 4, (p) => p.c === "monument" && p.k === "memorial"],
   mus: ["Muzee", "Museums", "#9333ea", 2, 99, (p) => p.c === "museum"],
@@ -53,12 +53,7 @@ const GI = {   // interest → [ro, en, colour, quota per day, total cap, filter
 const GX = (id, n, c, k = "sight") => ({ type: "Feature", properties: { c: "trip", k, n, id: "x-" + id, i: 0, trip: 1, approx: 1 }, geometry: { type: "Point", coordinates: c } });
 const GEXTRA = [   // well-known places near Chișinău that are not in the POI data; coordinates approximate
   GX("milestii", "Mileștii Mici – galeriile de vinuri", [28.806, 46.910], "winery"),
-  GX("orhei", "Orheiul Vechi (Butuceni)", [28.981, 47.299]),
   GX("capriana", "Mănăstirea Căpriana", [28.513, 47.126]),
-  GX("hincu", "Mănăstirea Hâncu", [28.296, 46.995]),
-  GX("mimi", "Castel Mimi (Bulboaca)", [29.304, 46.886], "winery"),
-  GX("vartely", "Château Vartely (Orhei)", [28.830, 47.370], "winery"),
-  GX("codrii", "Rezervația „Codrii” (Lozova)", [28.370, 47.130]),
   GX("vadul", "Vadul lui Vodă – malul Nistrului", [29.080, 47.090]),
 ];
 const FAR_KM = 8;
@@ -68,7 +63,9 @@ let GPOOLS = null;
 async function guidePools() {
   if (GPOOLS) return GPOOLS;
   const d = (f) => hav(CENTER, f.geometry.coordinates);
-  const all = (await load("pois.geojson")).features.filter((f) => f.properties.n && ((f.properties.i & 1) || d(f) < 35)).concat(GEXTRA);
+  // only places inside the area the map has data for
+  const inMap = (f) => { const [x, y] = f.geometry.coordinates; return x > DBOX[0] + 0.01 && x < DBOX[2] - 0.01 && y > DBOX[1] + 0.01 && y < DBOX[3] - 0.01; };
+  const all = (await load("pois.geojson")).features.filter((f) => f.properties.n && ((f.properties.i & 1) || d(f) < 35)).concat(GEXTRA).filter(inMap);
   GPOOLS = {};
   const R = { trips: 60, wine: 40, nature: 30, mus: 25, rel: 25, hist: 15, sport: 15, kids: 15, shop: 12, market: 12, park: 8 };
   for (const [k, v] of Object.entries(GI)) {
