@@ -287,7 +287,7 @@ async function searchAll(q) {
 }
 function docCard(a) {
   const nm = (v) => v[S.lang === "ro" ? 0 : 1];
-  if (a.vis === "me") return `<li class="pcard"><div class="pc1"><span class="pill">${L("doar tu", "only you")}</span><b>${esc(a.title)}</b></div>${a.note ? `<p class="small">${esc(a.note)}</p>` : ""}<p class="small">${fmtDate(a.t.slice(0, 10))}${a.file ? ` · ${esc(a.file)}` : ""} ${a.data ? `<a href="${a.data}" download="${esc(a.file)}">${L("descarcă", "download")}</a>` : ""} <button type="button" class="linkbtn" data-deldoc="${a.id}">${L("șterge", "delete")}</button></p></li>`;
+  if (a.vis === "me") return `<li class="pcard"><div class="pc1"><span class="pill">${L("doar tu", "only you")}</span><b>${esc(a.title)}</b></div>${a.note ? `<p class="small">${esc(a.note)}</p>` : ""}<p class="small">${fmtDate(a.t.slice(0, 10))}${a.file ? ` · ${esc(a.file)}` : ""} <button type="button" class="linkbtn" data-deldoc="${a.id}">${L("șterge", "delete")}</button></p></li>`;
   return `<li class="pcard"><div class="pc1"><span class="pill ${a.vis === "int" ? "warn" : ""}">${a.vis === "int" ? L("intern", "internal") : L("public", "public")}</span><span class="small">${nm(ARCH_CAT[a.cat])} · ${a.y}</span>${a.mock ? demo() : ""}</div><b>${esc(nm(a.t))}</b>${a.url ? `<a class="small" href="${a.url}" target="_blank" rel="noopener">${L("Deschide sursa", "Open source")}</a>` : `<span class="small">${L("Document de exemplu, fără fișier.", "Example document, no file.")}</span>`}</li>`;
 }
 async function shArchive() {
@@ -313,14 +313,13 @@ async function shArchive() {
         <textarea id="md-note" rows="2" class="pjin" placeholder="${L("Notă (opțional)", "Note (optional)")}"></textarea>
         <input type="file" id="md-file">
         <button type="button" class="btn" id="md-add">${L("Adaugă", "Add")}</button>
-        <p class="small">${L("Rămân doar în acest browser (prototip). Fișierele mai mari de 300 kB se păstrează doar ca nume.", "They stay in this browser only (prototype). Files over 300 kB are kept by name only.")}</p></div>
+        <p class="small">${L("Rămân doar în acest browser (prototip). Din fișier se păstrează doar numele.", "They stay in this browser only (prototype). Only the file name is kept.")}</p></div>
         <ul class="plist">${myDocs().map((d) => docCard({ ...d, vis: "me" })).join("") || `<li class="hint">${L("Niciun document.", "No documents.")}</li>`}</ul></div></section>`;
 }
 async function addMyDoc() {
   const $ = (id) => document.getElementById(id), title = $("md-title").value.trim(), file = $("md-file").files[0];
   if (!title && !file) { $("md-title").focus(); return; }
-  let data = null;
-  if (file && file.size <= 300e3) data = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(null); r.readAsDataURL(file); });
+  const data = null;
   const d = { id: "d" + Date.now().toString(36), title: title || file.name, note: $("md-note").value.trim(), file: file?.name || null, data, t: new Date().toISOString() };
   try { store.set("mydocs", [d, ...myDocs()]); } catch { store.set("mydocs", [{ ...d, data: null }, ...myDocs()]); }
   shRender();
