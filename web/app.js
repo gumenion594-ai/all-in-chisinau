@@ -5,7 +5,7 @@
 // ================================================================== i18n
 const T = {
   ro: {
-    title: "All in Chișinău", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
+    title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Arhive", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
@@ -72,7 +72,7 @@ const T = {
     about: "Despre date", lang: "EN", sub: (km, n) => `Atlas · ${km} km² · ${n} localități`,
   },
   en: {
-    title: "All in Chișinău", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
+    title: "All in Chișinău", sec_home: "Home", sec_archive: "Archives", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
     transit: "Transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",

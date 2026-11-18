@@ -68,7 +68,7 @@ print("projects", len(fc["features"]), sum(f["properties"]["major"] for f in fc[
 os.makedirs(os.path.join(DIST, "data"), exist_ok=True)
 tpl = open(os.path.join(ROOT, "web", "index.template.html")).read()
 css = open(os.path.join(ROOT, "node_modules", "maplibre-gl", "dist", "maplibre-gl.css")).read()
-js = open(os.path.join(ROOT, "web", "app.js")).read().replace("/*__PROJECTS_JS__*/", "\n".join(open(os.path.join(ROOT, "web", n)).read() for n in ("projects.js", "nb.js", "shell.js")))
+js = open(os.path.join(ROOT, "web", "app.js")).read().replace("/*__PROJECTS_JS__*/", "\n".join(open(os.path.join(ROOT, "web", n)).read() for n in ("projects.js", "nb.js", "shell.js", "shell2.js")))
 html = tpl.replace("/*__MAPLIBRE_CSS__*/", css).replace("/*__APP_JS__*/", js).replace("__DATE__", datetime.date.today().isoformat())
 open(os.path.join(DIST, "index.html"), "w").write(html)
 for n in ["admin.geojson", "landuse.geojson", "base.geojson", "roads.geojson", "rail.geojson", "train.geojson", "bike.geojson",

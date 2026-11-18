@@ -1,6 +1,6 @@
 // ================================================================== ALL IN CHIȘINĂU — app shell (prototype / mock-up)
 // Sections: Atlas (the map), Proiecte & petiții, Transport public, Ghid turistic, Noutăți, Cont (mock role).
-const SH = { sec: "atlas", role: store.get("role", "cit"), tickets: store.get("tickets", []), props: {}, sim: null };
+const SH = { sec: "home", role: store.get("role", "cit"), tickets: store.get("tickets", []), props: {}, sim: null };
 const ROLES = { cit: ["Cetățean", "Citizen"], biz: ["Agent economic", "Business"], off: ["Funcționar primărie", "City-hall official"] };
 const RL = (k) => ROLES[k][S.lang === "ro" ? 0 : 1];
 
@@ -11,10 +11,14 @@ function shGo(sec) {
   page.hidden = sec === "atlas";
   if (sec !== "atlas") { page.scrollTop = 0; shRender(); }
 }
-function shRender() {
+async function shRender() {
   const el = document.getElementById("pagebody");
-  const f = { projects: shProjects, transit: shTransit, guide: shGuide, news: shNews, account: shAccount }[SH.sec];
-  if (f) Promise.resolve(f()).then((h) => { el.innerHTML = h; shAfter(); });
+  const f = { home: shHome, projects: shProjects, transit: shTransit, guide: shGuide, news: shNews, account: shAccount, archive: shArchive, chat: shChat }[SH.sec];
+  if (!f) return;
+  if (SH.sec === "home" && !Object.keys(SH.props || {}).length) { try { await shProposals(); } catch {} }
+  const sec = SH.sec, h = await f();
+  if (SH.sec !== sec) return;
+  el.innerHTML = h; shAfter();
 }
 const demo = () => `<span class="pill warn">${L("exemplu", "example")}</span>`;
 const pageHead = (title, sub) => `<header class="phead"><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ""}<p class="small mock">${L("Machetă de prototip: datele introduse aici sunt de test, nu au efect real.", "Prototype mock-up: anything entered here is test data with no real effect.")}</p></header>`;
@@ -124,64 +128,20 @@ async function simVehicles(on) {
   SH.sim = { raf: requestAnimationFrame(step) };
 }
 
-// ---------------------------------------------------------------- Ghid turistic
-const INTERESTS = { hist: ["Istorie și monumente", "History & monuments"], mus: ["Muzee", "Museums"], park: ["Parcuri", "Parks"], food: ["Gastronomie", "Food"],
-  wine: ["Vin", "Wine"], rel: ["Biserici și mănăstiri", "Churches & monasteries"], night: ["Viața de noapte", "Nightlife"] };
-async function shGuide() {
-  const g = store.get("guide", { eur: 300, days: 3, ints: ["hist", "mus", "food", "wine"] });
-  let out = "";
-  if (SH.plan) out = SH.plan;
-  return pageHead(L("Ghid turistic", "Tourist guide"), L("Spune bugetul, câte zile stai și ce te interesează: primești un plan pe zile, cu locuri reale din atlas.", "Give your budget, length of stay and interests: you get a day-by-day plan with real places from the atlas."))
-    + `<section class="pgrid"><div><div class="pform">
-      <label class="pjrow"><span>${L("Buget total (€)", "Total budget (€)")}</span><input type="number" id="g-eur" min="50" step="10" value="${g.eur}"></label>
-      <label class="pjrow"><span>${L("Zile", "Days")}</span><input type="number" id="g-days" min="1" max="10" value="${g.days}"></label>
-      <div class="chips">${Object.entries(INTERESTS).map(([k, v]) => `<label class="chipck"><input type="checkbox" data-int="${k}" ${g.ints.includes(k) ? "checked" : ""}><span>${v[S.lang === "ro" ? 0 : 1]}</span></label>`).join("")}</div>
-      <button class="btn" id="g-go">${L("Creează planul", "Create the plan")}</button></div></div><div id="g-out">${out}</div></section>`;
-}
-async function makePlan() {
-  const eur = +document.getElementById("g-eur").value || 300, days = Math.max(1, Math.min(10, +document.getElementById("g-days").value || 3));
-  const ints = [...document.querySelectorAll("[data-int]")].filter((c) => c.checked).map((c) => c.dataset.int);
-  store.set("guide", { eur, days, ints });
-  const pois = (await load("pois.geojson")).features.filter((f) => f.properties.n && (f.properties.i & 1));
-  const C = [28.8327, 47.0245], d = (f) => hav(C, f.geometry.coordinates);
-  const by = (c) => pois.filter((f) => f.properties.c === c).sort((a, b) => d(a) - d(b));
-  const pools = { hist: by("monument"), mus: by("museum"), park: by("park").filter((f) => d(f) < 6), food: by("food").filter((f) => d(f) < 3), rel: by("religion").filter((f) => d(f) < 4), night: pois.filter((f) => ["bar", "pub", "nightclub"].includes(f.properties.k)).sort((a, b) => d(a) - d(b)) };
-  const perDay = eur / days, nightBudget = perDay * 0.45;
-  const stay = nightBudget < 35 ? ["hostel / pensiune", "hostel / guesthouse", 25] : nightBudget < 70 ? ["hotel de 3 stele", "3-star hotel", 55] : ["hotel de 4–5 stele", "4–5-star hotel", 110];
-  const hotels = by("hotel").filter((f) => (stay[2] > 70 ? +f.properties.st >= 4 || !f.properties.st : true)).slice(0, 3);
-  const used = new Set(), take = (k, n) => (pools[k] || []).filter((f) => !used.has(f.properties.id)).slice(0, n).map((f) => (used.add(f.properties.id), f));
-  const item = (f, note) => `<li><button class="linkbtn" data-fly="${f.geometry.coordinates.join(",")}">${esc(f.properties.n)}</button><span class="small"> · ${esc(t("cat")[f.properties.c] || "")}${note ? " · " + note : ""}</span></li>`;
-  let h = `<h3>${L("Planul tău", "Your plan")}: ${days} ${L("zile", "days")}, ${fmt(eur)} €</h3><p class="small">${L("Cazare recomandată", "Suggested stay")}: <b>${stay[S.lang === "ro" ? 0 : 1]}</b> (~${stay[2]} €/${L("noapte", "night")}) · ${hotels.map((f) => `<button class="linkbtn" data-fly="${f.geometry.coordinates.join(",")}">${esc(f.properties.n)}</button>`).join(", ")}</p>`;
-  let spend = stay[2] * days;
-  for (let k = 0; k < days; k++) {
-    const list = [];
-    if (k === 0) list.push(...take("hist", 3).map((f) => item(f)));
-    if (ints.includes("mus")) list.push(...take("mus", 2).map((f) => item(f, "~3–5 €")));
-    if (ints.includes("hist") && k > 0) list.push(...take("hist", 2).map((f) => item(f)));
-    if (ints.includes("rel")) list.push(...take("rel", 1).map((f) => item(f)));
-    if (ints.includes("park")) list.push(...take("park", 1).map((f) => item(f)));
-    if (ints.includes("wine") && k === 1) list.push(`<li><b>${L("Excursie la o vinărie din municipiu (Cricova sau Mileștii Mici)", "Trip to a winery in the municipality (Cricova or Mileștii Mici)")}</b><span class="small"> · ${L("degustare ~25–60 €, de rezervat din timp", "tasting ~25–60 €, book ahead")}</span></li>`);
-    if (ints.includes("food")) list.push(...take("food", 2).map((f) => item(f, L("prânz / cină", "lunch / dinner"))));
-    if (ints.includes("night")) list.push(...take("night", 1).map((f) => item(f, L("seara", "evening"))));
-    spend += 30 + (ints.includes("mus") ? 8 : 0) + (ints.includes("wine") && k === 1 ? 40 : 0);
-    h += `<div class="day"><b>${L("Ziua", "Day")} ${k + 1}</b><ul>${list.join("") || `<li class="small">${L("Zi liberă prin centru.", "Free day around the centre.")}</li>`}</ul></div>`;
-  }
-  h += `<p class="pjtot"><span>${L("Cost estimat", "Estimated cost")}</span><b>${fmt(spend)} € ${spend > eur ? `<span class="pill warn">${L("peste buget", "over budget")}</span>` : `<span class="pill good">${L("în buget", "within budget")}</span>`}</b></p>
-    <p class="small">${L("Prețurile sunt estimări orientative; locurile vin din OpenStreetMap.", "Prices are rough estimates; places come from OpenStreetMap.")}</p>`;
-  SH.plan = h; document.getElementById("g-out").innerHTML = h;
-}
-
 // ---------------------------------------------------------------- Noutăți (from the public sources used in the atlas)
-function shNews() {
-  const N = [
+function shNewsItems() {
+  return [
     ["2026-11-17", L("Cursul oficial BNM: 1 € = 20,17 lei", "Official NBM rate: 1 € = 20.17 lei"), L("Folosit pentru conversiile din atlas.", "Used for the atlas's conversions."), "https://www.bnm.md"],
     ["2026-09-01", L("Salariul mediu brut în Chișinău: 19.834 lei (semestrul I 2026)", "Average gross wage in Chișinău: 19,834 lei (H1 2026)"), L("Cu 17% peste media națională.", "17% above the national average."), "https://bani.md/salariul-mediu-in-chisinau-a-sarit-de-19-mii-de-lei-cu-173-peste-media-pe-tara/"],
     ["2026-08-31", L("S-a încheiat etapa de amalgamare voluntară", "Voluntary amalgamation stage ended"), L("Bubuieci, Budești și Ciorescu se extind cu localități din Anenii Noi și Criuleni.", "Bubuieci, Budești and Ciorescu grow with villages from Anenii Noi and Criuleni."), "https://alegeri.md/w/Unit%C4%83%C8%9Bile_administrativ-teritoriale_aflate_%C3%AEn_proces_de_amalgamare_voluntar%C4%83"],
     ["2026-07-13", L("CMC a aprobat bugetul municipal pe 2026", "Council adopted the 2026 municipal budget"), L("Venituri 9,6 mld lei, cheltuieli 10,8 mld lei.", "Revenue 9.6 bn lei, expenditure 10.8 bn lei."), "https://www.moldpres.md/rom/economie/bugetul-municipiului-chisinau-pentru-anul-2026-votat-de-cmc"],
     ["2025-05-06", L("Moldova: IDU 0,785, locul 86 din 193", "Moldova: HDI 0.785, rank 86 of 193"), L("Raportul PNUD privind dezvoltarea umană 2025.", "UNDP Human Development Report 2025."), "https://www.undp.org/moldova/press-releases/age-ai-moldova-faces-key-choices-ensure-human-development-progress-says-new-undp-report"],
-  ];
+  ].filter((n) => n[0] <= S.date);
+}
+function shNews() {
+  const N = shNewsItems();
   return pageHead(L("Noutăți", "News"), L("Știri din sursele publice folosite în aplicație.", "News from the public sources used in the app."))
-    + `<ul class="plist news">${N.filter((n) => n[0] <= S.date).map((n) => `<li class="pcard"><span class="small">${fmtDate(n[0])}</span><b>${n[1]}</b><p class="small">${n[2]}</p><a href="${n[3]}" target="_blank" rel="noopener" class="small">${L("Sursa", "Source")}</a></li>`).join("")}</ul>`;
+    + `<ul class="plist news">${N.map((n) => `<li class="pcard"><span class="small">${fmtDate(n[0])}</span><b>${n[1]}</b><p class="small">${n[2]}</p><a href="${n[3]}" target="_blank" rel="noopener" class="small">${L("Sursa", "Source")}</a></li>`).join("")}</ul>`;
 }
 
 // ---------------------------------------------------------------- Cont (mock role)
@@ -193,6 +153,8 @@ function shAccount() {
 
 // ---------------------------------------------------------------- events
 function shAfter() {
+  guideMap(); homeMap();
+  const log = document.querySelector(".chatlog"); if (log) log.scrollTop = log.scrollHeight;
   document.querySelectorAll("#pagebody canvas[data-qr]").forEach((c) => qr(c, c.dataset.qr));
   const tp = document.getElementById("ti-price");
   if (tp) {
@@ -209,10 +171,22 @@ function shAfter() {
 function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
-  $("page").addEventListener("change", (e) => { if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
+  shGo(SH.sec);
+  $("page").addEventListener("change", (e) => { if (guideChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
+  $("page").addEventListener("submit", (e) => {
+    const f = e.target.closest("[data-hsearch]"); if (!f) return; e.preventDefault();
+    const q = f.querySelector("input").value;
+    if (f.dataset.hsearch === "chat") { if (SH.sec !== "chat") { shGo("chat"); setTimeout(() => ask(q), 50); } else ask(q); }
+    else { SH.q = q; if (SH.sec !== "archive") shGo("archive"); else shRender(); }
+  });
   $("page").addEventListener("click", async (e) => {
     const b = e.target.closest("button"); if (!b) return;
     const ds = b.dataset;
+    if (SH.sec === "guide" && guideBind(e)) return;
+    if (ds.go) { const [sec, md] = ds.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } return; }
+    if (ds.ask) { ask(ds.ask); return; }
+    if (b.id === "md-add") { addMyDoc(); return; }
+    if (ds.deldoc) { store.set("mydocs", myDocs().filter((d) => d.id !== ds.deldoc)); shRender(); return; }
     if (b.id === "pr-send") {
       const title = $("pr-title").value.trim(); if (!title) { $("pr-title").focus(); return; }
       const id = "x" + Date.now().toString(36);
@@ -227,7 +201,6 @@ function shBind() {
     else if (b.id === "tk-buy") { const r = $("tk-route"), k = +$("tk-kind").value; buyTicket(r.options[r.selectedIndex].text.split(" · ")[0], k === 1 ? 6 : 300, k === 1 ? 90 : 30 * 1440); }
     else if (b.id === "ti-buy") { buyTicket(`${$("ti-a").value} → ${$("ti-b").value}`, SH.ti?.price || 6, 24 * 60); }
     else if (b.id === "sim-go") { shGo("atlas"); S.mode = "transit"; await render(); simVehicles(true); }
-    else if (b.id === "g-go") makePlan();
-    else if (ds.fly) { const [x, y] = ds.fly.split(",").map(Number); shGo("atlas"); map.flyTo({ center: [x, y], zoom: 16.5 }); popup({ lng: x, lat: y }, `<b>${esc(b.textContent)}</b>`); }
+    else if (ds.fly) { const [x, y] = ds.fly.split(",").map(Number); shGo("atlas"); map.flyTo({ center: [x, y], zoom: +ds.z || 16.5 }); popup({ lng: x, lat: y }, `<b>${esc(b.textContent)}</b>`); }
   });
 }

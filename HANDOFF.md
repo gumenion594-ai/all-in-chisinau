@@ -3,7 +3,7 @@
 Live prototype (artifact): https://claude.ai/artifact/H7LjEiWbqSJJdbFnMB2ArV  (capability `db`, collection `projects`)
 
 ## Layout
-- `web/index.template.html` – page shell + CSS. `web/app.js` – map app (MapLibre 4.7.1). `web/projects.js` – projects + construction menu; `web/nb.js` – neighbourhood builder; `web/shell.js` – app shell pages (Proiecte, Transport, Ghid, Noutăți, Cont). All three are inlined into app.js at `/*__PROJECTS_JS__*/`.
+- `web/index.template.html` – page shell + CSS. `web/app.js` – map app (MapLibre 4.7.1). `web/projects.js` – projects + construction menu; `web/nb.js` – neighbourhood builder; `web/shell.js` – app shell pages (Proiecte, Transport, Noutăți, Cont); `web/shell2.js` – home dashboard, tourist-guide wizard with map, archives + search, rule-based assistant. All three are inlined into app.js at `/*__PROJECTS_JS__*/`.
 - `scripts/postprocess.py` – assembles `dist/index.html` + `dist/data/*` (binary packs wrapped as `*.bin.json`). Publish `dist/index.html` with changed `data/*` files.
 - `data/raw/` – OSM downloads (OSM API map calls; Overpass/Geofabrik blocked), Microsoft footprints, GHSL, tiles. Not in git (2 GB).
 
@@ -23,5 +23,10 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - Construction menu tab "Cartier nou" (nb.js): 8 types (houses, low/mid/high blocks, mixed, offices, industrial, park), density slider, polygon drawing (right-click/double-click closes), estimates (streets, sewer, water, power, buildings, schools, kindergartens, health centres, green space), public/private cost ranges, duration, workers by skill, manual overrides; shown on the zoning map; 70% of capacity added to the L3 block that contains the district; project total = roads + districts.
 - App shell "All in Chișinău" (mock-ups): Proiecte (proposals, petitions, roles, contractor offers), Transport (tickets with QR, simulated live vehicles), Ghid turistic, Noutăți, Cont.
 
+- Home page (tiles: atlas mini-map, weather, transport, guide, projects, budget, news, archive search, assistant, account); left rail kept.
+- Tourist guide: 3 steps (days → budget incl. "nu vreau să specific" → 18 interests) with a live map of matching places; plan = numbered markers per day + dashed day routes + suggested hotels; "Arată în atlas".
+- Archives: public / internal (official role) / personal docs (localStorage), search across docs, localities, POIs, proposals.
+- Assistant: rule-based mock (population, area, weather, tickets, budget, place lookup).
+
 ## Next
-- Archives (public/private) with search. Chatbot later (`sample` capability).
+- Real AI assistant (`sample` capability), mobile pass on the new pages.
