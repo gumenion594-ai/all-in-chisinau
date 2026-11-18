@@ -3,7 +3,7 @@
 Live prototype (artifact): https://claude.ai/artifact/H7LjEiWbqSJJdbFnMB2ArV  (capability `db`, collection `projects`)
 
 ## Layout
-- `web/index.template.html` – page shell + CSS. `web/app.js` – map app (MapLibre 4.7.1). `web/projects.js` – projects + construction menu (inlined into app.js at `/*__PROJECTS_JS__*/`).
+- `web/index.template.html` – page shell + CSS. `web/app.js` – map app (MapLibre 4.7.1). `web/projects.js` – projects + construction menu; `web/nb.js` – neighbourhood builder; `web/shell.js` – app shell pages (Proiecte, Transport, Ghid, Noutăți, Cont). All three are inlined into app.js at `/*__PROJECTS_JS__*/`.
 - `scripts/postprocess.py` – assembles `dist/index.html` + `dist/data/*` (binary packs wrapped as `*.bin.json`). Publish `dist/index.html` with changed `data/*` files.
 - `data/raw/` – OSM downloads (OSM API map calls; Overpass/Geofabrik blocked), Microsoft footprints, GHSL, tiles. Not in git (2 GB).
 
@@ -18,11 +18,10 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - Weather: MET Norway grid + Open-Meteo daily, absolute colour scale, per-unit means.
 - Projects: db `projects/{id}` (fallback localStorage); construction menu = separate floating panel (admin changes with 3 levels; new roads with free ends, right-click finishes, cost 190 €/m², 3.5 m/lane).
 
-## Next (agreed, all as mock-ups)
-1. Atlas: pedestrian zones; roads map blue but visible; distinct colour per transit route.
-2. Construction menu → "Construcție de cartier": draw area, density, estimate dwellings/heights/schools/kindergartens/clinics/roads/sewer, cost range, duration, workers + qualifications; land-use types (residential, industrial, mixed, park, offices); shows on zoning map; adds part of capacity to population; all costs into project total.
-3. App shell renamed "All in Chișinău": main menu Atlas / Proiecte / Transport public / Ghid turistic / Noutăți.
-4. Tourist guide (budget, days, interests → itinerary from POIs).
-5. Projects & petitions with mock roles (citizen, business, city hall), contractor offers, projects in execution.
-6. Transit tickets + live tracking as mock-up (schedule-based simulation).
-7. Archives (public/private) with search. 8. Chatbot later (`sample` capability).
+## Done
+- Atlas: pedestrian zones (roads map), blue road palette with white casing, one colour per transit line (main urban route of each segment).
+- Construction menu tab "Cartier nou" (nb.js): 8 types (houses, low/mid/high blocks, mixed, offices, industrial, park), density slider, polygon drawing (right-click/double-click closes), estimates (streets, sewer, water, power, buildings, schools, kindergartens, health centres, green space), public/private cost ranges, duration, workers by skill, manual overrides; shown on the zoning map; 70% of capacity added to the L3 block that contains the district; project total = roads + districts.
+- App shell "All in Chișinău" (mock-ups): Proiecte (proposals, petitions, roles, contractor offers), Transport (tickets with QR, simulated live vehicles), Ghid turistic, Noutăți, Cont.
+
+## Next
+- Archives (public/private) with search. Chatbot later (`sample` capability).

@@ -65,7 +65,7 @@ async function pjOpen(id, fresh) {
   document.body.classList.add("inproj");
   document.getElementById("projlist").hidden = true; document.getElementById("projnew").hidden = true;
   if (fresh) pjSave();
-  await pjRebuild();
+  await pjRebuild(); pjEnsureNbLayers(); nbData();
   S.mode = "admin"; pjBuildTab("admin", true); render();
 }
 function pjClose() {
@@ -74,6 +74,7 @@ function pjClose() {
   document.body.classList.remove("inproj");
   load("admin.geojson").then((a) => { map.getSource("admin").setData(a); });
   map.getSource("projroads")?.setData({ type: "FeatureCollection", features: [] });
+  map.getSource("projnb")?.setData({ type: "FeatureCollection", features: [] });
   document.getElementById("buildpanel").hidden = true; document.getElementById("buildbtn").setAttribute("aria-expanded", "false");
   clearSel(); render();
 }
@@ -145,6 +146,13 @@ function union(T, feats) {
 async function pjRebuild() {
   const T = await loadTurf();
   PJ.blocks = await pjBlocks();
+  for (const nb of PJ.cur.nbs || []) {   // new districts: part of capacity goes to the L3 block that contains them
+    const add = Math.round((nb.est?.pop || 0) * NB_OCC); if (!add) continue;
+    const c = T.centroid({ type: "Feature", geometry: { type: "Polygon", coordinates: [nb.ring] } });
+    const b = PJ.blocks.find((x) => T.booleanPointInPolygon(c, x.f)) ||
+      PJ.blocks.reduce((a, x) => { const d = T.distance(c, T.pointOnFeature(x.f)); return !a || d < a.d ? { x, d } : a; }, null)?.x;
+    if (b) b.pop += add;
+  }
   const units = pjUnits(), sectors = pjSectors(units);
   const byUnit = {}, outside = [];
   for (const b of PJ.blocks) { const u = pjUnitOf(b); if (u && units[u]) (byUnit[u] ||= []).push(b); else outside.push(b); }
@@ -446,6 +454,7 @@ function pjStartRoad() {
   pjRenderRoads();
 }
 function pjEndRoadTool() {
+  if (PJ.tool === "nb") return nbEnd();
   PJ.tool = null; PJ.draft = null; map.getCanvas().style.cursor = ""; map.doubleClickZoom.enable(); pjRoadsData();
 }
 async function pjFinishRoad() {
@@ -460,7 +469,7 @@ async function pjFinishRoad() {
   const r = { id: "r" + Date.now().toString(36), name, lanes, km: Math.round(km * 1000) / 1000, width, costM2, cost: Math.round(km * 1000 * width * costM2), coords, x, from: d.names[0], to: d.names[d.pts.length - 1], t: new Date().toISOString() };
   PJ.cur.roads = [...(PJ.cur.roads || []), r];
   PJ.cur.log = [...(PJ.cur.log || []), { t: r.t, what: L("Drum nou", "New road") + `: ${name} (${fmt(r.km, 2)} km, ${lanes} ${L("benzi", "lanes")})` }].slice(-60);
-  pjSave(); pjEndRoadTool(); document.getElementById("pjrname").value = ""; pjRenderRoads();
+  pjSave(); pjEndRoadTool(); document.getElementById("pjrname").value = ""; pjRenderRoads(); pjTotalsRender();
 }
 function pjRenderRoads() {
   const el = document.getElementById("projroads"); if (!el || !PJ.cur) return;
@@ -494,10 +503,15 @@ function pjBuildTab(tab, open) {
   document.querySelectorAll("#buildpanel .btab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.btab === tab)));
   document.getElementById("projadmin").hidden = tab !== "admin";
   document.getElementById("projroads").hidden = tab !== "roads";
+  document.getElementById("projnb").hidden = tab !== "nb";
   document.getElementById("blevels").hidden = tab !== "admin";
   document.querySelectorAll("input[name=blevel]").forEach((r) => (r.checked = +r.value === S.level));
-  if (tab === "admin") { if (PJ.tool) pjEndRoadTool(); if (!["admin", "pop"].includes(S.mode)) { S.mode = "admin"; render(); } pjRenderPanel(); }
+  if (tab !== "roads" && PJ.tool === "road") pjEndRoadTool();
+  if (tab !== "nb" && PJ.tool === "nb") nbEnd();
+  if (tab === "nb") { if (S.mode !== "zone") { S.mode = "zone"; render(); } nbRender(); }
+  else if (tab === "admin") { if (PJ.tool) pjEndRoadTool(); if (!["admin", "pop"].includes(S.mode)) { S.mode = "admin"; render(); } pjRenderPanel(); }
   else { if (S.mode !== "roads") { S.mode = "roads"; render(); } pjRenderRoads(); }
+  pjTotalsRender();
 }
 const pjAdminActive = () => PJ.cur && PJ.btab === "admin" && !document.getElementById("buildpanel").hidden;
 
@@ -569,5 +583,6 @@ function pjBind() {
   document.querySelectorAll("input[name=blevel]").forEach((r) => r.addEventListener("change", () => {
     S.level = +r.value; PJ.sel = []; map.setFilter("admin-sel", ["in", ["get", "id"], ["literal", []]]); render(); pjRenderPanel();
   }));
+  nbBind();
   pjInit();
 }

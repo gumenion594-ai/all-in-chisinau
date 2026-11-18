@@ -5,12 +5,12 @@
 // ================================================================== i18n
 const T = {
   ro: {
-    title: "Atlasul Municipiului Chișinău", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
+    title: "All in Chișinău", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
     l3: "3 · Cartiere și sate", l3d: "Cartiere urbane și din suburbii, sate din comune",
-    create: "Creează", project: "Proiect", rename: "Redenumește", closeproj: "Închide proiectul", padmin: "Schimbări administrative", proads: "Drumuri noi", projects: "Proiecte", build: "Meniu de construcții", buildbtn: "Construcții", age: "Vechime", temp: "Vreme", cmp: "Comparație", cmp_h: "Bifează un oraș: conturul apare la mijlocul hărții, la aceeași scară. Trage de contur (sau de etichetă) ca să-l muți pe hartă.",
+    create: "Creează", project: "Proiect", rename: "Redenumește", closeproj: "Închide proiectul", padmin: "Schimbări administrative", proads: "Drumuri noi", pnb: "Cartier nou", ped: "Zonă pietonală", pjbtn: "Proiecte", build: "Meniu de construcții", buildbtn: "Construcții", age: "Vechime", temp: "Vreme", cmp: "Comparație", cmp_h: "Bifează un oraș: conturul apare la mijlocul hărții, la aceeași scară. Trage de contur (sau de etichetă) ca să-l muți pe hartă.",
     cmp_note: "Contururile sunt limitele administrative din OpenStreetMap, la mărimea reală (proiecție echivalentă). New York City și Manhattan sunt fără ape, după limitele oficiale tăiate pe linia țărmului (NYC Planning). Bălți = municipiul (cu Elizaveta și Sadovoe).",
     cmp_center: "Adu la mijloc", cmp_ref: "Pentru comparație", age_l: "Perioada de construcție a clădirilor", age_n: "clădiri în municipiu", age_load: "Se încarcă clădirile (≈10 MB)…",
     age_note: "Cum e datată fiecare clădire, în ordinea încrederii: (1) anul exact din OpenStreetMap și Wikidata (~330 de clădiri); (2) monumentele ocrotite fără an: Imperiul Rus în Centrul Istoric, perioada românească în rest; (3) casele joase din Centrul Istoric: Imperiul Rus; (4) restul, din imaginile satelitare GHSL (Comisia Europeană) din 1975–2020: ce exista deja în 1975 e încadrat în perioada sovietică (orașul a fost în mare parte reconstruit după 1944), iar ce a apărut după 1990 în perioada independenței. Gri: clădirile pe care sateliții nu le detectează deloc. La zoom mic, harta arată zonele din jurul clădirilor fiecărei perioade.",
@@ -69,15 +69,15 @@ const T = {
       water: "Ape", wetland: "Zone umede", cemetery: "Cimitire", military: "Militar", transport: "Transport (gări, aeroport)",
       construction: "Șantiere / terenuri libere", quarry: "Cariere / depozite deșeuri", bare: "Teren neacoperit" },
     hours: "Program", addr: "Adresă", web: "Site", photo: "Foto: Wikimedia Commons", elevword: "Altitudine",
-    about: "Despre date", lang: "EN", sub: (km, n) => `${km} km² · ${n} localități · OSM`,
+    about: "Despre date", lang: "EN", sub: (km, n) => `Atlas · ${km} km² · ${n} localități`,
   },
   en: {
-    title: "Chișinău Municipality Atlas", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
+    title: "All in Chișinău", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
     transit: "Transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",
     l3: "3 · Neighbourhoods & villages", l3d: "City and suburban neighbourhoods, villages within communes",
-    create: "Create", project: "Project", rename: "Rename", closeproj: "Close project", padmin: "Administrative changes", proads: "New roads", projects: "Projects", build: "Construction menu", buildbtn: "Construction", age: "Age", temp: "Weather", cmp: "Compare", cmp_h: "Tick a city: its outline appears in the middle of the map at the same scale. Drag the outline (or its label) to move it.",
+    create: "Create", project: "Project", rename: "Rename", closeproj: "Close project", padmin: "Administrative changes", proads: "New roads", pnb: "New district", ped: "Pedestrian zone", pjbtn: "Projects", build: "Construction menu", buildbtn: "Construction", age: "Age", temp: "Weather", cmp: "Compare", cmp_h: "Tick a city: its outline appears in the middle of the map at the same scale. Drag the outline (or its label) to move it.",
     cmp_note: "Outlines are OpenStreetMap administrative boundaries at true size (equal-area). New York City and Manhattan are land only, using the official shoreline-clipped boundaries (NYC Planning). Bălți = the municipality (with Elizaveta and Sadovoe).",
     cmp_center: "Bring to centre", cmp_ref: "For comparison", age_l: "Building construction period", age_n: "buildings in the municipality", age_load: "Loading buildings (≈10 MB)…",
     age_note: "How each building is dated, by reliability: (1) exact year from OpenStreetMap and Wikidata (~330 buildings); (2) listed monuments without a year: Russian Empire inside the Historic Centre, Romanian period elsewhere; (3) low-rise houses in the Historic Centre: Russian Empire; (4) the rest from GHSL satellite epochs 1975–2020 (European Commission): anything already standing in 1975 is placed in the Soviet period (the city was largely rebuilt after 1944), anything added after 1990 in the Independence period. Grey: buildings the satellites do not detect at all. Zoomed out, the map shows the areas around each period's buildings.",
@@ -136,7 +136,7 @@ const T = {
       water: "Water", wetland: "Wetland", cemetery: "Cemeteries", military: "Military", transport: "Transport (stations, airport)",
       construction: "Construction / vacant land", quarry: "Quarries / landfills", bare: "Bare ground" },
     hours: "Hours", addr: "Address", web: "Website", photo: "Photo: Wikimedia Commons", elevword: "Elevation",
-    about: "About the data", lang: "RO", sub: (km, n) => `${km} km² · ${n} localities · OSM`,
+    about: "About the data", lang: "RO", sub: (km, n) => `Atlas · ${km} km² · ${n} localities`,
   },
 };
 const ABOUT = {
@@ -233,8 +233,8 @@ function pal() {
       forest: "#2f8f4e", agri: "#f1e27a", grass: "#c7e39a", water: "#1c7ed6", wetland: "#63e6be", cemetery: "#e599f7",
       military: "#5c940d", transport: "#4c6ef5", construction: "#dcbf8c", quarry: "#8d7b68", bare: "#e8c9a0" },
     mode: { trolleybus: "#1f6fd1", bus: "#1f9a5b", minibus: "#e07b1a", train: "#8a3fc7" },
-    road: d ? { motorway: "#e3a24a", trunk: "#e3a24a", primary: "#d9b45a", secondary: "#c9bf7a", tertiary: "#a8a8a0", other: "#808088" }
-            : { motorway: "#d9822b", trunk: "#d9822b", primary: "#e0a032", secondary: "#c8b04a", tertiary: "#8a8f99", other: "#a7abb3" },
+    road: d ? { motorway: "#4dabf7", trunk: "#4dabf7", primary: "#74c0fc", secondary: "#a5d8ff", tertiary: "#6f95c4", other: "#56708f" }
+            : { motorway: "#0b3d91", trunk: "#0b3d91", primary: "#1c64d1", secondary: "#3b82f6", tertiary: "#6aa3f0", other: "#9dbdeb" },
     pop: d ? ["#1c2333", "#203a5c", "#255a87", "#2f7bb0", "#5aa3d4", "#a3d0f0"] : ["#f3f6fb", "#cfe0f2", "#9ec3e6", "#5d9bd3", "#2b6cb0", "#173f73"],
     sector: { Centru: "#c0392b", Buiucani: "#2e86de", Rîșcani: "#8e44ad", Botanica: "#27ae60", Ciocana: "#e67e22" },
   };
@@ -361,7 +361,7 @@ async function init() {
     paint: { "line-color": P.rail, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1, 16, 3], "line-dasharray": [3, 2] } });
   map.addLayer({ id: "roads-casing", type: "line", source: "roads", layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
     filter: ["!=", ["get", "c"], "pedestrian"],
-    paint: { "line-color": isDark() ? "#000" : "#3b3b45", "line-opacity": 0.75,
+    paint: { "line-color": isDark() ? "#000" : "#ffffff", "line-opacity": isDark() ? 0.75 : 0.95,
       "line-width": ["interpolate", ["exponential", 1.6], ["zoom"], 10, ["+", 1, ["*", 0.5, ["max", 1, ["get", "l"]]]], 13, ["+", 1.6, ["*", 1.25, ["max", 1, ["get", "l"]]]], 16, ["+", 2.5, ["*", 4.2, ["max", 1, ["get", "l"]]]], 18, ["+", 3, ["*", 11, ["max", 1, ["get", "l"]]]]] } });
   map.addLayer({ id: "roads-lanes", type: "line", source: "roads", layout: { "line-cap": "round", "line-join": "round", visibility: "none" },
     filter: ["!=", ["get", "c"], "pedestrian"],
@@ -396,6 +396,7 @@ async function init() {
 
   bindEvents();
   pjBind();
+  shBind();
   applyTheme();
   if (S.hideOut) applyRegion(false);
   document.body.classList.add("ready");
@@ -408,12 +409,19 @@ const ensure = {
     const [lines, stops] = await Promise.all([load("transit_lines.geojson"), load("stops.geojson"), load("routes.json")]);
     if (map.getSource("tlines")) return;
     const P = pal();
+    const TCOL = ["#e03131", "#1971c2", "#2f9e44", "#f08c00", "#9c36b5", "#0c8599", "#c2255c", "#5c940d", "#3b5bdb", "#d9480f", "#087f5b", "#862e9c", "#1098ad", "#e8590c", "#495057"];
+    const rank = (r) => (r.startsWith("trolleybus:") ? 0 : /^bus:\d+$/.test(r) ? 1 : r.startsWith("minibus:") ? 2 : 3);
+    for (const f of lines.features) {   // each segment gets the colour of its main urban route
+      const rs = [...(f.properties.r || [])].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, "ro", { numeric: true }));
+      const key = rs[0] || ""; let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      f.properties.col = TCOL[h % TCOL.length]; f.properties.main = key;
+    }
     map.addSource("tlines", { type: "geojson", data: lines });
     map.addSource("tstops", { type: "geojson", data: stops });
     map.addLayer({ id: "tlines-casing", type: "line", source: "tlines", layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": P.bg, "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 16, 9] } }, "admin-fill");
     map.addLayer({ id: "tlines", type: "line", source: "tlines", layout: { "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": ["case", ["in", "trolleybus", ["get", "m"]], P.mode.trolleybus, ["in", "bus", ["get", "m"]], P.mode.bus, ["in", "minibus", ["get", "m"]], P.mode.minibus, P.mode.train],
+      paint: { "line-color": ["coalesce", ["get", "col"], P.mode.bus],
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, ["min", 4, ["+", 0.6, ["*", 0.25, ["get", "nr"]]]], 16, ["min", 10, ["+", 2, ["*", 0.6, ["get", "nr"]]]]] } }, "admin-fill");
     map.addLayer({ id: "tlines-hl", type: "line", source: "tlines", filter: ["in", "__none__", ["get", "r"]], layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#f59f00", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 10] } }, "train-line");
@@ -434,6 +442,10 @@ const ensure = {
       paint: { "line-color": "#13a36b", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1.5, 16, 4] } }, "admin-fill");
     map.addLayer({ id: "bike-lane", type: "line", source: "bike", filter: ["in", ["get", "b"], ["literal", ["lane", "shared"]]],
       paint: { "line-color": "#13a36b", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1.5, 16, 4], "line-dasharray": [2, 1.2] } }, "admin-fill");
+    map.addLayer({ id: "ped", type: "line", source: "roads", filter: ["==", ["get", "c"], "pedestrian"], layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#e8590c", "line-width": ["interpolate", ["linear"], ["zoom"], 11, 2, 14, 4, 17, 12], "line-opacity": 0.9 } }, "admin-fill");
+    map.on("click", "ped", (e) => { if (S.tool) return; const p = e.features[0].properties;
+      popup(e.lngLat, `<b>${esc(p.n || t("ped"))}</b><br>${t("ped")}`); });
     map.addLayer({ id: "proj-casing", type: "line", source: "proj", filter: ["==", ["get", "major"], 1],
       paint: { "line-color": "#fff", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 12], "line-opacity": 0.6 } }, "admin-fill");
     map.addLayer({ id: "proj", type: "line", source: "proj", layout: { "line-cap": "round" },
@@ -545,7 +557,7 @@ function pointer(id) {
 function vis(id, on) { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); }
 const popScale = () => (S.scen === "est" ? 832865 / 720128 : popAt(S.date) / 720128);
 const adminFC = () => (typeof PJ !== "undefined" && PJ.cur && PJ.admin ? Promise.resolve(PJ.admin) : load("admin.geojson"));
-const BASEMODE = { padmin: "admin", proads: "roads" };
+const BASEMODE = { padmin: "admin", proads: "roads", pnb: "zone" };
 const bm = (x) => BASEMODE[x] || x;
 
 async function render() {
@@ -629,7 +641,7 @@ async function render() {
   vis("roads-base", !has("roads") && !only); vis("roads-lanes", has("roads")); vis("roads-casing", has("roads"));
   if (has("roads") && !has("zone")) map.setPaintProperty("landuse", "fill-opacity", only ? 0 : ["match", ["get", "z"], "water", 0.7, 0.12]);
   if (has("roads")) await ensure.roads();
-  ["bike", "bike-lane", "proj", "proj-casing"].forEach((id) => vis(id, has("roads")));
+  ["bike", "bike-lane", "ped", "proj", "proj-casing"].forEach((id) => vis(id, has("roads")));
   if (has("transit")) await ensure.transit();
   ["tlines", "tlines-casing", "tlines-hl", "tstops"].forEach((id) => vis(id, has("transit")));
   vis("train-line", has("transit") && S.modes.train); vis("train-stops", has("transit") && S.modes.train);
@@ -809,7 +821,7 @@ function renderLegend() {
     if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
   } else if (m === "transit") {
     h = ["trolleybus", "bus", "minibus", "train"].map((k) => `<li><label><input type="checkbox" data-mode="${k}" ${S.modes[k] ? "checked" : ""}><i class="ln thick" style="border-color:${P.mode[k]}"></i>${t(k)}</label></li>`).join("")
-      + `<li class="cap">${S.lang === "ro" ? "Grosimea = numărul de rute pe segment" : "Width = number of routes on the segment"}</li>`
+      + `<li class="cap">${S.lang === "ro" ? "Fiecare linie are culoarea ei (pe segmentele comune se vede linia principală); grosimea = numărul de rute. Apasă pe o linie pentru rute." : "Each line has its own colour (shared segments show the main line); width = number of routes. Tap a line for its routes."}</li>`
       + `<li><label><input type="checkbox" data-ring="1" ${S.ring ? "checked" : ""}><i class="ln thick" style="border-color:#0b7285"></i>${t("ring")}</label></li>`
       + (S.ring ? `<li><i class="ln thick" style="border-color:#0b7285"></i>${t("ring_ex")}</li><li><i class="ln thick dash" style="border-color:#7048e8"></i>${t("ring_pr")}</li><li><i class="ln thick dash" style="border-color:#e8590c"></i>${t("ring_ap")}</li>` : "");
   } else if (m === "roads") {
@@ -818,6 +830,7 @@ function renderLegend() {
       + `<li><i class="ln" style="border-color:${P.road.motorway}"></i>${S.lang === "ro" ? "Magistrale / naționale" : "Trunk / national"}</li>`
       + `<li><i class="ln" style="border-color:${P.road.secondary}"></i>${S.lang === "ro" ? "Secundare" : "Secondary"}</li>`
       + `<li><i class="ln" style="border-color:${P.road.other};opacity:.55"></i>${t("lanes_est")}</li>`
+      + `<li><i class="ln" style="border-color:#e8590c;border-top-width:4px"></i>${t("ped")}</li>`
       + `<li class="cap">${t("bike")}</li><li><i class="ln" style="border-color:#13a36b"></i>${t("track")}</li><li><i class="ln dash" style="border-color:#13a36b"></i>${t("lane")}</li>`
       + `<li class="cap">${t("projects")}</li><li><i class="ln dot" style="border-color:#d6336c"></i>${t("construction")}</li><li><i class="ln dot" style="border-color:#7048e8"></i>${t("proposed")}</li>`;
   }
