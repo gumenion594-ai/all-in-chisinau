@@ -147,11 +147,11 @@ async function pjRebuild() {
   const T = await loadTurf();
   PJ.blocks = await pjBlocks();
   for (const nb of PJ.cur.nbs || []) {   // new districts: part of capacity goes to the L3 block that contains them
-    const add = Math.round((nb.est?.pop || 0) * NB_OCC); if (!add) continue;
+    const add = nb.est?.added ?? Math.round((nb.est?.pop || 0) * NB_OCC); if (!add) continue;
     const c = T.centroid({ type: "Feature", geometry: { type: "Polygon", coordinates: [nb.ring] } });
     const b = PJ.blocks.find((x) => T.booleanPointInPolygon(c, x.f)) ||
       PJ.blocks.reduce((a, x) => { const d = T.distance(c, T.pointOnFeature(x.f)); return !a || d < a.d ? { x, d } : a; }, null)?.x;
-    if (b) b.pop += add;
+    if (b) b.pop = Math.max(0, b.pop + add);
   }
   const units = pjUnits(), sectors = pjSectors(units);
   const byUnit = {}, outside = [];
