@@ -1,6 +1,6 @@
 // ================================================================== ALL IN CHIȘINĂU — app shell (prototype / mock-up)
 // Sections: Atlas (the map), Proiecte & petiții, Transport public, Ghid turistic, Noutăți, Cont (mock role).
-const SH = { sec: "home", role: store.get("role", "cit"), tickets: store.get("tickets", []), props: {}, sim: null };
+const SH = { sec: store.get("start", "home") || "home", role: store.get("role", "cit"), tickets: store.get("tickets", []), props: {}, sim: null };
 const ROLES = { cit: ["Cetățean", "Citizen"], biz: ["Agent economic", "Business"], off: ["Funcționar primărie", "City-hall official"] };
 const RL = (k) => ROLES[k][S.lang === "ro" ? 0 : 1];
 
@@ -8,12 +8,12 @@ function shGo(sec) {
   SH.sec = sec;
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.setAttribute("aria-current", b.dataset.sec === sec ? "page" : "false"));
   const page = document.getElementById("page");
-  page.hidden = sec === "atlas";
+  page.hidden = sec === "atlas"; document.body.dataset.sec = sec;
   if (sec !== "atlas") { page.scrollTop = 0; shRender(); }
 }
 async function shRender() {
   const el = document.getElementById("pagebody");
-  const f = { home: shHome, projects: shProjects, transit: shTransit, guide: shGuide, news: shNews, account: shAccount, archive: shArchive, chat: shChat }[SH.sec];
+  const f = { home: shHome, projects: shProjects, transit: shTransit, guide: shGuide, news: shNews, settings: shSettings, archive: shArchive }[SH.sec];
   if (!f) return;
   if (SH.sec === "home" && !Object.keys(SH.props || {}).length) { try { await shProposals(); } catch {} }
   const sec = SH.sec, h = await f();
@@ -75,14 +75,11 @@ async function shTransit() {
   const locs = [...new Set(admin.features.filter((f) => f.properties.lvl === 2 || f.properties.lvl === "ctx").map((f) => nameOf(f.properties).replace(/^Chișinău – (sectorul )?/, "Chișinău – ")))].sort((a, b) => a.localeCompare(b, "ro"));
   const tk = SH.tickets.filter((x) => Date.now() < x.until).slice(-4).reverse();
   return pageHead(L("Transport public", "Public transport"), L("Bilete urbane și interurbane și urmărirea vehiculelor (simulare).", "Urban and intercity tickets and vehicle tracking (simulation)."))
-    + `<section class="pgrid"><div><h3>${L("Bilet urban", "Urban ticket")}</h3><div class="pform">
+    + `<section class="pgrid"><div><h3>${L("Planifică o călătorie și cumpără biletul", "Plan a trip and buy the ticket")}</h3>${await journeyHtml()}
+      <h3>${L("Bilet simplu sau abonament", "Single ticket or pass")}</h3><div class="pform">
       <select id="tk-route">${rs.map((r) => `<option value="${esc(r.key)}">${t(r.mode)} ${esc(r.ref)}${r.from && r.to ? " · " + esc(r.from) + " – " + esc(r.to) : ""}</option>`).join("")}</select>
       <label class="pjrow"><span>${L("Tip", "Type")}</span><select id="tk-kind"><option value="1">${L("O călătorie · 6 lei", "Single trip · 6 lei")}</option><option value="30">${L("Abonament lunar · 300 lei", "Monthly pass · 300 lei")}</option></select></label>
-      <button class="btn" id="tk-buy">${L("Cumpără (demonstrație)", "Buy (demo)")}</button></div>
-      <h3>${L("Bilet interurban", "Intercity ticket")}</h3><div class="pform">
-      <label class="pjrow"><span>${L("De la", "From")}</span><select id="ti-a">${locs.map((n) => `<option>${esc(n)}</option>`).join("")}</select></label>
-      <label class="pjrow"><span>${L("Până la", "To")}</span><select id="ti-b">${locs.map((n, i) => `<option ${i === 5 ? "selected" : ""}>${esc(n)}</option>`).join("")}</select></label>
-      <p class="small" id="ti-price"></p><button class="btn" id="ti-buy">${L("Cumpără (demonstrație)", "Buy (demo)")}</button></div></div>
+      <button class="btn" id="tk-buy">${L("Cumpără (demonstrație)", "Buy (demo)")}</button></div></div>
       <div><h3>${L("Biletele mele", "My tickets")}</h3>${tk.length ? tk.map((x) => `<div class="ticket"><canvas data-qr="${x.code}" width="84" height="84"></canvas><div><b>${esc(x.what)}</b><p class="small">${L("Valabil până la", "Valid until")} ${new Date(x.until).toLocaleString(loc(), { dateStyle: "short", timeStyle: "short" })}</p><p class="small">${L("Cod", "Code")}: ${x.code} · ${x.price} lei</p>${demo()}</div></div>`).join("") : `<p class="hint">${L("Niciun bilet activ.", "No active tickets.")}</p>`}
       <h3>${L("Vehicule pe hartă", "Vehicles on the map")}</h3><p class="small">${L("Pozițiile sunt simulate de-a lungul rutelor reale; în aplicația reală ar veni de la GPS-ul vehiculelor.", "Positions are simulated along the real routes; in the real app they would come from the vehicles' GPS.")}</p>
       <button class="btn" id="sim-go">${L("Arată vehiculele (simulare)", "Show vehicles (simulation)")}</button></div></section>`;
@@ -144,17 +141,9 @@ function shNews() {
     + `<ul class="plist news">${N.map((n) => `<li class="pcard"><span class="small">${fmtDate(n[0])}</span><b>${n[1]}</b><p class="small">${n[2]}</p><a href="${n[3]}" target="_blank" rel="noopener" class="small">${L("Sursa", "Source")}</a></li>`).join("")}</ul>`;
 }
 
-// ---------------------------------------------------------------- Cont (mock role)
-function shAccount() {
-  return pageHead(L("Cont", "Account"), L("În prototip poți alege rolul ca să vezi ce poate face fiecare tip de utilizator.", "In the prototype you can pick a role to see what each kind of user can do."))
-    + `<div class="seg row3 rolepick">${Object.keys(ROLES).map((k) => `<label><input type="radio" name="role" value="${k}" ${SH.role === k ? "checked" : ""}><b>${RL(k)}</b><small>${{ cit: L("propune proiecte, semnează petiții, cumpără bilete", "proposes projects, signs petitions, buys tickets"), biz: L("oferă servicii pentru proiectele aprobate", "offers services for approved projects"), off: L("aprobă proiecte și alege executanții", "approves projects and picks contractors") }[k]}</small></label>`).join("")}</div>
-      <p class="small">${L("În aplicația reală, autentificarea ar fi prin MPass (cetățeni), IDNO (firme) și conturi de serviciu (primărie).", "In the real app, sign-in would use MPass (citizens), IDNO (businesses) and staff accounts (city hall).")}</p>`;
-}
-
 // ---------------------------------------------------------------- events
 function shAfter() {
   guideMap(); homeMap();
-  const log = document.querySelector(".chatlog"); if (log) log.scrollTop = log.scrollHeight;
   document.querySelectorAll("#pagebody canvas[data-qr]").forEach((c) => qr(c, c.dataset.qr));
   const tp = document.getElementById("ti-price");
   if (tp) {
@@ -171,18 +160,20 @@ function shAfter() {
 function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
+  applyStoredTheme(); chatBind(); loginBind(); topbarBind();
   shGo(SH.sec);
-  $("page").addEventListener("change", (e) => { if (guideChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
+  $("page").addEventListener("change", (e) => { if (guideChange(e) || settingsChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
   $("page").addEventListener("submit", (e) => {
     const f = e.target.closest("[data-hsearch]"); if (!f) return; e.preventDefault();
     const q = f.querySelector("input").value;
-    if (f.dataset.hsearch === "chat") { if (SH.sec !== "chat") { shGo("chat"); setTimeout(() => ask(q), 50); } else ask(q); }
-    else { SH.q = q; if (SH.sec !== "archive") shGo("archive"); else shRender(); }
+    SH.q = q; if (SH.sec !== "archive") shGo("archive"); else shRender();
   });
   $("page").addEventListener("click", async (e) => {
     const b = e.target.closest("button"); if (!b) return;
     const ds = b.dataset;
     if (SH.sec === "guide" && guideBind(e)) return;
+    if (SH.sec === "settings" && settingsClick(b)) return;
+    if (SH.sec === "transit" && journeyClick(b)) return;
     if (ds.go) { const [sec, md] = ds.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } return; }
     if (ds.ask) { ask(ds.ask); return; }
     if (b.id === "md-add") { addMyDoc(); return; }

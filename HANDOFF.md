@@ -28,5 +28,10 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - Archives: public / internal (official role) / personal docs (localStorage), search across docs, localities, POIs, proposals.
 - Assistant: rule-based mock (population, area, weather, tickets, budget, place lookup).
 
+- Map names: street, park and place labels rendered with in-browser SDF glyphs (`glyphs://` protocol + inlined TinySDF); toggle in View and Settings.
+- Shell: floating assistant (bottom right), RO/EN + mock sign-in top right on pages, Settings page (language, theme, start page, currency, map names, account, clear local data), "Arhive" renamed "Documente", no search bars on Home.
+- Guide: day trips by direction (Cricova, Orheiul Vechi, Mileștii Mici, Bardar, Căpriana, Castel Mimi…; curated ones have approximate coordinates).
+- Transport: journey planner from stop to stop (direct or one change, simulated times from typical frequency, 6 lei per urban boarding, km-based suburban/train fares), buy tickets for the chosen connection.
+
 ## Next
 - Real AI assistant (`sample` capability), mobile pass on the new pages.

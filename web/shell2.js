@@ -1,4 +1,4 @@
-// ================================================================== ALL IN CHIȘINĂU — home, guide wizard, archives, assistant (prototype)
+// ================================================================== ALL IN CHIȘINĂU — home, guide wizard, archives, assistant, login, settings (prototype)
 const CENTER = [28.8327, 47.0245];
 const deacc = (s) => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -30,7 +30,8 @@ function miniMap(el, { center = CENTER, zoom = 12, interactive = true } = {}) {
 
 // ---------------------------------------------------------------- Ghid turistic: 3 questions, then a plan on a map
 const GI = {   // interest → [ro, en, colour, quota per day, total cap, filter]
-  hist: ["Istorie și monumente", "History & monuments", "#c2410c", 2, 99, (p) => p.c === "monument" && ["monument", "building", "castle", "ruins", "archaeological_site", "church", "yes"].includes(p.k)],
+  trips: ["Excursii în apropiere (până la ~50 km)", "Day trips nearby (up to ~50 km)", "#0b7285", 3, 99, (p) => p.trip || (p.c === "religion" && /manastir/.test(deacc(p.n))) || (p.c === "monument" && ["castle", "archaeological_site"].includes(p.k)) || (p.c === "museum" && /aer liber|etnograf|satului/.test(deacc(p.n)))],
+  hist: ["Istorie și monumente", "History & monuments", "#c2410c", 3, 99, (p) => p.c === "monument" && ["monument", "building", "castle", "ruins", "archaeological_site", "church", "yes"].includes(p.k) && !/^buncar/.test(deacc(p.n))],
   mem: ["Memoriale", "Memorials", "#7c2d12", 1, 4, (p) => p.c === "monument" && p.k === "memorial"],
   mus: ["Muzee", "Museums", "#9333ea", 2, 99, (p) => p.c === "museum"],
   theatre: ["Teatru, operă, concerte", "Theatre, opera, concerts", "#db2777", 1, 99, (p) => p.k === "theatre"],
@@ -41,7 +42,7 @@ const GI = {   // interest → [ro, en, colour, quota per day, total cap, filter
   localfood: ["Bucătărie moldovenească", "Moldovan cuisine", "#b91c1c", 1, 99, (p) => p.c === "food" && p.k === "restaurant" && /casa|placint|hanul|tavern|mold|bunic|cuptor|mamalig|taifas|vatra|satul|basarab|bastion|gustul/.test(deacc(p.n))],
   food: ["Restaurante", "Restaurants", "#dc2626", 1, 99, (p) => p.c === "food" && p.k === "restaurant"],
   cafe: ["Cafenele și deserturi", "Cafés & desserts", "#92400e", 1, 99, (p) => p.c === "cafe"],
-  wine: ["Vin și degustări", "Wine & tastings", "#7f1d1d", 1, 3, (p) => p.k === "winery" || p.k === "wine" || (p.c === "food" && /wine|vin/.test(deacc(p.n)))],
+  wine: ["Vin și degustări", "Wine & tastings", "#7f1d1d", 2, 6, (p) => p.k === "winery" || (p.k === "wine" && p.i === 0 && /vinari|winery|bardar/.test(deacc(p.n))) || (p.k === "wine" && /combinatul de vinuri/.test(deacc(p.n))) || (p.c === "food" && /wine|vin/.test(deacc(p.n)))],
   night: ["Baruri și cluburi", "Bars & clubs", "#4338ca", 1, 99, (p) => p.k === "nightclub" || p.k === "pub" || p.k === "bar"],
   shop: ["Cumpărături (mall-uri)", "Shopping (malls)", "#0e7490", 1, 2, (p) => p.c === "mall"],
   market: ["Piețe", "Markets", "#ca8a04", 1, 2, (p) => p.k === "marketplace"],
@@ -49,25 +50,38 @@ const GI = {   // interest → [ro, en, colour, quota per day, total cap, filter
   kids: ["Cu copiii", "With kids", "#2563eb", 1, 3, (p) => /copii|family|kids|aventur|zoo|circ|joac/.test(deacc(p.n))],
   gov: ["Clădiri publice și ambasade", "Public buildings & embassies", "#475569", 1, 3, (p) => p.k === "townhall" && /chisinau|primaria municipiului/.test(deacc(p.n)) || p.k === "diplomatic"],
 };
-const GEXTRA = [   // wineries in the municipality that are not POIs (village centre, approximate)
-  { type: "Feature", properties: { c: "business", k: "winery", n: "Cricova – galeriile de vinuri (aprox.)", id: "x-cricova", i: 1 }, geometry: { type: "Point", coordinates: [28.862, 47.137] } },
-  { type: "Feature", properties: { c: "business", k: "winery", n: "Mileștii Mici – galeriile de vinuri (aprox.)", id: "x-milestii", i: 1 }, geometry: { type: "Point", coordinates: [28.808, 46.908] } },
+const GX = (id, n, c, k = "sight") => ({ type: "Feature", properties: { c: "trip", k, n, id: "x-" + id, i: 0, trip: 1, approx: 1 }, geometry: { type: "Point", coordinates: c } });
+const GEXTRA = [   // well-known places near Chișinău that are not in the POI data; coordinates approximate
+  GX("milestii", "Mileștii Mici – galeriile de vinuri", [28.806, 46.910], "winery"),
+  GX("orhei", "Orheiul Vechi (Butuceni)", [28.981, 47.299]),
+  GX("capriana", "Mănăstirea Căpriana", [28.513, 47.126]),
+  GX("hincu", "Mănăstirea Hâncu", [28.296, 46.995]),
+  GX("mimi", "Castel Mimi (Bulboaca)", [29.304, 46.886], "winery"),
+  GX("vartely", "Château Vartely (Orhei)", [28.830, 47.370], "winery"),
+  GX("codrii", "Rezervația „Codrii” (Lozova)", [28.370, 47.130]),
+  GX("vadul", "Vadul lui Vodă – malul Nistrului", [29.080, 47.090]),
 ];
+const FAR_KM = 8;
 const TIERS = { eco: ["Economic", "Budget", 50, 25, 18], mid: ["Mediu", "Mid-range", 100, 55, 35], comf: ["Confortabil", "Comfortable", 200, 110, 60], lux: ["Lux", "Luxury", 1e9, 200, 100] };   // [ro, en, max €/day, €/night, food €/day]
-const VISIT_COST = { mus: 4, theatre: 12, cinema: 6, wine: 35, night: 12, kids: 8, sport: 8 };
+const VISIT_COST = { mus: 4, theatre: 12, cinema: 6, wine: 30, night: 12, kids: 8, sport: 8, trips: 5 };
 let GPOOLS = null;
 async function guidePools() {
   if (GPOOLS) return GPOOLS;
-  const all = (await load("pois.geojson")).features.filter((f) => f.properties.n && (f.properties.i & 1)).concat(GEXTRA);
   const d = (f) => hav(CENTER, f.geometry.coordinates);
+  const all = (await load("pois.geojson")).features.filter((f) => f.properties.n && ((f.properties.i & 1) || d(f) < 35)).concat(GEXTRA);
   GPOOLS = {};
+  const R = { trips: 60, wine: 40, nature: 30, mus: 25, rel: 25, hist: 15, sport: 15, kids: 15, shop: 12, market: 12, park: 8 };
   for (const [k, v] of Object.entries(GI)) {
-    const far = ["nature", "wine", "sport", "kids", "shop", "market"].includes(k);
-    GPOOLS[k] = all.filter((f) => v[5](f.properties) && (far ? d(f) < 20 : d(f) < (k === "park" ? 5 : 3.5))).sort((a, b) => d(a) - d(b));
+    const r = R[k] || 4;
+    const inMun = (f) => (f.properties.i & 1) || f.properties.trip || ["trips", "wine", "rel", "mus", "nature"].includes(k);
+    // central places first, then the best-known far ones (curated, wineries, monasteries) so trips have something to pick
+    const score = (f) => d(f) + (f.properties.trip ? -30 : 0) + (k !== "trips" && d(f) > FAR_KM ? 5 : 0);
+    const pri = (f) => (k === "wine" ? (f.properties.k === "winery" || /cricova|milestii|bardar|combinat|vinari/.test(deacc(f.properties.n)) ? -100 : 0) : 0);
+    GPOOLS[k] = all.filter((f) => v[5](f.properties) && d(f) < r && inMun(f) && (k !== "rel" || d(f) < 4 || /manastir/.test(deacc(f.properties.n)))).sort((a, b) => (k === "trips" ? score(a) - score(b) : pri(a) + d(a) - pri(b) - d(b)));
   }
   return GPOOLS;
 }
-const gState = () => (SH.g ||= store.get("guide2", { step: 1, days: 3, bmode: null, tier: "mid", eur: 400, ints: ["hist", "mus", "localfood", "cafe", "park", "wine"] }));
+const gState = () => (SH.g ||= store.get("guide2", { step: 1, days: 3, bmode: null, tier: "mid", eur: 400, ints: ["hist", "mus", "localfood", "cafe", "park", "wine", "trips"] }));
 const gSave = () => store.set("guide2", { ...SH.g, plan: undefined });
 
 async function shGuide() {
@@ -140,6 +154,10 @@ async function guideMap() {
     m.on("mouseenter", "gp", () => (m.getCanvas().style.cursor = "pointer")); m.on("mouseleave", "gp", () => (m.getCanvas().style.cursor = ""));
   }
   m.getSource("gp").setData({ type: "FeatureCollection", features: feats });
+  if (feats.length && SH.gfit !== keys.join()) {
+    SH.gfit = keys.join();
+    const b = new maplibregl.LngLatBounds(); feats.forEach((f) => b.extend(f.geometry.coordinates)); m.fitBounds(b, { padding: 30, maxZoom: 14, duration: 0 });
+  }
   leg.innerHTML = `<b>${fmt(feats.length)}</b> ${L("locuri", "places")}` + keys.map((k) => `<span><i style="background:${GI[k][2]}"></i>${esc(nm(GI[k]))}</span>`).join("");
 }
 async function guideMake() {
@@ -147,20 +165,42 @@ async function guideMake() {
   const tierK = g.bmode === "exact" ? (Object.entries(TIERS).find(([, v]) => g.eur / days < v[2]) || ["lux"])[0] : g.bmode === "none" ? "mid" : g.tier;
   const T = TIERS[tierK];
   // pick candidates per interest, nearest to the centre first
-  const used = new Set(), cand = [];
-  const want = Object.fromEntries(g.ints.map((k) => [k, Math.min(GI[k][4], GI[k][3] * days, P[k].length)]));
-  const sum = Object.values(want).reduce((a, b) => a + b, 0), maxN = days * 6;
-  if (sum > maxN) for (const k in want) want[k] = Math.max(1, Math.round(want[k] * maxN / sum));
-  for (const k of g.ints) {
-    const n = want[k];
-    for (const f of P[k]) { if (cand.filter((c) => c.k === k).length >= n) break; if (used.has(f.properties.id)) continue; used.add(f.properties.id); cand.push({ k, n: f.properties.n, c: f.geometry.coordinates }); }
-  }
+  const used = new Set(), mk = (k, f) => ({ k, n: f.properties.n, c: f.geometry.coordinates, approx: f.properties.approx, far: hav(CENTER, f.geometry.coordinates) > FAR_KM });
+  const take = (f) => { if (used.has(f.properties.id) || used.has(f.properties.n)) return false; used.add(f.properties.id); used.add(f.properties.n); return true; };
+  const sec = (c) => { const a = Math.atan2(c[1] - CENTER[1], (c[0] - CENTER[0]) * 0.68); return ((Math.round(a / (Math.PI / 2)) % 4) + 4) % 4; };
+  // 1) day trips: everything far away from the chosen interests, grouped by direction (N, E, S, W); one direction per trip day
+  const farPool = [];
+  for (const k of g.ints) for (const f of P[k]) if (hav(CENTER, f.geometry.coordinates) > FAR_KM) farPool.push({ k, f });
+  const famous = (f) => f.properties.approx || /combinatul de vinuri .cricova|castel|cetate/.test(deacc(f.properties.n));
+  const prio = (x) => (famous(x.f) ? 0 : x.k === "wine" || x.k === "trips" ? 1 : 2) * 100 + hav(CENTER, x.f.geometry.coordinates);
+  farPool.sort((a, b) => prio(a) - prio(b));
+  const bySec = [[], [], [], []]; for (const x of farPool) bySec[sec(x.f.geometry.coordinates)].push(x);
+  const tripDays = days < 2 ? 0 : Math.min(bySec.filter((x) => x.length).length, Math.max(1, Math.floor(days / 2)));
+  const chosen = bySec.map((x, i) => ({ i, x, w: x.slice(0, 6).reduce((a, y) => a + (y.f.properties.approx ? 3 : y.k === "wine" ? 2 : 1), 0) })).filter((x) => x.x.length).sort((a, b) => b.w - a.w).slice(0, tripDays);
+  const tripChunks = chosen.map((x) => { const out = []; for (const y of x.x) { if (out.length >= 5) break; if (take(y.f)) out.push(mk(y.k, y.f)); } return out; });
+  const cityDays = days - tripDays;
+  // 2) city days: nearest places per interest, scaled to ~7 a day
+  const cand = [];
+  const nearP = Object.fromEntries(g.ints.map((k) => [k, k === "trips" ? [] : P[k].filter((f) => hav(CENTER, f.geometry.coordinates) <= FAR_KM)]));
+  const want = Object.fromEntries(g.ints.map((k) => [k, Math.min(GI[k][4], GI[k][3] * cityDays, nearP[k].length)]));
+  const sum = Object.values(want).reduce((a, b) => a + b, 0), maxN = cityDays * 7;
+  if (sum > maxN) for (const k in want) want[k] = Math.max(want[k] ? 1 : 0, Math.round(want[k] * maxN / sum));
+  for (const k of g.ints) { let n = 0; for (const f of nearP[k]) { if (n >= want[k]) break; if (take(f)) { cand.push(mk(k, f)); n++; } } }
+  const near = cand;
   // split into days by direction from the centre, then order each day by nearest neighbour; evening places last
   const ang = (c) => Math.atan2(c[1] - CENTER[1], (c[0] - CENTER[0]) * 0.68);
-  cand.sort((a, b) => ang(a.c) - ang(b.c));
-  const per = Math.ceil(cand.length / days), out = [];
-  for (let d = 0; d < days; d++) {
-    const chunk = cand.slice(d * per, (d + 1) * per); if (!chunk.length) { out.push([]); continue; }
+  near.sort((a, b) => ang(a.c) - ang(b.c));
+  const chunks = [];
+  const perC = Math.ceil(near.length / Math.max(1, cityDays));
+  for (let d = 0; d < cityDays; d++) chunks.push(near.slice(d * perC, (d + 1) * perC));
+  for (const tc of tripChunks) chunks.push(tc);
+  // interleave: city, trip, city, ...
+  const order = [], cq = chunks.slice(0, cityDays), tq = chunks.slice(cityDays);
+  while (cq.length || tq.length) { if (cq.length) order.push(cq.shift()); if (tq.length) order.push(tq.shift()); }
+  const out = [], tripFlag = [];
+  for (const chunk of order) {
+    tripFlag.push(chunk.length > 0 && chunk.every((s) => s.far));
+    if (!chunk.length) { out.push([]); continue; }
     const late = chunk.filter((s) => ["night", "theatre", "cinema"].includes(s.k)), day = chunk.filter((s) => !late.includes(s));
     const ord = []; let cur = day.length ? day.reduce((a, b) => (hav(CENTER, a.c) < hav(CENTER, b.c) ? a : b)) : null;
     while (cur) { ord.push(cur); day.splice(day.indexOf(cur), 1); cur = day.length ? day.reduce((a, b) => (hav(ord.at(-1).c, a.c) < hav(ord.at(-1).c, b.c) ? a : b)) : null; }
@@ -170,8 +210,8 @@ async function guideMake() {
   const hotels = (await load("pois.geojson")).features.filter((f) => f.properties.c === "hotel" && hotelK.includes(f.properties.k) && f.properties.n && hav(CENTER, f.geometry.coordinates) < 3)
     .sort((a, b) => hav(CENTER, a.geometry.coordinates) - hav(CENTER, b.geometry.coordinates)).slice(0, 3).map((f) => ({ n: f.properties.n, c: f.geometry.coordinates }));
   // costs
-  let visits = 0; for (const s of cand) visits += VISIT_COST[s.k] || 0;
-  const wineTrip = cand.some((s) => s.k === "wine" && hav(CENTER, s.c) > 8) ? 30 : 0;
+  let visits = 0; for (const s of [...cand, ...tripChunks.flat()]) visits += VISIT_COST[s.k] || 0;
+  const wineTrip = tripFlag.filter(Boolean).length * (tierK === "eco" ? 8 : tierK === "mid" ? 30 : 60);
   const nights = Math.max(1, days - (days > 1 ? 0 : 0)), stay = T[3] * nights, food = T[4] * days, local = 2 * days;
   const total = stay + food + local + visits + wineTrip, lo = Math.round(total * 0.85), hi = Math.round(total * 1.2);
   const nm = (v) => v[S.lang === "ro" ? 0 : 1], DC = ["#e03131", "#1971c2", "#2f9e44", "#f08c00", "#9c36b5", "#0c8599", "#c2255c", "#5c940d", "#3b5bdb", "#d9480f", "#087f5b", "#862e9c", "#1098ad", "#495057"];
@@ -183,10 +223,11 @@ async function guideMake() {
     <dt>${L("Bilete, intrări, degustări", "Tickets, entries, tastings")}</dt><dd>${fmt(visits + local + wineTrip)} €</dd></dl>
     <p class="small">${L("Cazare sugerată", "Suggested stay")}: ${hotels.map((x) => `<button type="button" class="linkbtn" data-fly="${x.c.join(",")}">${esc(x.n)}</button>`).join(", ") || "—"}</p>`;
   out.forEach((day, di) => {
-    h += `<div class="day"><b><i class="dd" style="background:${DC[di % DC.length]}"></i>${L("Ziua", "Day")} ${di + 1}</b><ol>${day.map((s, j) => `<li><button type="button" class="linkbtn" data-gfly="${di},${j}">${esc(s.n)}</button><span class="small"> · ${esc(nm(GI[s.k]))}${VISIT_COST[s.k] ? ` · ~${VISIT_COST[s.k]} €` : ""}</span></li>`).join("") || `<li class="small">${L("Zi liberă", "Free day")}</li>`}</ol></div>`;
+    const trip = tripFlag[di];
+    h += `<div class="day ${trip ? "trip" : ""}"><b><i class="dd" style="background:${DC[di % DC.length]}"></i>${L("Ziua", "Day")} ${di + 1}${trip ? ` · ${L("excursie", "day trip")}: ${esc([...new Set([...day].sort((x, y) => (y.approx || /cricova/i.test(y.n) ? 1 : 0) - (x.approx || /cricova/i.test(x.n) ? 1 : 0)).map((s) => s.n.replace(/^Combinatul de Vinuri „Cricova”/, "Cricova").split(/[–(,]/)[0].trim()))].slice(0, 2).join(", "))}` : ""}</b>${trip ? `<p class="small">${tierK === "eco" ? L("Autobuz suburban din Gara Centrală sau de Nord (~1–3 € dus).", "Suburban bus from the Central or North bus station (~1–3 € one way).") : L("Taxi sau excursie organizată (~25–60 € de persoană); degustările se rezervă din timp.", "Taxi or organised tour (~25–60 € per person); book tastings ahead.")} ${L("Distanța", "Distance")}: ~${fmt(Math.max(...day.map((s) => hav(CENTER, s.c))), 0)} km.</p>` : ""}<ol>${day.map((s, j) => `<li><button type="button" class="linkbtn" data-gfly="${di},${j}">${esc(s.n)}</button><span class="small"> · ${esc(nm(GI[s.k]))}${s.far ? ` · ${fmt(hav(CENTER, s.c), 0)} km` : ""}${VISIT_COST[s.k] ? ` · ~${VISIT_COST[s.k]} €` : ""}${s.approx ? ` · ${L("poziție aprox.", "approx. location")}` : ""}</span></li>`).join("") || `<li class="small">${L("Zi liberă", "Free day")}</li>`}</ol></div>`;
   });
   h += `<div class="btnrow"><button type="button" class="btn ghost" data-gnext="1">${L("Modifică răspunsurile", "Change answers")}</button><button type="button" class="btn ghost" id="g-atlas">${L("Arată în atlas", "Show in the atlas")}</button></div>
-    <p class="small">${L("Prețurile sunt orientative (2026). Locurile vin din OpenStreetMap; verifică programul înainte de vizită. Galeriile Cricova și Mileștii Mici se vizitează cu rezervare.", "Prices are rough (2026). Places come from OpenStreetMap; check opening hours before visiting. Cricova and Mileștii Mici cellars need booking.")}</p>`;
+    <p class="small">${L("Prețurile sunt orientative (2026). Locurile vin din OpenStreetMap; verifică programul înainte de vizită. Galeriile Cricova și Mileștii Mici se vizitează cu rezervare. Locurile marcate „poziție aprox.” au coordonatele aproximative.", "Prices are rough (2026). Places come from OpenStreetMap; check opening hours before visiting. Cricova and Mileștii Mici cellars need booking. Places marked “approx. location” have approximate coordinates.")}</p>`;
   g.plan = { html: h, days: out, hotels }; g.step = 4; gSave();
 }
 function guideBind(e) {
@@ -231,7 +272,7 @@ async function shHome() {
   const projN = Object.keys(PJ.list || {}).length;
   const news = shNewsItems().slice(0, 3);
   const tile = (sec, cls, title, body, cta) => `<article class="tile ${cls}"><header><h3>${title}</h3></header><div class="tb">${body}</div>${cta ? `<button type="button" class="btn ghost sm" data-go="${sec}">${cta}</button>` : ""}</article>`;
-  return `<header class="phead home"><h2>${L("Bun venit în All in Chișinău", "Welcome to All in Chișinău")}</h2><p>${fmtDate(S.date)} · ${L("prototip", "prototype")}</p></header>
+  return `<header class="phead home"><h2>${user() ? `${L("Bună", "Hi")}, ${esc(user().name.split(" ")[0])}!` : L("Bun venit în All in Chișinău", "Welcome to All in Chișinău")}</h2><p>${fmtDate(S.date)} · ${L("prototip", "prototype")}</p></header>
   <div class="tiles">
     ${tile("atlas", "big", L("Atlasul municipiului", "Municipality atlas"), `<div class="kpis"><div><b>${fmt(mun.pop * s)}</b><span>${L("locuitori", "residents")}</span></div><div><b>${fmt(mun.km2, 0)} km²</b><span>${L("suprafață", "area")}</span></div><div><b>${nLoc}</b><span>${L("localități și sectoare", "localities & sectors")}</span></div></div><div id="home-map" class="hmap"></div>`, L("Deschide atlasul", "Open the atlas"))}
     ${tile("atlas:temp", "", L("Vremea acum", "Weather now"), temp ? `<p class="big">${fmt(temp.mean, 1)} °C</p><p class="small">${L("în municipiu", "across the municipality")}: ${fmt(temp.min, 1)} … ${fmt(temp.max, 1)} °C</p>` : `<p class="small">—</p>`, L("Harta temperaturii", "Temperature map"))}
@@ -240,9 +281,7 @@ async function shHome() {
     ${tile("projects", "", L("Proiecte și petiții", "Projects & petitions"), `<p><b>${props.length}</b> ${L("propuneri", "proposals")} · <b>${props.filter((p) => p.status === "run").length + 3}</b> ${L("în execuție", "in progress")}</p><p class="small">${projN} ${L("proiecte de planificare în atlas", "planning projects in the atlas")}</p>`, L("Vezi proiectele", "See projects"))}
     ${B ? tile("atlas", "", `${L("Bugetul municipal", "Municipal budget")} ${y}`, `<p>${L("Venituri", "Revenue")} <b>${fmt(B.rev, 2)} ${L("mld lei", "bn lei")}</b></p><p>${L("Cheltuieli", "Spending")} <b>${fmt(B.exp, 2)} ${L("mld lei", "bn lei")}</b></p>`, "") : ""}
     ${tile("news", "", L("Noutăți", "News"), `<ul class="hnews">${news.map((n) => `<li><span class="small">${fmtDate(n[0])}</span>${n[1]}</li>`).join("")}</ul>`, L("Toate noutățile", "All news"))}
-    ${tile("archive", "", L("Arhive", "Archives"), `<form class="hsearch" data-hsearch="archive"><input type="search" placeholder="${L("Caută documente, locuri, cartiere…", "Search documents, places, districts…")}"><button class="btn sm">${L("Caută", "Search")}</button></form>`, "")}
-    ${tile("chat", "", L("Asistent", "Assistant"), `<form class="hsearch" data-hsearch="chat"><input type="search" placeholder="${L("Întreabă ceva, de ex. câți locuitori are Durlești?", "Ask something, e.g. how many people live in Durlești?")}"><button class="btn sm">${L("Întreabă", "Ask")}</button></form>`, "")}
-    ${tile("account", "", L("Contul tău", "Your account"), `<p>${L("Rol", "Role")}: <b>${RL(SH.role)}</b></p>`, L("Schimbă rolul", "Change role"))}
+    ${tile("archive", "", L("Documente", "Documents"), `<p>${fmt(ARCH.filter((a) => a.vis === "pub").length)} ${L("documente publice", "public documents")} · ${fmt(myDocs().length)} ${L("personale", "personal")}</p><p class="small">${L("Decizii, bugete, planuri urbanistice, hărți istorice.", "Decisions, budgets, urban plans, historic maps.")}</p>`, L("Deschide documentele", "Open documents"))}
   </div>`;
 }
 async function homeMap() {
@@ -303,10 +342,10 @@ async function shArchive() {
       + (r.props.length ? `<div class="cap">${L("Propuneri și petiții", "Proposals and petitions")}</div><ul class="rlist">${r.props.map((p) => `<li><button type="button" class="linkbtn" data-go="projects">${esc(p.title)}</button></li>`).join("")}</ul>` : "")
       + (n ? "" : `<p class="hint">${L("Nimic găsit. Încearcă alt cuvânt.", "Nothing found. Try another word.")}</p>`);
   }
-  return pageHead(L("Arhive", "Archives"), L("Documente publice, documente interne (vizibile doar funcționarilor primăriei) și documentele tale personale. Căutarea include și locurile din atlas.", "Public documents, internal documents (visible to city-hall staff only) and your personal documents. Search also covers places in the atlas."))
+  return pageHead(L("Documente", "Documents"), L("Documente publice, documente interne (vizibile doar funcționarilor primăriei) și documentele tale personale. Căutarea include și locurile din atlas.", "Public documents, internal documents (visible to city-hall staff only) and your personal documents. Search also covers places in the atlas."))
     + `<form class="hsearch big" data-hsearch="archive"><input type="search" value="${esc(q)}" placeholder="${L("Caută documente, locuri, cartiere, propuneri…", "Search documents, places, districts, proposals…")}"><button class="btn">${L("Caută", "Search")}</button></form>`
     + (res ? `<section>${res}</section>` : "")
-    + `<section class="pgrid"><div><h3>${L("Arhiva publică", "Public archive")}${SH.role === "off" ? ` + ${L("internă", "internal")}` : ""}</h3><ul class="plist">${vis.map(docCard).join("")}</ul>
+    + `<section class="pgrid"><div><h3>${L("Documente publice", "Public documents")}${SH.role === "off" ? ` + ${L("interne", "internal")}` : ""}</h3><ul class="plist">${vis.map(docCard).join("")}</ul>
       ${SH.role !== "off" ? `<p class="small">${L("Documentele interne apar doar pentru rolul „Funcționar primărie” (vezi Cont).", "Internal documents appear only for the “City-hall official” role (see Account).")}</p>` : ""}</div>
       <div><h3>${L("Documentele mele", "My documents")}</h3><div class="pform">
         <input type="text" class="pjin" id="md-title" placeholder="${L("Titlu", "Title")}">
@@ -350,16 +389,241 @@ async function answer(q) {
   if (r && (r.pois.length || r.docs.length)) return L("Am găsit:", "I found:") + `<ul class="rlist">${r.pois.slice(0, 5).map((f) => `<li>${fly(f.geometry.coordinates, f.properties.n)}<span class="small"> · ${esc(t("cat")[f.properties.c] || "")}</span></li>`).join("")}${r.docs.slice(0, 3).map((d) => `<li>${esc(d.t ? d.t[S.lang === "ro" ? 0 : 1] : d.title)} <span class="small">· ${L("document", "document")}</span></li>`).join("")}</ul>`;
   return L("Nu știu încă să răspund la asta. Pot spune populația sau suprafața unei localități, vremea, prețul biletelor, bugetul, sau pot căuta un loc („unde e Muzeul de Istorie?”).", "I can't answer that yet. I can tell you a place's population or area, the weather, ticket prices, the budget, or look up a place (“where is the History Museum?”).");
 }
-async function shChat() {
+// floating assistant: always available
+function chatInit() {
   SH.chat ||= [{ me: 0, h: L("Bună! Sunt asistentul aplicației (machetă, fără inteligență artificială reală). Întreabă-mă despre populație, vreme, bilete, buget sau unde se află un loc.", "Hi! I'm the app's assistant (mock-up, no real AI). Ask about population, weather, tickets, the budget or where a place is.") }];
-  return pageHead(L("Asistent", "Assistant"), L("Răspunsuri din datele aplicației. Într-o versiune viitoare, aici ar fi un asistent AI.", "Answers from the app's data. A future version would put an AI assistant here."))
-    + `<div class="chat"><ol class="chatlog">${SH.chat.map((m) => `<li class="${m.me ? "me" : "bot"}">${m.h}</li>`).join("")}</ol>
-      <form class="hsearch" data-hsearch="chat"><input type="search" id="chat-in" placeholder="${L("Scrie o întrebare…", "Type a question…")}" autocomplete="off"><button class="btn">${L("Trimite", "Send")}</button></form>
-      <div class="chips">${[L("Câți locuitori are Durlești?", "How many people live in Durlești?"), L("Ce vreme e acum?", "What's the weather now?"), L("Cât costă biletul?", "How much is a ticket?"), L("Unde e Muzeul Național de Istorie?", "Where is the National History Museum?")].map((x) => `<button type="button" class="chipck" data-ask="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`;
+}
+function chatRender() {
+  chatInit();
+  const box = document.getElementById("chatbox"); if (!box || box.hidden) return;
+  box.innerHTML = `<header><b>${L("Asistent", "Assistant")}</b><span class="small">${L("machetă", "mock-up")}</span><button type="button" class="closex sm" id="chatclose" aria-label="${L("Închide", "Close")}">×</button></header>
+    <ol class="chatlog">${SH.chat.map((m) => `<li class="${m.me ? "me" : "bot"}">${m.h}</li>`).join("")}</ol>
+    <div class="chips">${[L("Câți locuitori are Durlești?", "How many people live in Durlești?"), L("Ce vreme e acum?", "What's the weather now?"), L("Cât costă biletul?", "How much is a ticket?"), L("Unde e Muzeul Național de Istorie?", "Where is the National History Museum?")].map((x) => `<button type="button" class="chipck" data-ask="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+    <form class="hsearch" id="chatform"><input type="text" id="chat-in" placeholder="${L("Scrie o întrebare…", "Type a question…")}" autocomplete="off"><button class="btn">${L("Trimite", "Send")}</button></form>`;
+  const log = box.querySelector(".chatlog"); log.scrollTop = log.scrollHeight;
+}
+function chatToggle(open) {
+  const box = document.getElementById("chatbox"), fab = document.getElementById("chatfab");
+  box.hidden = open === undefined ? !box.hidden : !open; fab.setAttribute("aria-expanded", String(!box.hidden));
+  if (!box.hidden) { chatRender(); document.getElementById("chat-in")?.focus(); }
 }
 async function ask(q) {
   if (!q.trim()) return;
-  SH.chat.push({ me: 1, h: esc(q) }); SH.chat.push({ me: 0, h: await answer(q) });
-  await shRender(); document.getElementById("chat-in")?.focus();
-  const log = document.querySelector(".chatlog"); if (log) log.scrollTop = log.scrollHeight;
+  chatInit(); chatToggle(true);
+  SH.chat.push({ me: 1, h: esc(q) }); chatRender();
+  SH.chat.push({ me: 0, h: await answer(q) }); chatRender(); document.getElementById("chat-in")?.focus();
+}
+function chatBind() {
+  const box = document.getElementById("chatbox");
+  document.getElementById("chatfab").addEventListener("click", () => chatToggle());
+  box.addEventListener("submit", (e) => { e.preventDefault(); const i = document.getElementById("chat-in"); const q = i.value; i.value = ""; ask(q); });
+  box.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.id === "chatclose") chatToggle(false);
+    else if (b.dataset.ask) ask(b.dataset.ask);
+    else if (b.dataset.go) { const [sec, md] = b.dataset.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } }
+    else if (b.dataset.fly) { const [x, y] = b.dataset.fly.split(",").map(Number); shGo("atlas"); map.flyTo({ center: [x, y], zoom: +b.dataset.z || 16.5 }); popup({ lng: x, lat: y }, `<b>${esc(b.textContent)}</b>`); }
+  });
+}
+
+// ---------------------------------------------------------------- login (mock) and settings
+const user = () => store.get("user", null);
+function loginOpen() {
+  const d = document.getElementById("logindlg");
+  d.innerHTML = `<form method="dialog" class="logincard"><header><b>${L("Autentificare", "Sign in")}</b><button type="button" class="closex sm" value="x" id="loginx" aria-label="${L("Închide", "Close")}">×</button></header>
+    <p class="small mock">${L("Machetă: nu se trimite nimic, nu e nevoie de parolă reală.", "Mock-up: nothing is sent, no real password needed.")}</p>
+    <div class="seg row3 rolepick">${Object.keys(ROLES).map((k) => `<label><input type="radio" name="lrole" value="${k}" ${SH.role === k ? "checked" : ""}><b>${RL(k)}</b><small>${{ cit: L("MPass", "MPass"), biz: L("IDNO al firmei", "company IDNO"), off: L("cont de serviciu", "staff account") }[k]}</small></label>`).join("")}</div>
+    <label class="pjrow"><span>${L("Nume", "Name")}</span><input type="text" id="lname" class="pjin" value="${esc(user()?.name || "")}" placeholder="${L("de ex. Ana Popescu", "e.g. Ana Popescu")}"></label>
+    <div class="btnrow"><button type="button" class="btn" id="loginok">${L("Intră", "Sign in")}</button><button type="button" class="btn ghost" id="loginmp">${L("Intră cu MPass (simulat)", "Sign in with MPass (simulated)")}</button></div></form>`;
+  d.showModal();
+}
+function loginBind() {
+  const d = document.getElementById("logindlg");
+  d.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (e.target === d || b?.id === "loginx") { d.close(); return; }
+    if (b?.id === "loginok" || b?.id === "loginmp") {
+      const role = d.querySelector("input[name=lrole]:checked")?.value || "cit";
+      const name = d.querySelector("#lname").value.trim() || { cit: L("Cetățean", "Citizen"), biz: L("Firma exemplu SRL", "Example Ltd"), off: L("Funcționar", "Official") }[role];
+      store.set("user", { name, role }); SH.role = role; store.set("role", role); d.close(); topbarRender(); if (SH.sec !== "atlas") shRender();
+    }
+  });
+}
+function topbarRender() {
+  const el = document.getElementById("topbar"); if (!el) return;
+  const u = user();
+  el.innerHTML = `<button type="button" class="tbpill" id="tb-lang" aria-label="Language">${S.lang === "ro" ? "EN" : "RO"}</button>
+    ${u ? `<button type="button" class="tbpill user" id="tb-user" title="${esc(RL(u.role))}"><i>${esc(u.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase())}</i>${esc(u.name)}</button><button type="button" class="tbpill" id="tb-out">${L("Ieșire", "Sign out")}</button>`
+      : `<button type="button" class="tbpill primary" id="tb-login">${L("Autentificare", "Sign in")}</button>`}`;
+}
+function setLang(l) { S.lang = l; try { fillRoutes(); } catch {} render(); topbarRender(); chatRender(); if (SH.sec !== "atlas") shRender(); }
+function topbarBind() {
+  document.getElementById("topbar").addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.id === "tb-lang") setLang(S.lang === "ro" ? "en" : "ro");
+    else if (b.id === "tb-login") loginOpen();
+    else if (b.id === "tb-user") shGo("settings");
+    else if (b.id === "tb-out") { store.set("user", null); topbarRender(); if (SH.sec !== "atlas") shRender(); }
+  });
+  topbarRender();
+}
+const THEMES = { auto: ["Automat (ca sistemul)", "Automatic (system)"], light: ["Luminoasă", "Light"], dark: ["Întunecată", "Dark"] };
+function applyStoredTheme() { const th = store.get("theme", "auto"); if (th === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", th); }
+function shSettings() {
+  const u = user(), th = store.get("theme", "auto"), start = store.get("start", "home");
+  const radio = (name, val, cur, label) => `<label><input type="radio" name="${name}" value="${val}" ${val === cur ? "checked" : ""}><b>${label}</b></label>`;
+  return pageHead(L("Setări", "Settings"), "")
+    + `<section class="setgrid">
+      <div class="pcard"><h3>${L("Limba", "Language")}</h3><div class="seg row2">${radio("s-lang", "ro", S.lang, "Română")}${radio("s-lang", "en", S.lang, "English")}</div></div>
+      <div class="pcard"><h3>${L("Aspect", "Appearance")}</h3><div class="seg row3">${Object.entries(THEMES).map(([k, v]) => radio("s-theme", k, th, v[S.lang === "ro" ? 0 : 1])).join("")}</div></div>
+      <div class="pcard"><h3>${L("Pagina de pornire", "Start page")}</h3><div class="seg row2">${radio("s-start", "home", start, L("Acasă", "Home"))}${radio("s-start", "atlas", start, "Atlas")}</div></div>
+      <div class="pcard"><h3>${L("Monedă pentru bugete", "Currency for budgets")}</h3><div class="seg row2">${radio("s-cur", "lei", S.cur, "lei")}${radio("s-cur", "eur", S.cur, "EUR")}</div></div>
+      <div class="pcard"><h3>${L("Hartă", "Map")}</h3>
+        <label class="check"><input type="checkbox" id="s-names" ${S.names ? "checked" : ""}> ${t("names")}</label>
+        <label class="check"><input type="checkbox" id="s-labels" ${S.labels ? "checked" : ""}> ${t("labels")}</label></div>
+      <div class="pcard"><h3>${L("Cont", "Account")}</h3>${u ? `<p>${esc(u.name)} · <b>${RL(u.role)}</b></p><div class="btnrow"><button type="button" class="btn ghost sm" id="s-relog">${L("Schimbă rolul", "Change role")}</button><button type="button" class="btn ghost sm" id="s-out">${L("Ieșire", "Sign out")}</button></div>` : `<p class="small">${L("Nu ești autentificat.", "You are not signed in.")}</p><button type="button" class="btn sm" id="s-login">${L("Autentificare", "Sign in")}</button>`}</div>
+      <div class="pcard"><h3>${L("Date salvate în acest browser", "Data saved in this browser")}</h3><p class="small">${L("Bilete, documente personale, ghid, preferințe. Proiectele salvate în baza de date nu se șterg.", "Tickets, personal documents, guide, preferences. Projects saved in the database are not deleted.")}</p><button type="button" class="btn ghost sm" id="s-wipe">${L("Șterge datele locale", "Clear local data")}</button></div>
+    </section>`;
+}
+function settingsChange(e) {
+  const n = e.target.name, v = e.target.value;
+  if (n === "s-lang") { setLang(v); return true; }
+  if (n === "s-theme") { store.set("theme", v); applyStoredTheme(); return true; }
+  if (n === "s-start") { store.set("start", v); return true; }
+  if (n === "s-cur") { S.cur = v; store.set("cur", v); render(); return true; }
+  if (e.target.id === "s-names") { S.names = e.target.checked; render(); return true; }
+  if (e.target.id === "s-labels") { S.labels = e.target.checked; render(); return true; }
+  return false;
+}
+function settingsClick(b) {
+  if (b.id === "s-login" || b.id === "s-relog") { loginOpen(); return true; }
+  if (b.id === "s-out") { store.set("user", null); topbarRender(); shRender(); return true; }
+  if (b.id === "s-wipe") { if (confirm(L("Ștergi biletele, documentele personale și preferințele din acest browser?", "Clear tickets, personal documents and preferences from this browser?"))) { for (const k of ["tickets", "mydocs", "guide2", "user", "theme", "start", "role"]) { try { localStorage.removeItem("chi-atlas2-" + k); } catch {} } location.reload(); } return true; }
+  return false;
+}
+
+// ---------------------------------------------------------------- journey planner (like a rail app): from stop → to stop, options with times, transfers, price
+let STOPG = null;
+async function stopGroups() {
+  if (STOPG) return STOPG;
+  const [stops, admin] = await Promise.all([load("stops.geojson"), load("admin.geojson")]);
+  const groups = [];
+  for (const f of stops.features) {
+    const p = f.properties, c = f.geometry.coordinates; if (!p.n) continue;
+    let g = groups.find((x) => x.name === p.n && hav(x.c, c) < 0.6);
+    if (!g) groups.push(g = { name: p.n, c: [...c], pts: [], routes: new Set(), train: false });
+    g.pts.push(c); (p.r || []).forEach((r) => g.routes.add(r)); if (p.k === "train") g.train = true;
+  }
+  for (const g of groups) g.c = [g.pts.reduce((a, q) => a + q[0], 0) / g.pts.length, g.pts.reduce((a, q) => a + q[1], 0) / g.pts.length];
+  // name duplicates get the locality in brackets
+  const units = admin.features.filter((f) => (f.properties.lvl === 2 || f.properties.lvl === "ctx") && [REF(), "both", undefined].includes(f.properties.sc)).map((f) => ({ n: f.properties.ro.replace(/^Chișinău – (sectorul )?/, "Chișinău "), pg: prepGeom(f.geometry) }));
+  const cnt = {}; groups.forEach((g) => (cnt[g.name] = (cnt[g.name] || 0) + 1));
+  for (const g of groups) {
+    const u = units.find((x) => x.pg.has(g.c[0], g.c[1]));
+    g.loc = u?.n || null;
+    g.label = shortName(g.name) + (g.train ? " 🚆" : "") + (cnt[g.name] > 1 || (u && !/^Chișinău/.test(u.n)) ? ` (${u?.n || L("în afara hărții", "off map")})` : "");
+  }
+  const seen = {}; for (const g of groups) { if (seen[g.label]) g.label += ` #${++seen[g.label]}`; else seen[g.label] = 1; }
+  const idx = {}; groups.forEach((g, i) => g.routes.forEach((r) => (idx[r] ||= []).push(i)));
+  return STOPG = { groups, idx };
+}
+const RMODE = (r) => r.split(":")[0];
+const URBAN = (r) => /^(trolleybus:|bus:([0-9]+|[A-Z])$|minibus:[0-9]+$)/.test(r);
+const SPEED = { trolleybus: 15, bus: 18, minibus: 21, train: 45 };
+const hash = (s) => { let h = 0; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+function nextDep(route, tMin) {   // minutes after midnight
+  const h = hash(route), mode = RMODE(route);
+  if (mode === "train") { const slots = [6 * 60 + 40, 10 * 60 + 15, 14 * 60 + 30, 18 * 60 + 5].map((x) => x + (h % 25)); return slots.find((x) => x >= tMin) ?? slots[0] + 1440; }
+  const hw = URBAN(route) ? (mode === "trolleybus" ? 8 : mode === "minibus" ? 7 : 12) + (h % 7) : 35 + (h % 40);
+  const first = 5 * 60 + 30 + (h % hw);
+  if (tMin < first) return first;
+  const k = Math.ceil((tMin - first) / hw), d = first + k * hw;
+  return d > 23 * 60 ? first + 1440 : d;
+}
+const legPrice = (r, km) => (URBAN(r) ? 6 : Math.max(6, Math.round(km * (RMODE(r) === "train" ? 0.55 : 0.9))));
+const rideMin = (r, km) => Math.max(2, Math.round((km * 1.35) / SPEED[RMODE(r)] * 60 + 1));
+async function planTrips(ai, bi, tMin) {
+  const { groups, idx } = await stopGroups(), A = groups[ai], B = groups[bi];
+  const direct = A.c && B.c ? hav(A.c, B.c) : 0, its = [];
+  for (const r of A.routes) if (B.routes.has(r)) its.push([{ r, a: A, b: B }]);
+  if (its.length < 4) {
+    const best = {};
+    for (const r1 of A.routes) for (const r2 of B.routes) {
+      if (r1 === r2 || B.routes.has(r1) || A.routes.has(r2)) continue;
+      for (const xi of idx[r1] || []) { const X = groups[xi], dAX = hav(A.c, X.c); if (dAX + hav(X.c, B.c) > direct * 1.7 + 0.5) continue;
+        for (const yi of idx[r2] || []) { const Y = groups[yi], w = hav(X.c, Y.c); if (w > 0.3) continue;
+          const tot = dAX + w * 3 + hav(Y.c, B.c), key = r1 + "|" + r2;
+          if (!best[key] || tot < best[key].tot) best[key] = { tot, legs: [{ r: r1, a: A, b: X }, { r: r2, a: Y, b: B, walk: w }] };
+        } }
+    }
+    Object.values(best).sort((a, b) => a.tot - b.tot).slice(0, 8).forEach((x) => its.push(x.legs));
+  }
+  const opts = [];
+  for (const legs of its) for (let rep = 0; rep < 2; rep++) {
+    let t = tMin, dep0 = null, price = 0; const out = [];
+    for (const [i, l] of legs.entries()) {
+      const km = hav(l.a.c, l.b.c), walk = l.walk ? Math.max(2, Math.round(l.walk * 1000 / 70)) : 0;
+      t += walk;
+      let d = nextDep(l.r, t + (i === 0 && rep ? 1 : 0)); if (i === 0 && rep) d = nextDep(l.r, (opts.at(-1)?.dep ?? t) + 1);
+      const arr = d + rideMin(l.r, km); price += legPrice(l.r, km);
+      out.push({ ...l, dep: d, arr, km, walk }); if (dep0 == null) dep0 = d; t = arr;
+    }
+    opts.push({ legs: out, dep: dep0, arr: t, price, ch: legs.length - 1 });
+  }
+  const uniq = new Map();
+  for (const o of opts) { const k = o.dep + "|" + o.legs.map((l) => l.r).join(); if (!uniq.has(k)) uniq.set(k, o); }
+  return [...uniq.values()].sort((a, b) => a.arr - b.arr || a.ch - b.ch).slice(0, 6);
+}
+const hm = (m) => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(Math.round(m % 60)).padStart(2, "0")}`;
+function lineBadge(r) {
+  const P = pal(), mode = RMODE(r), ref = r.split(":").slice(1).join(":");
+  const short = /^Chișinău-/.test(ref) ? ref.replace(/^Chișinău-/, "→ ") : ref;
+  const icon = { trolleybus: "T", bus: "A", minibus: "R", train: "🚆" }[mode];
+  return `<span class="lbadge" style="background:${P.mode[mode] || "#555"}">${icon} ${esc(short)}</span>`;
+}
+async function journeyHtml() {
+  const { groups } = await stopGroups(), J = SH.j ||= {};
+  const opts = groups.map((g, i) => [g.label, i]).sort((a, b) => a[0].localeCompare(b[0], "ro"));
+  const now = new Date(), dt = J.dt || new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  let res = "";
+  if (J.res) {
+    res = J.res.length ? `<ol class="jres">${J.res.map((o, i) => `<li class="jopt ${J.open === i ? "open" : ""}"><button type="button" class="jhead" data-jopen="${i}">
+        <span class="jt"><b>${hm(o.dep)}</b> → <b>${hm(o.arr)}</b></span><span class="small">${o.arr - o.dep} min · ${o.ch ? `${o.ch} ${L("schimbare", "change")}` : L("direct", "direct")}</span>
+        <span class="jl">${o.legs.map((l) => lineBadge(l.r)).join(" ")}</span><span class="jp">${o.price} lei</span></button>
+        ${J.open === i ? `<ol class="jsteps">${o.legs.map((l) => `${l.walk ? `<li class="walk">${L("Mergi pe jos", "Walk")} ~${fmt(l.walk * 1000, 0)} m · ${Math.max(2, Math.round(l.walk * 1000 / 70))} min</li>` : ""}<li><b>${hm(l.dep)}</b> ${esc(l.a.label)}<br>${lineBadge(l.r)} <span class="small">${fmt(l.km * 1.35, 1)} km · ${l.arr - l.dep} min · ${legPrice(l.r, l.km)} lei</span><br><b>${hm(l.arr)}</b> ${esc(l.b.label)}</li>`).join("")}</ol>
+        <button type="button" class="btn" data-jbuy="${i}">${L("Cumpără", "Buy")} ${o.legs.length > 1 ? `${o.legs.length} ${L("bilete", "tickets")}` : L("biletul", "the ticket")} · ${o.price} lei</button>` : ""}</li>`).join("")}</ol>
+      <p class="small">${L("Orele sunt simulate din frecvența obișnuită a liniilor (prototip); traseele și stațiile sunt reale (OpenStreetMap). În oraș, fiecare urcare costă 6 lei.", "Times are simulated from typical line frequency (prototype); routes and stops are real (OpenStreetMap). In the city, each boarding costs 6 lei.")}</p>`
+      : `<p class="hint">${L("Nu am găsit legături directe sau cu o schimbare între aceste stații.", "No direct or one-change connections between these stops.")}</p>`;
+  }
+  return `<div class="pform jform">
+    <datalist id="stoplist">${opts.map(([l]) => `<option value="${esc(l)}">`).join("")}</datalist>
+    <label class="jrow"><span>${L("De la", "From")}</span><input list="stoplist" id="j-a" value="${esc(J.a || "")}" placeholder="${L("Stația de plecare", "Departure stop")}" autocomplete="off"></label>
+    <button type="button" class="jswap" id="j-swap" aria-label="${L("Inversează", "Swap")}">⇅</button>
+    <label class="jrow"><span>${L("Până la", "To")}</span><input list="stoplist" id="j-b" value="${esc(J.b || "")}" placeholder="${L("Stația de sosire", "Arrival stop")}" autocomplete="off"></label>
+    <label class="jrow"><span>${L("Plecare", "Depart")}</span><input type="datetime-local" id="j-dt" value="${dt}"></label>
+    <button type="button" class="btn" id="j-go">${L("Caută legături", "Find connections")}</button>
+    <p class="small" id="j-msg">${J.msg || ""}</p></div>${res}`;
+}
+async function journeySearch() {
+  const { groups } = await stopGroups(), J = SH.j ||= {};
+  J.a = document.getElementById("j-a").value.trim(); J.b = document.getElementById("j-b").value.trim(); J.dt = document.getElementById("j-dt").value; J.open = null;
+  const find = (v) => { let i = groups.findIndex((g) => g.label === v); if (i < 0) { const k = deacc(v); i = groups.findIndex((g) => deacc(g.label).startsWith(k)); if (i < 0) i = groups.findIndex((g) => deacc(g.label).includes(k)); } return i; };
+  const ai = find(J.a), bi = find(J.b);
+  if (!J.a || !J.b || ai < 0 || bi < 0) { J.msg = L("Alege stațiile din listă.", "Pick the stops from the list."); J.res = null; return shRender(); }
+  if (ai === bi) { J.msg = L("Stația de plecare și cea de sosire sunt aceleași.", "Departure and arrival are the same stop."); J.res = null; return shRender(); }
+  J.a = groups[ai].label; J.b = groups[bi].label; J.msg = "";
+  const d = new Date(J.dt || Date.now()), tMin = d.getHours() * 60 + d.getMinutes();
+  J.res = await planTrips(ai, bi, tMin); J.open = J.res.length ? 0 : null;
+  shRender();
+}
+function journeyClick(b) {
+  const J = SH.j ||= {};
+  if (b.id === "j-go") { journeySearch(); return true; }
+  if (b.id === "j-swap") { const a = document.getElementById("j-a"), c = document.getElementById("j-b"); [a.value, c.value] = [c.value, a.value]; return true; }
+  if (b.dataset.jopen != null) { J.open = J.open === +b.dataset.jopen ? null : +b.dataset.jopen; shRender(); return true; }
+  if (b.dataset.jbuy != null) {
+    const o = J.res[+b.dataset.jbuy];
+    buyTicket(`${J.a} → ${J.b} · ${o.legs.map((l) => l.r.split(":").slice(1).join(":")).join(" + ")} · ${hm(o.dep)}`, o.price, o.arr - o.dep + 60);
+    return true;
+  }
+  return false;
 }

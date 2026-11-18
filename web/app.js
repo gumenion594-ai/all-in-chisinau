@@ -5,7 +5,7 @@
 // ================================================================== i18n
 const T = {
   ro: {
-    title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Arhive", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
+    title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Documente", sec_settings: "Setări", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
@@ -37,7 +37,7 @@ const T = {
     borders: "Limite", ref_b: "Din 2027", ref_d: "După amalgamare (alegerile locale 2027)", cur_b: "Actuale", cur_d: "Limitele în vigoare azi",
     ctx: "Limitele localităților vecine", scen: "Scenariu populație",
     census: "Recensământ 2024", est: "Estimare BNS 2019", d3: "Clădiri 3D", terrain: "Relief 3D (dealuri și văi)",
-    outside_poi: "Arată locurile și din afara municipiului", labels: "Denumiri pe hartă",
+    outside_poi: "Arată locurile și din afara municipiului", labels: "Denumiri de localități și cartiere", names: "Denumiri de străzi, parcuri și locuri",
     view: "Vizualizare", basemap: "Hartă de bază", display: "Afișare",
     b_std: "Standard", b_simple: "Simplă", b_sat: "Satelit", b_elev: "Altitudine",
     sat_note: "Imaginea satelitară are rezoluție de 10 m (Sentinel-2, 2023): bună pentru cartiere, nu pentru clădiri individuale.",
@@ -72,7 +72,7 @@ const T = {
     about: "Despre date", lang: "EN", sub: (km, n) => `Atlas · ${km} km² · ${n} localități`,
   },
   en: {
-    title: "All in Chișinău", sec_home: "Home", sec_archive: "Archives", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
+    title: "All in Chișinău", sec_home: "Home", sec_archive: "Documents", sec_settings: "Settings", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
     transit: "Transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",
@@ -104,7 +104,7 @@ const T = {
     borders: "Borders", ref_b: "From 2027", ref_d: "After amalgamation (2027 local elections)", cur_b: "Current", cur_d: "Borders in force today",
     ctx: "Neighbouring localities' borders", scen: "Population scenario",
     census: "2024 Census", est: "NBS estimate 2019", d3: "3D buildings", terrain: "3D terrain (hills and valleys)",
-    outside_poi: "Show places outside the municipality too", labels: "Labels on the map",
+    outside_poi: "Show places outside the municipality too", labels: "Locality and district names", names: "Street, park and place names",
     view: "View", basemap: "Base map", display: "Display",
     b_std: "Standard", b_simple: "Simple", b_sat: "Satellite", b_elev: "Elevation",
     sat_note: "Satellite imagery is 10 m resolution (Sentinel-2, 2023): good for neighbourhoods, not individual buildings.",
@@ -165,7 +165,7 @@ const S = {
   zoneView: store.get("zoneView", "use"), region: null, hideOut: store.get("hideOut", false),
   keep: store.get("keep", {}), only: store.get("only", {}),
   cur: store.get("cur", "lei"), date: todayISO(), popView: store.get("popView", "units"),
-  ctx: store.get("ctx", true), scen: store.get("scen", "census"), base: store.get("base", "standard"), labels: store.get("labels", true),
+  ctx: store.get("ctx", true), scen: store.get("scen", "census"), base: store.get("base", "standard"), labels: store.get("labels", true), names: store.get("names", true),
   outside: false, d3: false, terrain: false,
   modes: { trolleybus: true, bus: true, minibus: true, train: true }, route: "", ring: store.get("ring", false), cmp: {},
   zones: null, cats: store.get("cats2", []),
@@ -275,10 +275,216 @@ maplibregl.addProtocol("pack", async (params) => {
 
 // ================================================================== map
 const BOUNDS = [[28.22, 46.66], [29.50, 47.38]];
+
+// ---------------------------------------------------------------- map text: SDF glyphs rendered in the browser (no glyph server)
+// TinySDF © Mapbox, ISC licence (inlined from @mapbox/tiny-sdf)
+const SDF_INF = 1e20;
+
+// lookup table for gamma-corrected, signed squared alpha distance values
+const sdfAlpha = new Float64Array(256);
+for (let i = 0; i < 256; i++) {
+    const d = 0.5 - Math.pow(i / 255, 1 / 2.2);
+    sdfAlpha[i] = d * Math.abs(d);
+}
+sdfAlpha[255] = -SDF_INF;
+
+class TinySDF {
+    constructor({
+        fontSize = 24,
+        buffer = 3,
+        radius = 8,
+        cutoff = 0.25,
+        fontFamily = 'sans-serif',
+        fontWeight = 'normal',
+        fontStyle = 'normal',
+        lang = null
+    } = {}) {
+        buffer = this.buffer = Math.round(buffer); // padding around a glyph's bounding box; integer to keep the grid pixel-aligned
+        this.radius = radius; // how many pixels around the glyph edge are encoded as signed distances
+        this.cutoff = cutoff; // how much of the SDF byte range represents inside vs outside the edge
+        this.lang = lang; // language of the Canvas drawing context
+
+        // make the canvas size big enough to both have the specified buffer around the glyph
+        // for "halo", and account for some glyphs possibly being larger than their font size
+        const size = this.size = Math.ceil(fontSize) + buffer * 4;
+
+        const canvas = this._createCanvas(size);
+        const ctx = this.ctx = canvas.getContext('2d', {willReadFrequently: true});
+        ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+
+        ctx.textBaseline = 'alphabetic';
+        ctx.textAlign = 'left'; // Necessary so that RTL text doesn't have different alignment
+        ctx.fillStyle = 'black';
+        if (lang) ctx.lang = lang;
+
+        // the glyph is rasterized at (buffer, buffer), so the canvas clips it to this
+        const maxGlyphDim = this.maxGlyphDim = size - buffer;
+        const gridDim = maxGlyphDim + 2 * buffer;
+
+        // two grids of squared distances: one for the outside of the glyph shape, one for the inside;
+        // the signed distance is derived as sqrt(outer) - sqrt(inner)
+        this.gridOuter = new Float64Array(gridDim * gridDim);
+        this.gridInner = new Float64Array(gridDim * gridDim);
+        this.f = new Float64Array(gridDim);
+        this.z = new Float64Array(gridDim + 1);
+        this.v = new Uint16Array(gridDim);
+    }
+
+    _createCanvas(size) {
+        if (typeof OffscreenCanvas !== 'undefined') {
+            return new OffscreenCanvas(size, size);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        return canvas;
+    }
+
+    draw(char) {
+        const {
+            width: glyphAdvance,
+            actualBoundingBoxAscent,
+            actualBoundingBoxDescent,
+            actualBoundingBoxLeft,
+            actualBoundingBoxRight
+        } = this.ctx.measureText(char);
+
+        // The integer/pixel part of the alignment is encoded in metrics.glyphTop/glyphLeft
+        // The remainder is implicitly encoded in the rasterization
+        const glyphTop = Math.ceil(actualBoundingBoxAscent);
+        // actualBoundingBoxLeft is positive when ink extends LEFT of the origin (per spec),
+        // so negate to get the ink's left edge in canvas x-coords (positive = right of origin)
+        const glyphLeft = Math.floor(-actualBoundingBoxLeft);
+
+        // If the glyph overflows the canvas size, it will be clipped at the bottom/right
+        const glyphWidth = Math.max(0, Math.min(this.maxGlyphDim, Math.ceil(actualBoundingBoxRight) - glyphLeft));
+        const glyphHeight = Math.max(0, Math.min(this.maxGlyphDim, glyphTop + Math.ceil(actualBoundingBoxDescent)));
+
+        const width = glyphWidth + 2 * this.buffer;
+        const height = glyphHeight + 2 * this.buffer;
+
+        const len = width * height;
+        const data = new Uint8ClampedArray(len);
+        const glyph = {data, width, height, glyphWidth, glyphHeight, glyphTop, glyphLeft, glyphAdvance};
+        if (glyphWidth === 0 || glyphHeight === 0) return glyph;
+
+        const {ctx, buffer, gridInner, gridOuter} = this;
+        ctx.clearRect(buffer, buffer, glyphWidth, glyphHeight);
+        ctx.fillText(char, buffer - glyphLeft, buffer + glyphTop);
+        const imgData = ctx.getImageData(buffer, buffer, glyphWidth, glyphHeight);
+
+        // default: outside the glyph (SDF_INF distance) for outer, inside (0 distance) for inner
+        gridOuter.fill(SDF_INF, 0, len);
+        gridInner.fill(0, 0, len);
+
+        // for anti-aliased pixels, treat partial coverage as a distance approximation:
+        // a fully covered pixel gets 0 outer / SDF_INF inner; a partial pixel gets a small
+        // non-zero outer or inner distance based on how far its coverage deviates from 0.5
+        let imgIdx = 3; // start at the alpha channel of the first pixel
+        for (let y = 0; y < glyphHeight; y++) {
+            let j = (y + buffer) * width + buffer;
+            for (let x = 0; x < glyphWidth; x++, imgIdx += 4, j++) {
+                const a = imgData.data[imgIdx]; // alpha value
+                if (a === 0) continue; // empty pixels
+                const t = sdfAlpha[a];
+                gridOuter[j] = Math.max(0, t);
+                gridInner[j] = Math.max(0, -t);
+            }
+        }
+
+        // columns left and right of the glyph have no seeds and stay SDF_INF in the column pass, so skip them
+        sdfEdt(gridOuter, 0, 0, width, height, width, this.f, this.v, this.z, buffer);
+        // Pad the inner EDT region by 1 px so ink pixels touching the bbox edge can see the
+        // outside-ink seeds in the buffer region; clamp to buffer so we don't underflow when buffer=0
+        const pad = Math.min(buffer, 1);
+        sdfEdt(gridInner, buffer - pad, buffer - pad, glyphWidth + 2 * pad, glyphHeight + 2 * pad, width, this.f, this.v, this.z);
+
+        // encode signed distance as a byte: inside the glyph maps to high values, outside to low,
+        // with the edge gradient spanning [-radius * cutoff, radius * (1 - cutoff)] pixels around the edge;
+        // Uint8ClampedArray rounds and clamps beyond that
+        const scale = 255 / this.radius;
+        const base = 255 * (1 - this.cutoff);
+        for (let i = 0; i < len; i++) {
+            const d = Math.sqrt(gridOuter[i]) - Math.sqrt(gridInner[i]);
+            data[i] = base - scale * d;
+        }
+
+        return glyph;
+    }
+}
+
+// 2D Euclidean squared distance transform by Felzenszwalb & Huttenlocher https://cs.brown.edu/~pff/papers/dt-final.pdf
+function sdfEdt(data, x0, y0, width, height, gridSize, f, v, z, skipCols = 0) {
+    for (let x = x0 + skipCols; x < x0 + width - skipCols; x++) sdfEdt1d(data, y0 * gridSize + x, gridSize, height, f, v, z);
+    for (let y = y0; y < y0 + height; y++) sdfEdt1d(data, y * gridSize + x0, 1, width, f, v, z);
+}
+
+// 1D squared distance transform
+function sdfEdt1d(grid, offset, stride, length, f, v, z) {
+    v[0] = 0;
+    z[0] = -SDF_INF;
+    z[1] = SDF_INF;
+    f[0] = grid[offset];
+
+    for (let q = 1, k = 0; q < length; q++) {
+        const fq = f[q] = grid[offset + q * stride];
+        const q2 = q * q;
+        let s;
+        do {
+            const r = v[k];
+            s = (fq - f[r] + q2 - r * r) / (q - r) / 2;
+        } while (s <= z[k] && --k > -1);
+
+        k++;
+        v[k] = q;
+        z[k] = s;
+        z[k + 1] = SDF_INF;
+    }
+
+    for (let q = 0, k = 0; q < length; q++) {
+        while (z[k + 1] < q) k++;
+        const r = v[k];
+        const qr = q - r;
+        grid[offset + q * stride] = f[r] + qr * qr;
+    }
+}
+
+const SDF = {};
+function pbfGlyphs(stack, start, end) {
+  const out = [];
+  const varint = (a, v) => { v = v >>> 0; while (v > 127) { a.push((v & 127) | 128); v >>>= 7; } a.push(v); };
+  const zz = (v) => (v << 1) ^ (v >> 31);
+  const field = (a, tag, type) => varint(a, (tag << 3) | type);
+  const bytes = (a, tag, b) => { field(a, tag, 2); varint(a, b.length); for (let i = 0; i < b.length; i++) a.push(b[i]); };
+  const italic = /italic/i.test(stack), weight = /bold/i.test(stack) ? "700" : /medium/i.test(stack) ? "500" : "400";
+  const key = weight + (italic ? "i" : "");
+  const sdf = SDF[key] ??= new TinySDF({ fontSize: 24, buffer: 3, radius: 8, cutoff: 0.25, fontFamily: '"Inter", system-ui, "Segoe UI", Arial, sans-serif', fontWeight: weight, fontStyle: italic ? "italic" : "normal" });
+  const fs = [];
+  bytes(fs, 1, new TextEncoder().encode(stack));
+  bytes(fs, 2, new TextEncoder().encode(`${start}-${end}`));
+  for (let id = start; id <= end; id++) {
+    if (id < 32 || (id > 126 && id < 160)) continue;
+    const g = sdf.draw(String.fromCharCode(id)), gm = [];
+    field(gm, 1, 0); varint(gm, id);
+    if (g.glyphWidth && g.glyphHeight) { bytes(gm, 2, g.data); field(gm, 3, 0); varint(gm, g.glyphWidth); field(gm, 4, 0); varint(gm, g.glyphHeight); }
+    else { field(gm, 3, 0); varint(gm, 0); field(gm, 4, 0); varint(gm, 0); }
+    field(gm, 5, 0); varint(gm, zz(g.glyphLeft)); field(gm, 6, 0); varint(gm, zz(g.glyphTop - 26)); field(gm, 7, 0); varint(gm, Math.round(g.glyphAdvance));
+    bytes(fs, 3, gm);
+  }
+  bytes(out, 1, fs);
+  return new Uint8Array(out).buffer;
+}
+maplibregl.addProtocol("glyphs", async (params) => {
+  const m = params.url.match(/glyphs:\/\/([^/]+)\/(\d+)-(\d+)/);
+  try { await document.fonts.load('16px "Inter"'); } catch {}
+  return { data: pbfGlyphs(decodeURIComponent(m[1]), +m[2], +m[3]) };
+});
+const GLYPHS_URL = "glyphs://{fontstack}/{range}";
+const ABBR = [[/^Strada /, "str. "], [/^Bulevardul /, "bd. "], [/^Șoseaua /, "șos. "], [/^Stradela /, "str-la "], [/^Calea /, "cal. "], [/^Piața /, "pța "], [/^Aleea /, "al. "], [/^Drumul /, "dr. "], [/^Fundacul /, "fund. "]];
+const shortName = (n) => { for (const [r, v] of ABBR) if (r.test(n)) return n.replace(r, v); return n; };
 const DBOX = [28.5, 46.82, 29.22, 47.23];
 const map = new maplibregl.Map({
   container: "map",
-  style: { version: 8, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#eee" } }] },
+  style: { version: 8, glyphs: GLYPHS_URL, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#eee" } }] },
   center: [28.90, 47.03], zoom: 10.1, minZoom: 8.6, maxZoom: 19.5, maxPitch: 75, maxBounds: BOUNDS, attributionControl: false,
 });
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
@@ -343,6 +549,7 @@ async function init() {
   map.addSource("admin", { type: "geojson", data: admin, promoteId: "id" });
   map.addSource("landuse", { type: "geojson", data: landuse });
   map.addSource("base", { type: "geojson", data: base });
+  for (const f of roads.features) if (f.properties.n) f.properties.lb = shortName(f.properties.n);
   map.addSource("roads", { type: "geojson", data: roads });
   map.addSource("rail", { type: "geojson", data: rail });
   map.addSource("train", { type: "geojson", data: train });
@@ -385,6 +592,26 @@ async function init() {
   map.addLayer({ id: "train-stops", type: "circle", source: "train", filter: ["==", ["get", "k"], "stop"], layout: { visibility: "none" },
     paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 4, 15, 8], "circle-color": "#fff", "circle-stroke-color": P.mode.train, "circle-stroke-width": 3 } });
 
+  // street and place names
+  const nameCol = isDark() ? "#e6e8ec" : "#2b2f36", haloCol = isDark() ? "rgba(20,24,31,.9)" : "rgba(255,255,255,.92)";
+  map.addLayer({ id: "road-names", type: "symbol", source: "roads", filter: ["has", "lb"],
+    minzoom: 13,
+    layout: { "symbol-placement": "line", "text-field": ["get", "lb"], "text-font": ["Inter Regular"], "symbol-spacing": 320, "text-max-angle": 30, "text-padding": 2,
+      "text-size": ["interpolate", ["linear"], ["zoom"], 13, ["match", ["get", "c"], ["trunk", "primary", "secondary"], 10.5, 0], 14.5, ["match", ["get", "c"], ["trunk", "primary", "secondary", "tertiary"], 11.5, 9.5], 17, 13.5],
+      "symbol-sort-key": ["match", ["get", "c"], ["trunk", "primary"], 0, ["secondary", "tertiary"], 1, 2] },
+    paint: { "text-color": nameCol, "text-halo-color": haloCol, "text-halo-width": 1.4 } });
+  map.addSource("pnames", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "place-names", type: "symbol", source: "pnames", minzoom: 13,
+    filter: ["any", ["==", ["get", "c"], "park"], [">=", ["zoom"], 15.3]],
+    layout: { "text-field": ["get", "n"], "text-font": ["match", ["get", "c"], "park", ["literal", ["Inter Italic"]], ["literal", ["Inter Medium"]]],
+      "text-size": ["interpolate", ["linear"], ["zoom"], 13, 10.5, 17, 13], "text-max-width": 9, "text-padding": 4, "text-variable-anchor": ["center", "top", "bottom"], "text-radial-offset": 0.6,
+      "symbol-sort-key": ["match", ["get", "c"], "park", 0, 1] },
+    paint: { "text-color": ["match", ["get", "c"], "park", isDark() ? "#8fd18a" : "#2f7d32", "museum", isDark() ? "#d0a8f0" : "#7a2fa8", "university", isDark() ? "#a5c8f0" : "#1d5aa6", "college", isDark() ? "#a5c8f0" : "#1d5aa6", nameCol],
+      "text-halo-color": haloCol, "text-halo-width": 1.4 } });
+  load("pois.geojson").then((fc) => {
+    const keep = (p) => p.n && (p.c === "park" || ["museum", "university", "college", "mall"].includes(p.c) || (p.c === "health" && p.k === "hospital") || (p.c === "gov" && p.k === "townhall") || (p.c === "religion" && ["monastery", "church"].includes(p.k)) || p.k === "theatre");
+    map.getSource("pnames").setData({ type: "FeatureCollection", features: fc.features.filter((f) => keep(f.properties)).map((f) => ({ type: "Feature", properties: { n: f.properties.n, c: f.properties.c }, geometry: f.geometry })) });
+  }).catch(() => {});
   map.addSource("mask", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
   map.addLayer({ id: "mask", type: "fill", source: "mask", filter: ["==", ["get", "k"], "mask"], paint: { "fill-color": "#f8f9fa", "fill-opacity": 1 } });
   map.addLayer({ id: "mask-edge", type: "line", source: "mask", filter: ["==", ["get", "k"], "edge"], paint: { "line-color": "#f59f00", "line-width": 2.5 } });
@@ -582,7 +809,8 @@ async function render() {
   document.getElementById("todaybtn").hidden = S.date === TODAY;
   document.getElementById("auto_d").textContent = t("auto_d")(REF());
   document.getElementById("elevlegend").hidden = S.base !== "elevation";
-  for (const id of ["ctx", "d3", "terrain", "outside", "labels"]) document.getElementById(id).checked = S[id];
+  for (const id of ["ctx", "d3", "terrain", "outside", "labels", "names"]) document.getElementById(id).checked = S[id];
+  vis("road-names", S.names); vis("place-names", S.names);
   document.getElementById("lang").textContent = t("lang");
   if (S.tool) document.getElementById("toolhint").textContent = t("h_" + S.tool);
   const admin = await adminFC();
@@ -697,7 +925,7 @@ async function render() {
   if (S.hideOut && !S.region) { const mf = admin.features.find((x) => x.properties.lvl === "mun" && [REF(), "both"].includes(x.properties.sc)); if (mf.properties.id !== MASK_ID) await applyRegion(false); }
   document.getElementById("hideout").checked = S.hideOut;
   renderLegend(); renderLabels(); renderInfo(); renderLife();
-  for (const k of ["mode", "level", "ctx", "scen", "lang", "base", "labels"]) store.set(k, S[k]);
+  for (const k of ["mode", "level", "ctx", "scen", "lang", "base", "labels", "names"]) store.set(k, S[k]);
   store.set("cats2", S.cats);
   store.set("ref3", S.ref);
   store.set("keep", S.keep); store.set("only", S.only);
@@ -1367,6 +1595,7 @@ function bindEvents() {
   $("ctx").addEventListener("change", (e) => { S.ctx = e.target.checked; render(); });
   $("outside").addEventListener("change", (e) => { S.outside = e.target.checked; render(); });
   $("labels").addEventListener("change", (e) => { S.labels = e.target.checked; render(); });
+  $("names").addEventListener("change", (e) => { S.names = e.target.checked; render(); });
   $("terrain").addEventListener("change", (e) => {
     S.terrain = e.target.checked; statData();
     render().then(() => {
@@ -1382,7 +1611,7 @@ function bindEvents() {
     else if (!S.terrain) map.easeTo({ pitch: 0, bearing: 0 });
     render();
   });
-  $("lang").addEventListener("click", () => { S.lang = S.lang === "ro" ? "en" : "ro"; fillRoutes(); render(); });
+  $("lang").addEventListener("click", () => { S.lang = S.lang === "ro" ? "en" : "ro"; fillRoutes(); render(); topbarRender(); chatRender(); });
   $("viewbtn").addEventListener("click", () => {
     if (S.tool) setTool(S.tool);
     $("toolopts").hidden = true; $("measurebtn").setAttribute("aria-expanded", "false");
