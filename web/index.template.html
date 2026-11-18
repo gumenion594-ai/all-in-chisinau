@@ -335,6 +335,19 @@ body.inproj[data-sec="atlas"] #chatfab { bottom: calc(40px + env(safe-area-inset
 .jsteps .walk { color: var(--muted); font-style: italic; }
 .jopt > .btn { margin: 0 12px 12px; }
 .day.trip { border-left: 4px solid #0b7285; }
+/* proposal attachments */
+.upl { display: grid; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.upl input { font-size: 12.5px; color: var(--fg); }
+#pr-prev { max-width: 100%; max-height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid var(--rule); }
+.pimg { width: 100%; height: 220px; aspect-ratio: auto; object-fit: cover; border-radius: 9px; background: var(--rule); }
+.pimg.ph { display: grid; place-items: center; font-size: 12px; color: var(--muted); }
+.pdocs { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; }
+.pdocs i { font: 700 9px/1 var(--body); font-style: normal; background: var(--accent); color: var(--surface); border-radius: 3px; padding: 2px 4px; margin-right: 6px; vertical-align: 1px; }
+#docdlg { border: 0; border-radius: 16px; padding: 0; background: var(--surface); color: var(--fg); width: min(900px, calc(100vw - 32px)); box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+#docdlg::backdrop { background: rgba(10,14,20,.5); }
+.docframe { width: 100%; height: 70vh; border: 1px solid var(--rule); border-radius: 8px; background: #fff; }
+.docimg { max-width: 100%; max-height: 72vh; display: block; margin: 0 auto; }
+.doctext { max-height: 70vh; overflow: auto; white-space: pre-wrap; font-size: 12.5px; background: var(--bg); padding: 10px; border-radius: 8px; margin: 0; }
 /* home */
 .phead.home h2 { font-size: 32px; }
 .phead { padding-right: 230px; }
@@ -557,6 +570,7 @@ nav.tabs2 { margin-top: -1px; }
 <button type="button" id="chatfab" aria-controls="chatbox" aria-expanded="false" aria-label="Asistent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg><span data-t="sec_chat"></span></button>
 <aside id="chatbox" hidden aria-label="Asistent"></aside>
 <dialog id="logindlg"></dialog>
+<dialog id="docdlg"></dialog>
 <main id="page" hidden><div id="pagebody"></div></main>
 <div id="map" role="application" aria-label="Harta Municipiului Chișinău"></div>
 <div id="toolbar" role="toolbar" aria-label="Instrumente">

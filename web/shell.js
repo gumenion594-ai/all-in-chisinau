@@ -35,6 +35,50 @@ async function shSaveProposal(p) {
   if (PJ.db) { try { const b = { ...p }; delete b.id; await PJ.db.collection("proposals").doc(p.id).set(b); return; } catch {} }
   store.set("proposals", SH.props);
 }
+// ---------------------------------------------------------------- attachments: representative image + documents (assets capability, fallback: small inline image)
+const DOC_TYPES = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", txt: "text/plain", csv: "text/csv", md: "text/markdown", json: "application/json" };
+let ASSETS;
+const assetsNs = () => (ASSETS ??= (async () => { try { return window.claude?.use ? await window.claude.use("assets") : null; } catch { return null; } })());
+async function shrinkImage(file, max, q) {
+  const bmp = await createImageBitmap(file); const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement("canvas"); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+  return { blob: await new Promise((r) => c.toBlob(r, "image/jpeg", q)), data: () => c.toDataURL("image/jpeg", q) };
+}
+const ASSET_ERR = { too_large: ["Fișierul e prea mare (max. 20 MB).", "File too large (max 20 MB)."], unsupported_type: ["Tip de fișier neacceptat. Folosește PDF, imagini sau text.", "Unsupported file type. Use PDF, images or text."], quota_or_state: ["Spațiul de stocare e plin.", "Storage is full."], rate_limited: ["Prea multe încărcări; încearcă peste puțin timp.", "Too many uploads; try again shortly."] };
+async function uploadAttachments(msg) {
+  const A = await assetsNs(), imgF = document.getElementById("pr-img").files[0], docF = [...document.getElementById("pr-docs").files];
+  const out = { img: null, imgData: null, docs: [] }, say = (t) => (msg.textContent = t);
+  if (imgF) {
+    say(L("Se încarcă imaginea…", "Uploading the image…"));
+    try {
+      if (A) { const sm = await shrinkImage(imgF, 1600, 0.85); out.img = (await A.upload(sm.blob, { type: "image/jpeg" })).id; }
+      else out.imgData = (await shrinkImage(imgF, 720, 0.72)).data();
+    } catch (e) { throw new Error((ASSET_ERR[e?.code] || [L("Imaginea nu s-a putut încărca.", "The image could not be uploaded.")])[S.lang === "ro" ? 0 : 1]); }
+  }
+  for (const [i, f] of docF.entries()) {
+    const ext = (f.name.split(".").pop() || "").toLowerCase(), type = DOC_TYPES[ext];
+    if (!type) throw new Error(L(`„${f.name}”: tip neacceptat. Folosește PDF, imagini sau text (txt, csv, md, json).`, `“${f.name}”: unsupported type. Use PDF, images or text (txt, csv, md, json).`));
+    if (!A) { out.docs.push({ name: f.name, type, size: f.size, local: 1 }); continue; }
+    say(L(`Se încarcă documentul ${i + 1} din ${docF.length}…`, `Uploading document ${i + 1} of ${docF.length}…`));
+    try { const r = await A.upload(f, { type }); out.docs.push({ id: r.id, name: f.name, type, size: f.size }); }
+    catch (e) { throw new Error(`„${f.name}”: ` + (ASSET_ERR[e?.code] || [L("nu s-a putut încărca.", "could not be uploaded.")])[S.lang === "ro" ? 0 : 1]); }
+  }
+  say("");
+  return out;
+}
+function openDoc(p, i) {
+  const d = p.docs[i], dlg = document.getElementById("docdlg"), src = "/_blob/" + d.id;
+  let body;
+  if (d.type === "application/pdf") body = `<iframe class="docframe" src="${src}" title="${esc(d.name)}"></iframe>`;
+  else if (d.type.startsWith("image/")) body = `<img class="docimg" src="${src}" alt="${esc(d.name)}">`;
+  else body = `<pre class="doctext">${L("Se încarcă…", "Loading…")}</pre>`;
+  dlg.innerHTML = `<div class="logincard"><header><b>${esc(d.name)}</b><button type="button" class="closex sm" id="docx" aria-label="${L("Închide", "Close")}">×</button></header>${body}</div>`;
+  dlg.showModal();
+  if (!/^(application\/pdf|image\/)/.test(d.type)) fetch(src).then((r) => (r.ok ? r.text() : Promise.reject())).then((t) => { dlg.querySelector(".doctext").textContent = t.slice(0, 200000); }).catch(() => { dlg.querySelector(".doctext").textContent = L("Documentul nu poate fi afișat aici.", "The document cannot be shown here."); });
+}
+const fsize = (b) => (b > 1e6 ? fmt(b / 1e6, 1) + " MB" : fmt(Math.max(1, b / 1e3), 0) + " kB");
+const docIcon = (t) => (t === "application/pdf" ? "PDF" : t.startsWith("image/") ? "IMG" : "TXT");
 const DEMO_EXEC = [
   { t: ["Reabilitarea unei străzi din Botanica", "Rehabilitation of a street in Botanica"], who: "SRL Exemplu Drum", pct: 60, cost: 1.2 },
   { t: ["Grădiniță nouă în Durlești", "New kindergarten in Durlești"], who: "SA Exemplu Construct", pct: 35, cost: 2.1 },
@@ -51,13 +95,19 @@ async function shProjects() {
     if (SH.role === "biz" && p.status === "ok") act += `<button class="btn sm" data-offer="${p.id}">${L("Oferă servicii", "Offer services")}</button>`;
     if (SH.role === "off" && p.status === "ok" && (p.offers || []).length) act += (p.offers || []).map((o, i) => `<button class="btn ghost sm" data-pick="${p.id}" data-i="${i}">${L("Alege", "Pick")}: ${esc(o.firm)} · ${fmt(o.price)} €</button>`).join("");
     return `<li class="pcard"><div class="pc1"><span class="pill ${p.status === "ok" || p.status === "run" ? "good" : p.status === "no" ? "warn" : ""}">${st}</span><span class="small">${p.type === "petition" ? L("Petiție", "Petition") : L("Propunere de proiect", "Project proposal")} · ${RL(p.role || "cit")}</span></div>
-      <b>${esc(p.title)}</b><p class="small">${esc(p.desc || "")}</p>${p.contractor ? `<p class="small">${L("Executant", "Contractor")}: <b>${esc(p.contractor)}</b></p>` : ""}
+      ${p.img || p.imgData ? `<img class="pimg" src="${p.img ? "/_blob/" + p.img : p.imgData}" alt="${esc(p.title)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'pimg ph',textContent:'${L("Imaginea nu e disponibilă în această vizualizare", "Image not available in this view")}'}))">` : ""}
+      <b>${esc(p.title)}</b><p class="small">${esc(p.desc || "")}</p>
+      ${(p.docs || []).length ? `<ul class="pdocs">${p.docs.map((d, i) => `<li>${d.id ? `<button type="button" class="linkbtn" data-doc="${p.id}" data-i="${i}">` : "<span>"}<i>${docIcon(d.type)}</i>${esc(d.name)}${d.id ? "</button>" : "</span>"}<span class="small"> · ${fsize(d.size)}${d.local ? " · " + L("doar numele (încărcarea nu e disponibilă aici)", "name only (upload unavailable here)") : ""}</span></li>`).join("")}</ul>` : ""}${p.contractor ? `<p class="small">${L("Executant", "Contractor")}: <b>${esc(p.contractor)}</b></p>` : ""}
       ${(p.offers || []).length && !p.contractor ? `<p class="small">${(p.offers || []).length} ${L("oferte de la firme", "offers from firms")}</p>` : ""}<div class="btnrow">${act}</div></li>`;
   };
-  return pageHead(L("Proiecte și petiții", "Projects & petitions"), L(`Rol curent: <b>${RL(SH.role)}</b> (schimbă-l din „Cont”). Cetățenii propun și semnează, primăria aprobă și alege executantul, firmele oferă servicii.`, `Current role: <b>${RL(SH.role)}</b> (change it under “Account”). Citizens propose and sign, the city hall approves and picks contractors, firms make offers.`))
+  return pageHead(L("Proiecte și petiții", "Projects & petitions"), L(`Rol curent: <b>${RL(SH.role)}</b> (schimbă-l din „Setări” sau la autentificare). Cetățenii propun și semnează, primăria aprobă și alege executantul, firmele oferă servicii.`, `Current role: <b>${RL(SH.role)}</b> (change it in Settings or when signing in). Citizens propose and sign, the city hall approves and picks contractors, firms make offers.`))
     + `<section class="pgrid"><div><h3>${L("Propune", "Propose")}</h3>
       <div class="pform"><select id="pr-type"><option value="project">${L("Propunere de proiect", "Project proposal")}</option><option value="petition">${L("Petiție", "Petition")}</option></select>
       <input id="pr-title" class="pjin" maxlength="120" placeholder="${L("Titlu", "Title")}"><textarea id="pr-desc" class="pjin" rows="3" maxlength="800" placeholder="${L("Descriere", "Description")}"></textarea>
+      <label class="upl"><span>${L("Imagine reprezentativă", "Representative image")}</span><input type="file" id="pr-img" accept="image/png,image/jpeg,image/webp,image/gif"><img id="pr-prev" alt="" hidden></label>
+      <label class="upl"><span>${L("Documente (PDF, imagini, text)", "Documents (PDF, images, text)")}</span><input type="file" id="pr-docs" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.md,.json"></label>
+      <p class="small">${(await assetsNs()) ? L("Fișierele se păstrează împreună cu aplicația și le vede oricine deschide propunerea.", "Files are stored with the app and anyone who opens the proposal can see them.") : L("În această vizualizare încărcarea fișierelor nu e disponibilă: imaginea se păstrează micșorată, iar din documente doar numele.", "File upload is not available in this view: the image is kept at a smaller size and only document names are kept.")}</p>
+      <p class="small warn" id="pr-msg" role="status"></p>
       <button class="btn" id="pr-send">${L("Trimite", "Submit")}</button></div>
       <h3>${L("Propuneri și petiții", "Proposals and petitions")} (${list.length})</h3>
       ${list.length ? `<ul class="plist">${list.map(card).join("")}</ul>` : `<p class="hint">${L("Încă nimic. Trimite prima propunere.", "Nothing yet. Submit the first one.")}</p>`}</div>
@@ -162,7 +212,10 @@ function shBind() {
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
   applyStoredTheme(); chatBind(); loginBind(); topbarBind();
   shGo(SH.sec);
-  $("page").addEventListener("change", (e) => { if (guideChange(e) || settingsChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
+  $("docdlg").addEventListener("click", (e) => { if (e.target.id === "docx" || e.target === $("docdlg")) $("docdlg").close(); });
+  $("page").addEventListener("change", (e) => {
+    if (e.target.id === "pr-img") { const f = e.target.files[0], im = $("pr-prev"); if (im.src) URL.revokeObjectURL(im.src); if (f) { im.src = URL.createObjectURL(f); im.hidden = false; } else im.hidden = true; return; }
+    if (guideChange(e) || settingsChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
   $("page").addEventListener("submit", (e) => {
     const f = e.target.closest("[data-hsearch]"); if (!f) return; e.preventDefault();
     const q = f.querySelector("input").value;
@@ -181,13 +234,19 @@ function shBind() {
     if (b.id === "pr-send") {
       const title = $("pr-title").value.trim(); if (!title) { $("pr-title").focus(); return; }
       const id = "x" + Date.now().toString(36);
-      await shSaveProposal({ id, type: $("pr-type").value, title, desc: $("pr-desc").value.trim(), role: SH.role, status: "new", sig: 0, offers: [], t: new Date().toISOString() });
+      b.disabled = true;
+      let att;
+      try { att = await uploadAttachments($("pr-msg")); } catch (err) { $("pr-msg").textContent = err.message; b.disabled = false; return; }
+      const p = { id, type: $("pr-type").value, title, desc: $("pr-desc").value.trim(), role: SH.role, status: "new", sig: 0, offers: [], t: new Date().toISOString() };
+      if (att.img) p.img = att.img; if (att.imgData) p.imgData = att.imgData; if (att.docs.length) p.docs = att.docs;
+      await shSaveProposal(p);
       shRender();
     } else if (ds.sign) { const p = SH.props[ds.sign]; await shSaveProposal({ ...p, sig: (p.sig || 0) + 1 }); shRender(); }
     else if (ds.approve) { await shSaveProposal({ ...SH.props[ds.approve], status: "ok" }); shRender(); }
     else if (ds.reject) { await shSaveProposal({ ...SH.props[ds.reject], status: "no" }); shRender(); }
     else if (ds.offer) { const p = SH.props[ds.offer]; const price = Math.round((50 + Math.random() * 450) * 1000); await shSaveProposal({ ...p, offers: [...(p.offers || []), { firm: L("Firma ta (exemplu)", "Your firm (example)"), price }] }); shRender(); }
     else if (ds.pick) { const p = SH.props[ds.pick]; await shSaveProposal({ ...p, status: "run", contractor: p.offers[+ds.i].firm }); shRender(); }
+    else if (ds.doc) { openDoc(SH.props[ds.doc], +ds.i); }
     else if (ds.openproj) { shGo("atlas"); pjOpen(ds.openproj); }
     else if (b.id === "tk-buy") { const r = $("tk-route"), k = +$("tk-kind").value; buyTicket(r.options[r.selectedIndex].text.split(" · ")[0], k === 1 ? 6 : 300, k === 1 ? 90 : 30 * 1440); }
     else if (b.id === "ti-buy") { buyTicket(`${$("ti-a").value} → ${$("ti-b").value}`, SH.ti?.price || 6, 24 * 60); }
