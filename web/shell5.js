@@ -6,8 +6,8 @@ const aiNs = () => (AI ??= (async () => {
   try {
     const s = window.claude?.use ? await window.claude.use("sample") : null; if (!s) return null;
     const lim = await s.limits().catch(() => null);
-    SH.aiOn = !!lim?.tools?.maxCount;
-    return { s, maxTools: lim?.tools?.maxCount || 0 };
+    SH.aiOn = true;
+    return { s, maxTools: lim?.tools?.maxCount || 0, maxBytes: lim?.maxPromptBytes || 262144 };
   } catch { return null; }
 })());
 const lvlWord = (l) => ({ 1: "sector", 2: "mayoralty/urban sector", 3: "neighbourhood/village", 4: "sub-neighbourhood", ctx: "outside locality", mun: "municipality" }[l] || l);
@@ -362,19 +362,43 @@ Mayoralties and urban sectors (level 2, population): ${l2}.`;
 }
 async function aiAsk(q) {
   const A = await aiNs();
-  if (!A || !A.maxTools) return false;
+  if (!A) return false;
   SH.aiTurns ||= [];
-  SH.aiTurns.push({ role: "user", content: q });
-  const turns = [{ role: "user", content: await aiContext() }, ...SH.aiTurns.slice(-12)];
+  // history alternates user/assistant and never holds an empty turn; context goes inside the first user turn
+  const hist = SH.aiTurns.filter((t) => t.content && t.content.trim()).slice(-10);
+  while (hist.length && hist[0].role !== "user") hist.shift();
+  const ctx = await aiContext();
+  const turns = [...hist, { role: "user", content: q }];
+  turns[0] = { role: "user", content: `${ctx}\n\n---\n${turns[0].content}` };
+  const useTools = A.maxTools > 0 && !SH.aiNoTools;
   const msg = { me: 0, h: `<span class="think">${L("Mă gândesc…", "Thinking…")}</span>`, live: 1 }; SH.chat.push(msg); chatRender();
   AI_CTL = new AbortController(); chatRender();
+  const opts = { signal: AI_CTL.signal, onText: ({ text }) => { msg.h = mdLite(text); chatRender(); } };
+  if (useTools) opts.tools = aiTools().slice(0, A.maxTools); else opts.cache = false;
   try {
-    const { text } = await A.s(turns, { tools: aiTools().slice(0, A.maxTools), signal: AI_CTL.signal, onText: ({ text }) => { msg.h = mdLite(text); chatRender(); } });
-    msg.h = mdLite(text); SH.aiTurns.push({ role: "assistant", content: text });
+    const { text } = await A.s(turns, opts);
+    const out = (text || "").trim() || L("Gata.", "Done.");
+    msg.h = mdLite(out);
+    SH.aiTurns = [...hist, { role: "user", content: q }, { role: "assistant", content: out }];
   } catch (e) {
-    if (e?.code === "not_granted" || e?.code === "sampling_disabled" || e?.code === "tools_unavailable" || e?.code === "not_declared") { AI = Promise.resolve(null); msg.h = await answer(q); }
-    else msg.h = (e?.text ? mdLite(e.text) + "<br>" : "") + `<span class="small warn">${e?.code === "cancelled" ? L("Oprit.", "Stopped.") : e?.code === "rate_limited" ? L("Prea multe cereri; încearcă puțin mai târziu.", "Too many requests; try again a bit later.") : L("Asistentul nu a putut răspunde acum.", "The assistant could not answer right now.")}</span>`;
-    SH.aiTurns.pop();
+    const code = e?.code || "upstream_error";
+    console.warn("assistant error", code, e?.message);
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(code)) { AI = Promise.resolve(null); msg.h = await answer(q); }
+    else {
+      if (code === "tools_unavailable" || (code === "invalid_request" && useTools)) SH.aiNoTools = true; // next question goes without page tools
+      if (["invalid_request", "prompt_too_large", "empty_completion", "refused"].includes(code)) SH.aiTurns = []; // start the conversation over
+      const why = {
+        cancelled: L("Oprit.", "Stopped.", "Остановлено."),
+        rate_limited: L("Limita de utilizare Claude a contului tău e atinsă sau sunt prea multe cereri. Încearcă din nou puțin mai târziu.", "Your Claude usage limit is reached or there are too many requests. Try again a bit later.", "Достигнут лимит использования Claude или слишком много запросов. Попробуйте чуть позже."),
+        session_expired: L("Sesiunea a expirat: reconectează-te la claude.ai și reîncarcă pagina.", "Your session expired: sign in to claude.ai again and reload the page.", "Сессия истекла: войдите в claude.ai снова и перезагрузите страницу."),
+        prompt_too_large: L("Cererea a fost prea mare; am golit istoricul conversației. Întreabă din nou.", "The request was too large; conversation history cleared. Ask again.", "Запрос слишком большой; история очищена. Спросите снова."),
+        tools_unavailable: L("Aici asistentul nu poate folosi funcțiile paginii; întreabă din nou și va răspunde doar în text.", "The assistant can't use page functions here; ask again and it will answer in text only.", "Здесь помощник не может использовать функции страницы; спросите снова — ответит только текстом."),
+        invalid_request: L("Cererea a fost respinsă; am resetat conversația. Întreabă din nou.", "The request was rejected; conversation reset. Ask again.", "Запрос отклонён; разговор сброшен. Спросите снова."),
+        refused: L("Claude a refuzat această întrebare; reformulează-o.", "Claude declined this question; rephrase it.", "Claude отклонил этот вопрос; переформулируйте."),
+        empty_completion: L("Nu a venit niciun răspuns; încearcă o întrebare mai simplă.", "No answer came back; try a simpler question.", "Ответа нет; попробуйте вопрос попроще."),
+      }[code] || L("Asistentul nu a putut răspunde acum (eroare de conexiune). Încearcă din nou.", "The assistant could not answer right now (connection error). Try again.", "Помощник сейчас не смог ответить (ошибка соединения). Попробуйте снова.");
+      msg.h = (e?.text ? mdLite(e.text) + "<br>" : "") + `<span class="small warn">${why} <span class="muted">[${esc(code)}]</span></span>`;
+    }
   }
   delete msg.live; AI_CTL = null; chatRender();
   return true;
