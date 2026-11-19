@@ -39,8 +39,9 @@ async function searchIndex() {
   const [pois, roads, admin, sg] = await Promise.all([load("pois.geojson"), load("roads.geojson"), adminFC(), stopGroups()]);
   const out = [];
   for (const f of admin.features) {
-    const p = f.properties; if (![2, 3, "ctx"].includes(p.lvl) || ![REF(), "both", undefined].includes(p.sc)) continue;
-    out.push({ n: nameOf(p), k: p.lvl === 3 ? "nb" : p.lvl === "ctx" ? "town" : "unit", c: [p.lx, p.ly], pts: [[p.lx, p.ly]] });
+    const p = f.properties; if (![2, 3, 4, "ctx"].includes(p.lvl) || ![REF(), "both", undefined].includes(p.sc)) continue;
+    if (p.lvl === 4 && p.grp === p.ro) continue;   // same as its level-3 unit
+    out.push({ n: nameOf(p), k: p.lvl === 3 ? "nb" : p.lvl === 4 ? "sub" : p.lvl === "ctx" ? "town" : "unit", c: [p.lx, p.ly], pts: [[p.lx, p.ly]] });
   }
   const streets = {};
   for (const f of roads.features) {
@@ -61,7 +62,7 @@ const QCAT = [
   ["health", "🏥", ["Spitale și clinici", "Hospitals & clinics"], (x) => x.cat === "health"], ["bank", "🏦", ["Bănci", "Banks"], (x) => x.kk === "bank"],
   ["fuel", "⛽", ["Benzinării", "Fuel"], (x) => x.kk === "fuel"], ["school", "🏫", ["Școli", "Schools"], (x) => x.cat === "school"],
 ];
-const KLABEL = { nb: ["Cartier / sat", "Neighbourhood / village"], town: ["Localitate", "Locality"], unit: ["Primărie / sector", "Mayoralty / sector"], street: ["Stradă", "Street"], stop: ["Stație", "Stop"] };
+const KLABEL = { sub: ["Subcartier", "Sub-neighbourhood"], nb: ["Cartier / sat", "Neighbourhood / village"], town: ["Localitate", "Locality"], unit: ["Primărie / sector", "Mayoralty / sector"], street: ["Stradă", "Street"], stop: ["Stație", "Stop"] };
 const fmtKm = (d) => (d < 1 ? `${fmt(Math.round((d * 1000) / 10) * 10)} m` : `${fmt(d, d < 10 ? 1 : 0)} km`);
 async function runSearch(q, cat) {
   const idx = await searchIndex(), here = (myLoc() || MOCK_LOC).c;
@@ -115,7 +116,7 @@ function openHit(i) {
   const h = SRES[i]; if (!h) return;
   const near = h.x.pts.reduce((a, p) => (hav((myLoc() || MOCK_LOC).c, p) < hav((myLoc() || MOCK_LOC).c, a) ? p : a), h.x.pts[0]);
   shGo("atlas"); showLocOnMap();
-  const z = { nb: 14, unit: 13, town: 13, street: 16.5, stop: 17, poi: 17 }[h.x.k];
+  const z = { sub: 15, nb: 14, unit: 13, town: 13, street: 16.5, stop: 17, poi: 17 }[h.x.k];
   map.flyTo({ center: near, zoom: z });
   popup({ lng: near[0], lat: near[1] }, `<b>${esc(h.x.n)}</b><br><small>${esc(h.x.k === "poi" ? t("cat")[h.x.cat] || "" : tr2(KLABEL[h.x.k]))} · ${fmtKm(h.d)} ${L("de tine", "from you")}</small>`);
 }

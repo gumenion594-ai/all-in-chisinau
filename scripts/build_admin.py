@@ -281,6 +281,26 @@ def adjust_buiucani(parts):
     return [x for x in parts if x is not zi]
 
 
+def alba_iulia_border(parts):
+    """Buiucanii Noi begins where str. Alba Iulia begins: the part of Flacăra along the street, west of its start, joins Buiucanii Noi."""
+    byn = {norm(x["ro"]): x for x in parts}
+    bn, fl = byn.get("buiucanii noi"), byn.get("flacara")
+    if not (bn and fl): return parts
+    sx, sy = to_m(28.79231, 47.0268)          # east end of str. Alba Iulia (Buiucani)
+    dx, dy = to_m(28.76695, 47.03976); dx -= sx; dy -= sy   # direction of the street towards the west
+    n = (dx * dx + dy * dy) ** 0.5; dx, dy = dx / n, dy / n
+    from shapely.geometry import Polygon
+    big = 20000
+    # half plane on the street's side of the line through its start, perpendicular to it
+    half = Polygon([(sx - dy * big, sy + dx * big), (sx - dy * big + dx * big, sy + dx * big + dy * big),
+                    (sx + dy * big + dx * big, sy - dx * big + dy * big), (sx + dy * big, sy - dx * big)])
+    take = polys_only(fl["geom"].intersection(half))
+    if take is None or take.area < 1000: return parts
+    bn["geom"] = unary_union([bn["geom"], take]).buffer(0); fl["geom"] = polys_only(fl["geom"].difference(half)) or fl["geom"]
+    bn["method"] = (bn.get("method") or "") + "; limita cu Flacăra la începutul str. Alba Iulia"
+    return parts
+
+
 def carve_special(u, parts):
     for g, names, method in SPECIAL:
         cut = polys_only(g.intersection(u["geom"]))
@@ -293,12 +313,29 @@ def carve_special(u, parts):
     return parts
 
 
+# level 4 (sub-neighbourhoods) keeps Rîșcani / Visterniceni, Cartierul 8 / 8A / 9 and Dokuceaev / 40 de ani apart;
+# level 3 groups them again (GROUPS below)
 MERGES = {
-    "chisinau:Rîșcani": [(("riscani", "visterniceni"), ("Rîșcani-Visterniceni", "Rîșcani-Visterniceni"))],
-    "chisinau:Ciocana": [(("cartierul 8 ", "cartierul 8a", "cartierul 9"), ("Mircea cel Bătrân", "Mircea cel Bătrân"))],
     "chisinau:Botanica": [(("galata / aeroport", "codru"), ("Aeroport", "Airport"))],
-    "chisinau:Centru": [(("dokuceaev", "40 de ani"), ("Dokuceaev-40 de ani", "Dokuceaev-40 de ani"))],
 }
+# level 3 = groups of level-4 units. Villages: every village is one level-3 unit (all neighbourhoods of a town merge).
+GROUPS = {
+    "chisinau:Centru": {"Telecentru": ["telecentru", "dokuceaev", "40 de ani"], "Centru": ["melestiu", "hrusca", "caucaz", "hutuleuca", "centru"]},
+    "chisinau:Buiucani": {"Buiucani": ["buiucani", "buiucanii vechi", "vovinteni", "flacara"]},
+    "chisinau:Ciocana": {"Ciocana Nouă": ["ciocana", "zona industriala ciocana", "ciocana noua"], "Mircea cel Bătrân": ["cartierul 8*", "cartierul 9*"]},
+    "chisinau:Rîșcani": {"Rîșcanii de Jos": ["riscanii de jos", "sipka", "tabacaria"], "Rîșcani-Visterniceni": ["riscani", "visterniceni"],
+                         "Poșta Veche": ["posta veche", "petricani", "doina", "ceucari"], "Rîșcanii de Sus": ["riscanii de sus", "bucovinei", "pan-com"]},
+    "chisinau:Botanica": {"Botanica de Jos": ["botanica de jos", "muncesti"]},
+}
+def group_of(u, x):
+    if u["kind"] != "city": return x.get("village") or x["ro"]
+    n = norm(x["ro"])
+    for g, keys in GROUPS.get(u.get("key"), {}).items():
+        for k in keys:
+            kk = norm(k.rstrip("*"))
+            if n == kk or n.replace("-", " ") == kk.replace("-", " ") or (k.endswith("*") and n.startswith(kk)):
+                return g
+    return x["ro"]
 RENAMES = {"durlesti": {"centru": "Durlești Centru"}, "singera": {"centru": "Sîngera Centru", "aeroport": "Sîngera-Aeroport"}}
 
 
@@ -385,7 +422,7 @@ def build_l3(u):
                 parts.append(dict(geom=g, ro=n[0], en=n[1], ru=n[2], village=n[0],
                                   method="intravilan OSM + extravilan atribuit celei mai apropiate localități" if len(villages) > 1 else "limita UAT"))
     if u.get("key") == "chisinau:Buiucani":
-        parts = adjust_buiucani(parts)
+        parts = alba_iulia_border(adjust_buiucani(parts))
     parts = carve_special(u, parts)
     parts = defragment(merge_rename(u, parts))
     if u.get("key") == "chisinau:Centru":
@@ -502,15 +539,24 @@ _l3 = [x for u in units for x in u["l3"]] + [x for n in new_units for x in n["l3
 _cov = _sh.coverage_simplify(_sh.set_precision(_sh.GeometryCollection([LL(x["geom"]) for x in _l3]).geoms, 0.000001), 0.00003)
 for x, g_ in zip(_l3, _cov):
     x["_gg"] = set_precision(_sh.make_valid(g_), 0.00001)
-for u in units:
+def emit_l4_l3(u, extra, sc):
+    """Level 4 = the building blocks; level 3 = their groups (same unit)."""
+    groups = defaultdict(list)
     for x in u["l3"]:
-        emit(3, x["geom"], {"ro": x["ro"], "en": x["en"] or x["ro"], "ru": x.get("ru"), "pop": x["pop"], "src": x["src"],
-                            "sector": u["sector"], "unit": u["ro"], "ukey": u.get("key"), "method": x["method"], "vil": x.get("village"), "_gg": x["_gg"]}, "both")
+        x["grp"] = group_of(u, x); groups[x["grp"]].append(x)
+        emit(4, x["geom"], {"ro": x["ro"], "en": x["en"] or x["ro"], "ru": x.get("ru"), "pop": x["pop"], "src": x["src"], "grp": x["grp"],
+                            "method": x["method"], "vil": x.get("village"), "_gg": x["_gg"], **extra}, sc)
+    for g, xs in groups.items():
+        one = len(xs) == 1 and xs[0]["ro"] == g
+        gg = set_precision(_sh.make_valid(unary_union([x["_gg"] for x in xs])), 0.00001)
+        emit(3, unary_union([x["geom"] for x in xs]).buffer(0), {"ro": g, "en": (xs[0]["en"] or g) if one else g, "pop": sum(x["pop"] for x in xs),
+             "src": xs[0]["src"] if one else "suma subcartierelor (nivelul 4)", "grp": g, "parts": None if one else ", ".join(x["ro"] for x in xs),
+             "method": xs[0]["method"] if one else "cartier format din: " + ", ".join(x["ro"] for x in xs), "vil": xs[0].get("village"), "_gg": gg, **extra}, sc)
+for u in units:
+    emit_l4_l3(u, {"sector": u["sector"], "unit": u["ro"], "ukey": u.get("key")}, "both")
 for n in new_units:
     seat = next(u for u in ref_units if u.get("key") == n["seat"])
-    for x in n["l3"]:
-        emit(3, x["geom"], {"ro": x["ro"], "en": x["en"] or x["ro"], "ru": x.get("ru"), "pop": x["pop"], "src": x["src"],
-                            "sector": seat["sector"], "unit": f'{seat["ro"]} (din 2027; azi {n["ro"]})', "ukey": seat.get("key"), "ukey0": n.get("key"), "unit0": n["ro"], "method": x["method"], "_gg": x["_gg"]}, "ref")
+    emit_l4_l3(n, {"sector": seat["sector"], "unit": f'{seat["ro"]} (din 2027; azi {n["ro"]})', "ukey": seat.get("key"), "ukey0": n.get("key"), "unit0": n["ro"]}, "ref")
 # neighbouring localities (outside)
 new_rids = {n["rid"] for n in new_units}
 ctx = []
@@ -549,7 +595,7 @@ json.dump({"type": "FeatureCollection", "features": features}, open(os.path.join
 from collections import Counter
 print(Counter((f["properties"]["lvl"], f["properties"]["sc"]) for f in features))
 for sc in ("cur", "ref"):
-    for lv in (1, 2, 3):
+    for lv in (1, 2, 3, 4):
         s = sum(f["properties"].get("pop", 0) for f in features if f["properties"]["lvl"] == lv and f["properties"]["sc"] in (sc, "both"))
         print(sc, "L", lv, s)
 print("building pop total", round(sum(bpop)), "extra", sum(e[2] for e in extra))

@@ -10,7 +10,7 @@ const aiNs = () => (AI ??= (async () => {
     return { s, maxTools: lim?.tools?.maxCount || 0 };
   } catch { return null; }
 })());
-const lvlWord = (l) => ({ 1: "sector", 2: "mayoralty/urban sector", 3: "neighbourhood/village", ctx: "outside locality", mun: "municipality" }[l] || l);
+const lvlWord = (l) => ({ 1: "sector", 2: "mayoralty/urban sector", 3: "neighbourhood/village", 4: "sub-neighbourhood", ctx: "outside locality", mun: "municipality" }[l] || l);
 
 // ---------------------------------------------------------------- helpers to find things by name
 async function featsAt(level) {
@@ -47,12 +47,12 @@ const aiNote = (txt) => { const i = SH.chat.findIndex((m) => m.live), m = { me: 
 // ---------------------------------------------------------------- tools
 function aiTools() {
   return [
-    { name: "list_areas", description: "List administrative areas with population, area (km²) and parent. level 1 = the 5 sectors, 2 = mayoralties and Chișinău's urban sectors, 3 = neighbourhoods and villages. Reflects the open planning project if one is open. Optional filter: parent name.",
-      inputSchema: { type: "object", properties: { level: { type: "integer", enum: [1, 2, 3] }, parent: { type: "string" } }, required: ["level"] },
+    { name: "list_areas", description: "List administrative areas with population, area (km²) and parent. level 1 = the 5 sectors, 2 = mayoralties and Chișinău's urban sectors, 3 = neighbourhoods and villages, 4 = sub-neighbourhoods (the building blocks; each has a level-3 group). Reflects the open planning project if one is open. Optional filter: parent name.",
+      inputSchema: { type: "object", properties: { level: { type: "integer", enum: [1, 2, 3, 4] }, parent: { type: "string" } }, required: ["level"] },
       async execute({ level, parent }) {
         let fs = await featsAt(Number(level));
         if (parent) { const k = deacc(parent); fs = fs.filter((f) => deacc(`${f.properties.sector || ""} ${f.properties.unit || ""}`).includes(k)); }
-        return fs.filter((f) => f.properties.lvl !== "ctx").slice(0, 160).map((f) => ({ name: f.properties.ro, pop: Math.round((f.properties.pop || 0) * popScale()), km2: f.properties.km2, sector: f.properties.sector, mayoralty: f.properties.unit }));
+        return fs.filter((f) => f.properties.lvl !== "ctx").slice(0, 160).map((f) => ({ name: f.properties.ro, pop: Math.round((f.properties.pop || 0) * popScale()), km2: f.properties.km2, sector: f.properties.sector, mayoralty: f.properties.unit, neighbourhood: f.properties.lvl === 4 ? f.properties.grp : undefined, parts: f.properties.parts }));
       } },
     { name: "area_details", description: "Details of one named area (any level): population at the selected date, area, density, estimated jobs and jobs per resident (commuting balance), sector, mayoralty, source.",
       inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
@@ -88,15 +88,16 @@ function aiTools() {
         SH.j = { a: groups[a].label, b: groups[b].label, res, open: 0 };
         return res.slice(0, 3).map((o) => ({ depart: hm(o.dep), arrive: hm(o.arr), changes: o.ch, lines: o.legs.map((l) => l.r), price_lei: o.price }));
       } },
-    { name: "edit_project", description: "Change administrative borders in the open planning project (one is created if none is open; every change can be undone). actions: merge_mayoralties (items = level-2 names, new_name optional), merge_sectors (level-1 names), merge_neighbourhoods (level-3 names into one, new_name), rename (one item, any level, new_name), move_to_mayoralty (level-3 items, target = mayoralty name or 'new' with new_name), move_to_sector (level-2 items, target = sector name or 'new' with new_name), remove_from_municipality (level-3 items), add_to_municipality (outside localities, target mayoralty), undo.",
+    { name: "edit_project", description: "Change administrative borders in the open planning project (one is created if none is open; every change can be undone). actions: merge_mayoralties (items = level-2 names, new_name optional), merge_sectors (level-1 names), merge_neighbourhoods (level-3 names into one, new_name), move_to_neighbourhood (level-4 sub-neighbourhoods, target = level-3 neighbourhood or a new name), rename (one item, any level, new_name), move_to_mayoralty (level-3 or level-4 items, target = mayoralty name or 'new' with new_name), move_to_sector (level-2 items, target = sector name or 'new' with new_name), remove_from_municipality (level-3 or 4 items), add_to_municipality (outside localities, target mayoralty), undo.",
       inputSchema: { type: "object", properties: { action: { type: "string" }, items: { type: "array", items: { type: "string" } }, target: { type: "string" }, new_name: { type: "string" } }, required: ["action"] },
       async execute({ action, items = [], target, new_name }) {
         await ensureProject(); const nm = String(new_name || "");
         if (action === "undo") { pjUndo(); return "Undone"; }
-        const lvl = { merge_mayoralties: 2, merge_sectors: 1, merge_neighbourhoods: 3, move_to_mayoralty: 3, move_to_sector: 2, remove_from_municipality: 3, add_to_municipality: 3 }[action];
+        const lvl = { merge_mayoralties: 2, merge_sectors: 1, merge_neighbourhoods: 3, move_to_neighbourhood: 4, move_to_mayoralty: 3, move_to_sector: 2, remove_from_municipality: 3, add_to_municipality: 3 }[action];
         let sel;
+        const any34 = async (n) => { try { return pickByName(await featsAt(lvl), n).properties; } catch (e) { if (lvl === 3) return pickByName(await featsAt(4), n).properties; throw e; } };
         if (action === "rename") { sel = [pickByName(await featsAt(null), items[0]).properties]; }
-        else { const fs = await featsAt(lvl); sel = items.map((n) => pickByName(fs, n).properties); }
+        else sel = await Promise.all(items.map(any34));
         if (!sel.length) throw new Error("No items");
         PJ.sel = sel; aiNote(`${action}: ${sel.map((p) => p.ro).join(", ")}${nm ? " → " + nm : ""}`);
         if (action === "merge_mayoralties") pjAction("merge-units", { name: nm });
@@ -106,12 +107,13 @@ function aiTools() {
         else if (action === "move_to_sector") {
           const sk = !target || /^(new|nou)$/i.test(target) ? "__new" : pickByName(await featsAt(1), target).properties.skey;
           pjAction("move-units", { sector: sk, name: nm });
-        } else if (action === "move_to_mayoralty" || action === "add_to_municipality" || action === "merge_neighbourhoods") {
-          let uk;
-          if (action === "merge_neighbourhoods") uk = sel[0].ukey || pickByName(await featsAt(2), target || "").properties.ukey;
-          else uk = !target || /^(new|nou)$/i.test(target) ? "__new" : pickByName(await featsAt(2), target).properties.ukey;
-          pjAction("move-blocks", { unit: uk, name: action === "merge_neighbourhoods" ? "" : nm });
-          if (action === "merge_neighbourhoods" && nm) { const names = { ...PJ.cur.names }; sel.forEach((p) => (names[p.bkey] = nm)); PJ.cur.names = names; pjSave(); await pjRebuild(); renderLabels(); }
+        } else if (action === "merge_neighbourhoods") pjAction("set-group", { name: nm });
+        else if (action === "move_to_neighbourhood") {
+          let tgt = String(target || nm || ""); try { const f = pickByName(await featsAt(3), tgt).properties; tgt = f.ro; PJ.sel = sel.map((p) => ({ ...p, ukey: f.ukey })); } catch {}
+          pjAction("set-group", { name: tgt });
+        } else if (action === "move_to_mayoralty" || action === "add_to_municipality") {
+          const uk = !target || /^(new|nou)$/i.test(target) ? "__new" : pickByName(await featsAt(2), target).properties.ukey;
+          pjAction("move-blocks", { unit: uk, name: nm });
         } else throw new Error("Unknown action " + action);
         PJ.sel = []; await new Promise((r) => setTimeout(r, 400)); await pjRebuild();
         return `Done in project "${PJ.cur.name}". Last change: ${PJ.cur.log.at(-1)?.what}`;

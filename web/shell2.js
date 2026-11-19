@@ -293,7 +293,7 @@ async function searchAll(q) {
   const docs = ARCH.filter((a) => (a.vis === "pub" || isOff()) && (hit(a.t[0]) || hit(a.t[1]) || hit(ARCH_CAT[a.cat][0]) || String(a.y) === k)).map((a) => ({ ...a }))
     .concat(myDocs().filter((d) => hit(d.title) || hit(d.note || "")).map((d) => ({ ...d, vis: "me" })));
   const admin = await adminFC();
-  const locs = admin.features.filter((f) => [2, 3, "ctx"].includes(f.properties.lvl) && [REF(), "both"].includes(f.properties.sc ?? "both") && (hit(f.properties.ro) || hit(f.properties.en || ""))).slice(0, 10);
+  const locs = admin.features.filter((f) => [2, 3, 4, "ctx"].includes(f.properties.lvl) && [REF(), "both"].includes(f.properties.sc ?? "both") && (hit(f.properties.ro) || hit(f.properties.en || ""))).slice(0, 10);
   const seenN = new Set();
   const pois = (await load("pois.geojson")).features.filter((f) => f.properties.n && hit(f.properties.n) && !seenN.has(f.properties.n) && seenN.add(f.properties.n)).slice(0, 14);
   const props = Object.values(SH.props || {}).filter((p) => hit(p.title) || hit(p.desc || ""));
@@ -312,7 +312,7 @@ async function shArchive() {
     const n = r.docs.length + r.locs.length + r.pois.length + r.props.length;
     res = `<h3>${n} ${L("rezultate pentru", "results for")} „${esc(q)}”</h3>`
       + (r.docs.length ? `<div class="cap">${L("Documente", "Documents")}</div><ul class="plist">${r.docs.map(docCard).join("")}</ul>` : "")
-      + (r.locs.length ? `<div class="cap">${L("Localități și cartiere", "Localities and districts")}</div><ul class="rlist">${r.locs.map((f) => `<li><button type="button" class="linkbtn" data-fly="${f.properties.lx},${f.properties.ly}" data-z="13">${esc(nameOf(f.properties))}</button><span class="small"> · ${f.properties.lvl === 3 ? L("cartier / sat", "district / village") : f.properties.lvl === "ctx" ? L("în afara municipiului", "outside the municipality") : L("primărie / sector urban", "mayoralty / urban sector")}${f.properties.pop ? ` · ${fmt(f.properties.pop)} ${L("loc.", "people")}` : ""}</span></li>`).join("")}</ul>` : "")
+      + (r.locs.length ? `<div class="cap">${L("Localități și cartiere", "Localities and districts")}</div><ul class="rlist">${r.locs.map((f) => `<li><button type="button" class="linkbtn" data-fly="${f.properties.lx},${f.properties.ly}" data-z="13">${esc(nameOf(f.properties))}</button><span class="small"> · ${f.properties.lvl === 4 ? L("subcartier", "sub-neighbourhood") : f.properties.lvl === 3 ? L("cartier / sat", "district / village") : f.properties.lvl === "ctx" ? L("în afara municipiului", "outside the municipality") : L("primărie / sector urban", "mayoralty / urban sector")}${f.properties.pop ? ` · ${fmt(f.properties.pop)} ${L("loc.", "people")}` : ""}</span></li>`).join("")}</ul>` : "")
       + (r.pois.length ? `<div class="cap">${L("Locuri din atlas", "Places in the atlas")}</div><ul class="rlist">${r.pois.map((f) => `<li><button type="button" class="linkbtn" data-fly="${f.geometry.coordinates.join(",")}">${esc(f.properties.n)}</button><span class="small"> · ${esc(t("cat")[f.properties.c] || "")}</span></li>`).join("")}</ul>` : "")
       + (r.props.length ? `<div class="cap">${L("Propuneri și petiții", "Proposals and petitions")}</div><ul class="rlist">${r.props.map((p) => `<li><button type="button" class="linkbtn" data-go="projects">${esc(p.title)}</button></li>`).join("")}</ul>` : "")
       + (n ? "" : `<p class="hint">${L("Nimic găsit. Încearcă alt cuvânt.", "Nothing found. Try another word.")}</p>`);

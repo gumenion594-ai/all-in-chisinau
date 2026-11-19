@@ -59,7 +59,7 @@ async function pjFlush() {
 function pjNew(name) {
   const id = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   const p = { id, name: name || L("Proiect nou", "New project"), created: new Date().toISOString(), updated: new Date().toISOString(),
-    base: REF(), blk: {}, units: {}, sectors: {}, names: {}, roads: [], log: [], hist: [] };
+    base: REF(), blk: {}, units: {}, sectors: {}, names: {}, grp: {}, roads: [], log: [], hist: [] };
   PJ.list[id] = p; pjOpen(id, true);
 }
 async function pjOpen(id, fresh) {
@@ -107,15 +107,16 @@ async function pjBlocks() {
   for (const f of admin.features) {
     const p = f.properties;
     if (![base, "both"].includes(p.sc)) continue;
-    if (p.lvl === 3) {
+    if (p.lvl === 4) {   // sub-neighbourhoods are the building blocks; their level-3 group comes along
       const uname = String(p.unit).split(" (din 2027")[0];
-      out.push({ key: bkey(p), f, unit: ukeyOfName(uname), uname, sector: p.sector, kind: uname.startsWith("Chișinău – ") ? "city" : "commune", pop: p.pop || 0 });
+      out.push({ key: bkey(p), f, unit: ukeyOfName(uname), uname, sector: p.sector, kind: uname.startsWith("Chișinău – ") ? "city" : "commune", pop: p.pop || 0, grp: p.grp || p.ro });
     } else if (p.lvl === "ctx") {
       out.push({ key: bkey(p), f, unit: null, uname: p.ro, sector: null, kind: p.kind || "commune", pop: p.pop || 0, ctx: true });
     }
   }
   return out;
 }
+function pjGrpOf(b) { return PJ.cur.grp?.[b.key] ?? b.grp ?? b.f.properties.ro; }
 function pjUnitOf(b) { return Object.prototype.hasOwnProperty.call(PJ.cur.blk, b.key) ? PJ.cur.blk[b.key] : b.unit; }
 function pjUnits() {
   const u = {};
@@ -175,14 +176,23 @@ async function pjRebuild() {
     return pr;
   };
   const secName = (sk) => sectors[sk]?.ro?.replace(/^Sectorul /, "") ?? sk;
-  // level 3 + outside localities
+  // level 4 (blocks), level 3 (groups of blocks inside the same mayoralty) + outside localities
+  PJ.gblocks = {};
   for (const [uk, bs] of Object.entries(byUnit)) {
-    const u = units[uk];
+    const u = units[uk], groups = {};
     for (const b of bs) {
-      const p = b.f.properties;
-      push(3, b.f.geometry, { ro: PJ.cur.names[b.key] || p.ro, en: PJ.cur.names[b.key] || p.en, pop: b.pop, src: p.src, method: p.method,
+      const p = b.f.properties, g = b.ctx ? (PJ.cur.grp?.[b.key] ?? p.ro) : pjGrpOf(b);
+      (groups[g] ||= []).push(b);
+      push(4, b.f.geometry, { ro: PJ.cur.names[b.key] || p.ro, en: PJ.cur.names[b.key] || p.en, pop: b.pop, src: p.src, method: p.method, grp: g,
         sector: secName(u.sector), scol: pjSecCol(u.sector), unit: u.ro, bkey: b.key, ukey: uk, skey: u.sector,
         note: b.ctx ? L("Inclus în municipiu în acest proiect", "Added to the municipality in this project") : null });
+    }
+    for (const [g, gb] of Object.entries(groups)) {
+      const gkey = uk + "|" + g; PJ.gblocks[gkey] = gb.map((b) => b.key);
+      const one = gb.length === 1;
+      push(3, one ? gb[0].f.geometry : union(T, gb.map((b) => b.f)), { ro: g, en: g, pop: gb.reduce((a, b) => a + b.pop, 0), grp: g, gkey,
+        parts: one ? null : gb.map((b) => PJ.cur.names[b.key] || b.f.properties.ro).join(", "), src: one ? gb[0].f.properties.src : L("suma subcartierelor (proiect)", "sum of sub-neighbourhoods (project)"),
+        sector: secName(u.sector), scol: pjSecCol(u.sector), unit: u.ro, ukey: uk, skey: u.sector, bkey: one ? gb[0].key : null });
     }
   }
   for (const b of outside) {
@@ -222,7 +232,7 @@ async function pjRebuild() {
 
 // ---------------------------------------------------------------- admin edits
 function pjCommit(label, fn) {
-  const snap = { blk: PJ.cur.blk, units: PJ.cur.units, sectors: PJ.cur.sectors, names: PJ.cur.names };
+  const snap = { blk: PJ.cur.blk, units: PJ.cur.units, sectors: PJ.cur.sectors, names: PJ.cur.names, grp: PJ.cur.grp || {} };
   PJ.cur.hist = [...(PJ.cur.hist || []).slice(-24), structuredClone(snap)];
   fn();
   PJ.cur.log = [...(PJ.cur.log || []), { t: new Date().toISOString(), what: label }].slice(-60);
@@ -240,7 +250,8 @@ function pjToggleSel(props) {
   const i = PJ.sel.findIndex((x) => x.id === props.id);
   if (i >= 0) PJ.sel.splice(i, 1);
   else {
-    if (PJ.sel.length && PJ.sel[0].lvl !== props.lvl && !(PJ.sel[0].lvl === 3 && props.lvl === "ctx") && !(PJ.sel[0].lvl === "ctx" && props.lvl === 3)) PJ.sel = [];
+    const blk = (l) => l === 3 || l === 4 || l === "ctx";
+    if (PJ.sel.length && PJ.sel[0].lvl !== props.lvl && !(blk(PJ.sel[0].lvl) && blk(props.lvl) && (PJ.sel[0].lvl === "ctx" || props.lvl === "ctx"))) PJ.sel = [];
     PJ.sel.push(props);
   }
   map.setFilter("admin-sel", ["in", ["get", "id"], ["literal", PJ.sel.map((x) => x.id)]]);
@@ -250,7 +261,8 @@ function pjBlockKeysOf(sel) {
   // level-3 / outside selection: their own keys; level 2: all blocks of those units; level 1: all blocks of those sectors
   const keys = new Set();
   for (const p of sel) {
-    if (p.bkey) keys.add(p.bkey);
+    if (p.gkey && PJ.gblocks?.[p.gkey]) PJ.gblocks[p.gkey].forEach((k) => keys.add(k));
+    else if (p.bkey) keys.add(p.bkey);
     else if (p.ukey) PJ.blocks.forEach((b) => { if (pjUnitOf(b) === p.ukey) keys.add(b.key); });
   }
   return [...keys];
@@ -265,18 +277,27 @@ function pjAction(kind, opts) {
         uk = "n:" + Date.now().toString(36);
         PJ.cur.units = { ...PJ.cur.units, [uk]: { ro: nm || L("Primărie nouă", "New mayoralty"), sector: opts.sector || units[sel[0].ukey]?.sector || "Centru", kind: "commune" } };
       }
-      const blk = { ...PJ.cur.blk }; sel.forEach((p) => (blk[p.bkey] = uk)); PJ.cur.blk = blk;
+      const blk = { ...PJ.cur.blk }; pjBlockKeysOf(sel).forEach((k) => (blk[k] = uk)); PJ.cur.blk = blk;
     });
   } else if (kind === "remove-blocks") {
     pjCommit(L("Scos din municipiu", "Removed from the municipality") + ": " + sel.map((p) => p.ro).join(", "), () => {
-      const blk = { ...PJ.cur.blk }; sel.forEach((p) => (blk[p.bkey] = null)); PJ.cur.blk = blk;
+      const blk = { ...PJ.cur.blk }; pjBlockKeysOf(sel).forEach((k) => (blk[k] = null)); PJ.cur.blk = blk;
     });
   } else if (kind === "rename") {
     const p = sel[0]; if (!nm) return;
     pjCommit(L("Redenumit", "Renamed") + `: ${p.ro} → ${nm}`, () => {
-      if (p.lvl === 3 || p.lvl === "ctx") PJ.cur.names = { ...PJ.cur.names, [p.bkey]: nm };
+      if (p.lvl === 4 || p.lvl === "ctx" || (p.lvl === 3 && !p.gkey)) PJ.cur.names = { ...PJ.cur.names, [p.bkey]: nm };
+      else if (p.lvl === 3) { const g = { ...(PJ.cur.grp || {}) }; pjBlockKeysOf([p]).forEach((k) => (g[k] = nm)); PJ.cur.grp = g; }
       else if (p.lvl === 2) PJ.cur.units = { ...PJ.cur.units, [p.ukey]: { ...(PJ.cur.units[p.ukey] || {}), ro: nm } };
       else if (p.lvl === 1) PJ.cur.sectors = { ...PJ.cur.sectors, [p.skey]: { ro: nm } };
+    });
+  } else if (kind === "set-group") {
+    // level 3: merge the selected neighbourhoods into one; level 4: put the selected sub-neighbourhoods into a neighbourhood (existing or new)
+    const keys = pjBlockKeysOf(sel), g0 = nm || sel[0].grp || sel[0].ro, uk = sel[0].ukey;
+    pjCommit((sel[0].lvl === 3 ? L("Cartiere unite", "Neighbourhoods merged") : L("Subcartiere grupate", "Sub-neighbourhoods grouped")) + `: ${sel.map((p) => p.ro).join(" + ")} → ${g0}`, () => {
+      const g = { ...(PJ.cur.grp || {}) }, blk = { ...PJ.cur.blk };
+      keys.forEach((k) => { g[k] = g0; if (uk) blk[k] = uk; });
+      PJ.cur.grp = g; PJ.cur.blk = blk;
     });
   } else if (kind === "merge-units") {
     const [a, ...rest] = sel;
@@ -317,14 +338,16 @@ function pjRenderPanel() {
   else {
     h += `<div class="pjsel">${sel.map((p) => `<span class="keptchip">${esc(p.ro)}</span>`).join("")}<button type="button" class="btn ghost sm" data-pj="clear">${L("Golește", "Clear")}</button></div>`;
     const nameIn = (ph, val) => `<input type="text" class="pjin" id="pjname" placeholder="${esc(ph)}" value="${esc(val || "")}">`;
-    if (lvl === 3 || lvl === "ctx") {
-      const inside = sel.every((p) => p.lvl === 3);
+    if (lvl === 3 || lvl === 4 || lvl === "ctx") {
+      const inside = sel.every((p) => p.lvl === 3 || p.lvl === 4);
       h += `<div class="pjact"><b>${inside ? L("Mută în primăria", "Move to mayoralty") : L("Include în municipiu, în primăria", "Add to the municipality, in mayoralty")}</b>
         <select id="pjunit">${pjOptions(units, sel[0].ukey, `<option value="__new">${L("— primărie nouă —", "— new mayoralty —")}</option>`)}</select>
         <div class="pjnew" id="pjnewu" hidden>${nameIn(L("Numele primăriei noi", "Name of the new mayoralty"), sel.length === 1 && lvl === "ctx" ? sel[0].ro : "")}
           <select id="pjnewsec">${pjOptions(sectors, units[sel[0].ukey]?.sector)}</select></div>
         <button type="button" class="btn" data-pj="move-blocks">${L("Aplică", "Apply")}</button></div>`;
       if (sel.length === 1) h += `<div class="pjact"><b>${L("Redenumește", "Rename")}</b><input type="text" class="pjin" id="pjren" value="${esc(sel[0].ro)}"><button type="button" class="btn ghost" data-pj="rename">${L("Redenumește", "Rename")}</button></div>`;
+      if (inside && lvl === 3 && sel.length > 1) h += `<div class="pjact"><b>${L("Unește cartierele", "Merge neighbourhoods")}</b><input type="text" class="pjin" id="pjgrp" value="${esc(sel[0].ro)}"><button type="button" class="btn" data-pj="set-group">${L("Unește", "Merge")}</button></div>`;
+      if (inside && lvl === 4) h += `<div class="pjact"><b>${L("Pune în cartierul", "Put in neighbourhood")}</b><input type="text" class="pjin" id="pjgrp" list="pjgrps" value="${esc(sel[0].grp || "")}" placeholder="${esc(L("cartier existent sau nume nou", "existing neighbourhood or a new name"))}"><datalist id="pjgrps">${[...new Set((PJ.admin?.features || []).filter((f) => f.properties.lvl === 3 && f.properties.ukey === sel[0].ukey).map((f) => f.properties.ro))].map((n) => `<option value="${esc(n)}">`).join("")}</datalist><button type="button" class="btn" data-pj="set-group">${L("Aplică", "Apply")}</button></div>`;
       if (inside) h += `<div class="pjact"><button type="button" class="btn ghost" data-pj="remove-blocks">${L("Scoate din municipiu", "Remove from the municipality")}</button></div>`;
     } else if (lvl === 2) {
       h += `<div class="pjact"><b>${L("Mută în sectorul", "Move to sector")}</b><select id="pjsec">${pjOptions(sectors, sel[0].skey, `<option value="__new">${L("— sector nou —", "— new sector —")}</option>`)}</select>
@@ -337,8 +360,8 @@ function pjRenderPanel() {
       if (sel.length === 1) h += `<div class="pjact"><b>${L("Redenumește", "Rename")}</b><input type="text" class="pjin" id="pjren" value="${esc(sel[0].ro)}"><button type="button" class="btn ghost" data-pj="rename">${L("Redenumește", "Rename")}</button></div>`;
     }
   }
-  h += `<p class="small">${L("Pentru sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Pentru primării noi: la nivelul 3 selectează cartierele sau satele și alege „primărie nouă”. Localitățile vecine se selectează la nivelul 3.",
-    "New sectors: at level 2 select mayoralties and pick “new sector”. New mayoralties: at level 3 select neighbourhoods or villages and pick “new mayoralty”. Neighbouring localities are selected at level 3.")}</p>`;
+  h += `<p class="small">${L("Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau subcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți subcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.",
+    "New sectors: at level 2 select mayoralties and pick “new sector”. New mayoralties: at level 3 or 4 select neighbourhoods, villages or sub-neighbourhoods and pick “new mayoralty”. At level 3 you can merge neighbourhoods; at level 4 you move sub-neighbourhoods between neighbourhoods. Neighbouring localities are selected at level 3 or 4.")}</p>`;
   const log = PJ.cur.log || [];
   h += `<div class="cap">${L("Modificări", "Changes")} (${log.length})</div>`
     + (log.length ? `<ol class="pjlog">${log.slice(-8).reverse().map((x) => `<li>${esc(x.what)}</li>`).join("")}</ol>` : `<p class="hint">${L("Nicio modificare încă.", "No changes yet.")}</p>`)
@@ -539,6 +562,7 @@ function pjBind() {
     else if (a === "remove-blocks") pjAction("remove-blocks", {});
     else if (a === "rename") pjAction("rename", { name: v("pjren") });
     else if (a === "merge-units") pjAction("merge-units", { name: v("pjmerge") });
+    else if (a === "set-group") pjAction("set-group", { name: v("pjgrp") });
     else if (a === "move-units") pjAction("move-units", { sector: v("pjsec"), name: v("pjname") });
     else if (a === "merge-sectors") pjAction("merge-sectors", { name: v("pjmerge") });
     else if (a === "road-start") pjStartRoad();

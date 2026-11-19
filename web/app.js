@@ -9,7 +9,7 @@ const T = {
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
-    l3: "3 · Cartiere și sate", l3d: "Cartiere urbane și din suburbii, sate din comune",
+    l3: "3 · Cartiere și sate", l3d: "Cartiere urbane, orașe și sate (fiecare sat separat)", l4: "4 · Subcartiere", l4d: "Cele mai mici unități: subcartiere și părți de sat; din ele se construiesc proiectele",
     create: "Creează", project: "Proiect", rename: "Redenumește", closeproj: "Închide proiectul", padmin: "Schimbări administrative", proads: "Drumuri noi", pnb: "Cartier nou", ped: "Zonă pietonală", pjbtn: "Proiecte", build: "Meniu de construcții", buildbtn: "Construcții", age: "Vechime", temp: "Vreme", cmp: "Comparație", cmp_h: "Bifează un oraș: conturul apare la mijlocul hărții, la aceeași scară. Trage de contur (sau de etichetă) ca să-l muți pe hartă.",
     cmp_note: "Contururile sunt limitele administrative din OpenStreetMap, la mărimea reală (proiecție echivalentă). New York City și Manhattan sunt fără ape, după limitele oficiale tăiate pe linia țărmului (NYC Planning). Bălți = municipiul (cu Elizaveta și Sadovoe).",
     cmp_center: "Adu la mijloc", cmp_ref: "Pentru comparație", age_l: "Perioada de construcție a clădirilor", age_n: "clădiri în municipiu", age_load: "Se încarcă clădirile (≈10 MB)…",
@@ -60,7 +60,7 @@ const T = {
     s_people: "Oameni și clădiri", s_places: "Locuri", s_mob: "Transport și infrastructură", s_terrain: "Relief",
     road_km: "Drumuri (km)", lane_km: "Benzi de circulație (km)", rail_km: "Cale ferată activă (km)", rail_tr: "Linii de cale ferată (km de șină)",
     elev: "Altitudine min / medie / max", popest: "Populație estimată", pop_note: "estimare după clădirile locuibile, Recensământ 2024",
-    lvlname: { mun: "Municipiu", 1: "Sector", 2: "Primărie", 3: "Cartier / sat", ctx: "Localitate vecină", poly: "Zonă desenată", circle: "Cerc", line: "Traseu măsurat" },
+    lvlname: { mun: "Municipiu", 1: "Sector", 2: "Primărie", 3: "Cartier / sat", 4: "Subcartier", ctx: "Localitate vecină", poly: "Zonă desenată", circle: "Cerc", line: "Traseu măsurat" },
     cat: { shop: "Magazine", mall: "Centre comerciale", food: "Restaurante, baruri, fast-food", cafe: "Cafenele", business: "Firme și servicii",
       health: "Spitale, clinici, stomatologii", pharmacy: "Farmacii", gov: "Instituții de stat, primării, poliție", school: "Școli, licee",
       kindergarten: "Grădinițe", college: "Colegii și școli profesionale", university: "Universități", religion: "Biserici și lăcașuri de cult", museum: "Muzee", monument: "Monumente istorice", hotel: "Hoteluri și pensiuni", park: "Parcuri și scuaruri" },
@@ -76,7 +76,7 @@ const T = {
     transit: "Transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",
-    l3: "3 · Neighbourhoods & villages", l3d: "City and suburban neighbourhoods, villages within communes",
+    l3: "3 · Neighbourhoods & villages", l3d: "Urban neighbourhoods, towns and villages (each village separate)", l4: "4 · Sub-neighbourhoods", l4d: "The smallest units: sub-neighbourhoods and parts of villages; projects are built from them",
     create: "Create", project: "Project", rename: "Rename", closeproj: "Close project", padmin: "Administrative changes", proads: "New roads", pnb: "New district", ped: "Pedestrian zone", pjbtn: "Projects", build: "Construction menu", buildbtn: "Construction", age: "Age", temp: "Weather", cmp: "Compare", cmp_h: "Tick a city: its outline appears in the middle of the map at the same scale. Drag the outline (or its label) to move it.",
     cmp_note: "Outlines are OpenStreetMap administrative boundaries at true size (equal-area). New York City and Manhattan are land only, using the official shoreline-clipped boundaries (NYC Planning). Bălți = the municipality (with Elizaveta and Sadovoe).",
     cmp_center: "Bring to centre", cmp_ref: "For comparison", age_l: "Building construction period", age_n: "buildings in the municipality", age_load: "Loading buildings (≈10 MB)…",
@@ -127,7 +127,7 @@ const T = {
     s_people: "People and buildings", s_places: "Places", s_mob: "Transport and infrastructure", s_terrain: "Terrain",
     road_km: "Roads (km)", lane_km: "Traffic lanes (km)", rail_km: "Active railway (km)", rail_tr: "Railway track (km of rail)",
     elev: "Elevation min / mean / max", popest: "Estimated population", pop_note: "estimate from residential buildings, 2024 Census",
-    lvlname: { mun: "Municipality", 1: "Sector", 2: "Mayoralty", 3: "Neighbourhood / village", ctx: "Neighbouring locality", poly: "Drawn area", circle: "Circle", line: "Measured route" },
+    lvlname: { mun: "Municipality", 1: "Sector", 2: "Mayoralty", 3: "Neighbourhood / village", 4: "Sub-neighbourhood", ctx: "Neighbouring locality", poly: "Drawn area", circle: "Circle", line: "Measured route" },
     cat: { shop: "Shops", mall: "Shopping malls", food: "Restaurants, bars, fast food", cafe: "Cafés", business: "Businesses and services",
       health: "Hospitals, clinics, dentists", pharmacy: "Pharmacies", gov: "Government, town halls, police", school: "Schools, lyceums",
       kindergarten: "Kindergartens", college: "Colleges and vocational schools", university: "Universities", religion: "Churches and places of worship", museum: "Museums", monument: "Historic monuments", hotel: "Hotels and guesthouses", park: "Parks and squares" },
@@ -942,7 +942,7 @@ async function render() {
   vis("admin-line", !only || adminOn); vis("admin-mun", !only || adminOn);
   map.setPaintProperty("admin-line", "line-color", onImg && !only ? "#ffffff" : P.ink);
   map.setPaintProperty("admin-ctx", "line-color", onImg && !only ? "#e9ecef" : P.line);
-  map.setPaintProperty("admin-line", "line-width", lvl === 3 ? 0.8 : lvl === 2 ? 1.3 : 2.2);
+  map.setPaintProperty("admin-line", "line-width", lvl === 4 ? 0.6 : lvl === 3 ? 0.8 : lvl === 2 ? 1.3 : 2.2);
   map.setPaintProperty("admin-line", "line-opacity", adminOn ? 0.85 : 0.35);
   // fill: the current tab wins; otherwise a kept population map, then a kept administrative map
   const fillMode = (m === "admin" || m === "pop") ? m : has("pop") ? "pop" : has("admin") ? "admin" : null;
@@ -1105,13 +1105,13 @@ async function renderLabels() {
   }
   updateLabelVis();
 }
-const LABEL_ALL_ZOOM = { 2: 11, 3: 11.5 };   // from these zooms every level-2 / level-3 name is shown
+const LABEL_ALL_ZOOM = { 2: 11, 3: 11.5, 4: 12.3 };   // from these zooms every level-2 / level-3 name is shown
 const TEMP_L3_ZOOM = 12, TEMP_L2_ZOOM = 10.8;   // weather map: sectors < 10.8 ≤ mayoralties < 12 ≤ neighbourhoods                       // weather map: districts below, neighbourhoods from here
 function updateLabelVis() {
   const z = map.getZoom();
   for (const mk of labelMarkers) {
     const el = mk.getElement();
-    const lv = el.classList.contains("lbl-2") ? 2 : el.classList.contains("lbl-3") ? 3 : 0;
+    const lv = el.classList.contains("lbl-2") ? 2 : el.classList.contains("lbl-3") ? 3 : el.classList.contains("lbl-4") ? 4 : 0;
     const lv1 = el.classList.contains("lbl-1");
     if (el.classList.contains("lbl-t") && (lv || lv1)) {
       el.hidden = lv1 ? z >= TEMP_L2_ZOOM : lv === 2 ? z < TEMP_L2_ZOOM || z >= TEMP_L3_ZOOM : z < TEMP_L3_ZOOM; continue;
@@ -1389,7 +1389,7 @@ async function renderInfo() {
   const p = sel.props || {};
   let h = `<button type="button" class="closex" id="closeinfo" aria-label="${L("Închide", "Close")}">×</button><span class="chip">${t("lvlname")[sel.kind === "admin" ? p.lvl : sel.kind]}</span>`;
   if (sel.kind === "admin") {
-    h += `<h3>${esc(nameOf(p))}</h3><dl>${p.sector ? `<dt>${t("sector")}</dt><dd>${esc(p.sector)}</dd>` : ""}${p.unit && p.lvl === 3 ? `<dt>${t("unit")}</dt><dd>${esc(p.unit)}</dd>` : ""}
+    h += `<h3>${esc(nameOf(p))}</h3><dl>${p.sector ? `<dt>${t("sector")}</dt><dd>${esc(p.sector)}</dd>` : ""}${p.unit && (p.lvl === 3 || p.lvl === 4) ? `<dt>${t("unit")}</dt><dd>${esc(p.unit)}</dd>` : ""}${p.lvl === 4 && p.grp && p.grp !== p.ro ? `<dt>${L("Cartier", "Neighbourhood")}</dt><dd>${esc(p.grp)}</dd>` : ""}${p.lvl === 3 && p.parts ? `<dt>${L("Subcartiere", "Sub-neighbourhoods")}</dt><dd>${esc(p.parts)}</dd>` : ""}
       <dt>${t("popl")}</dt><dd>${p.pop ? `<b>${fmt(p.pop * s)}</b>` : t("none")}</dd>
       <dt>${t("area")}</dt><dd>${fmt(p.km2, 2)} km²</dd><dt>${t("perim")}</dt><dd>${fmt(geomPerim(sel.geom), 1)} km</dd>
       <dt>${t("dens")}</dt><dd>${p.dens ? fmt(p.dens * s) + " / km²" : t("none")}</dd>
@@ -1606,9 +1606,9 @@ async function fillRegions() {
   const grp = (lvl, label) => {
     const fs = admin.features.filter((f) => f.properties.lvl === lvl && [REF(), "both"].includes(f.properties.sc))
       .sort((a, b) => nameOf(a.properties).localeCompare(nameOf(b.properties), loc()));
-    return `<optgroup label="${esc(label)}">` + fs.map((f) => `<option value="${f.properties.id}">${esc(nameOf(f.properties))}${lvl === 3 && f.properties.unit ? " · " + esc(f.properties.unit.replace(/^Chișinău – sectorul /, "")) : ""}</option>`).join("") + `</optgroup>`;
+    return `<optgroup label="${esc(label)}">` + fs.map((f) => `<option value="${f.properties.id}">${esc(nameOf(f.properties))}${lvl >= 3 && f.properties.unit ? " · " + esc(f.properties.unit.replace(/^Chișinău – sectorul /, "")) : ""}</option>`).join("") + `</optgroup>`;
   };
-  sel.innerHTML = `<option value="">${t("region_all")}</option>` + grp(1, t("l1")) + grp(2, t("l2")) + grp(3, t("l3"));
+  sel.innerHTML = `<option value="">${t("region_all")}</option>` + grp(1, t("l1")) + grp(2, t("l2")) + grp(3, t("l3")) + grp(4, t("l4"));
   if (S.region && !admin.features.some((f) => f.properties.id === S.region && [REF(), "both"].includes(f.properties.sc))) { S.region = null; applyRegion(false); }
   sel.value = S.region ? String(S.region) : "";
 }
