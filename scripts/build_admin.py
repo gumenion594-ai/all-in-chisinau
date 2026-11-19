@@ -320,7 +320,7 @@ MERGES = {
 }
 # level 3 = groups of level-4 units. Villages: every village is one level-3 unit (all neighbourhoods of a town merge).
 GROUPS = {
-    "chisinau:Centru": {"Telecentru": ["telecentru", "dokuceaev", "40 de ani"], "Centru": ["melestiu", "hrusca", "caucaz", "hutuleuca", "centru"]},
+    "chisinau:Centru": {"Telecentru": ["telecentru", "dokuceaev", "40 de ani"], "Centru": ["melestiu", "hrusca", "caucaz", "hutuleuca", "centru"], "Malina": ["malina mare", "malina mica"]},
     "chisinau:Buiucani": {"Buiucani": ["buiucani", "buiucanii vechi", "vovinteni", "flacara"]},
     "chisinau:Ciocana": {"Ciocana Nouă": ["ciocana", "zona industriala ciocana", "ciocana noua"], "Mircea cel Bătrân": ["cartierul 8*", "cartierul 9*"]},
     "chisinau:Rîșcani": {"Rîșcanii de Jos": ["riscanii de jos", "sipka", "tabacaria"], "Rîșcani-Visterniceni": ["riscani", "visterniceni"],
@@ -391,9 +391,36 @@ def trim_hrusca(parts):
     pk = max(getattr(keep, "geoms", [keep]), key=lambda g: g.area)
     rest = unary_union([rest] + [g for g in getattr(keep, "geoms", [keep]) if g is not pk])
     hr["geom"] = pk; hr["method"] = "zona din jurul str. Hrușca, la vest de gară"
-    parts.append(dict(geom=rest, ro="Zona feroviară (Gara Chișinău)", en="Railway zone (Chișinău station)", ru=None,
-                      method="fâșia căii ferate și a stației de triaj, separată de Hrușca", nb=True))
+    rz = dict(geom=rest, ro="Zona feroviară (Gara Chișinău)", en="Railway zone (Chișinău station)", ru=None,
+              method="fâșia căii ferate și a stației de triaj, separată de Hrușca; limita cu Hrușca pe bd. Iuri Gagarin", nb=True)
+    parts.append(rz)
+    gara_borders(hr, rz, next((x for x in parts if norm(x["ro"]) == "caucaz"), None))
     return parts
+
+
+def gara_borders(hr, rz, cz):
+    """Railway zone reaches bd. Iuri Gagarin; the station is inside it; Hrușca takes a ~150 m strip of Caucaz towards str. Ismail."""
+    # bd. Iuri Gagarin runs NW-SE from the Hrușca streets to the roundabout at the station square
+    gag = _extend(_LS([to_m(28.85488, 47.01346), to_m(28.85878, 47.01085)]), 600)
+    st_pt = Point(to_m(28.8602, 47.01305))
+    left, right = gag.buffer(4000, single_sided=True), gag.buffer(-4000, single_sided=True)
+    rail_side = left if left.contains(st_pt) else right
+    give = polys_only(hr["geom"].intersection(rail_side))
+    station = Point(to_m(28.8602, 47.01305)).buffer(130)
+    if give is not None and give.area < 0.8 * hr["geom"].area:
+        moved = unary_union([give, hr["geom"].intersection(station)])
+        rz["geom"] = unary_union([rz["geom"], moved]).buffer(0)
+        hr["geom"] = polys_only(hr["geom"].difference(rail_side).difference(station)) or hr["geom"]
+    else:
+        print("WARN gara_borders: Gagarin split skipped", None if give is None else give.area / hr["geom"].area)
+    if cz is not None:
+        shared = hr["geom"].boundary.intersection(cz["geom"].buffer(5))
+        if not shared.is_empty:
+            strip = polys_only(cz["geom"].intersection(shared.buffer(150)))
+            if strip is not None:
+                hr["geom"] = unary_union([hr["geom"], strip]).buffer(0)
+                cz["geom"] = polys_only(cz["geom"].difference(strip.buffer(0.5))) or cz["geom"]
+                hr["method"] += "; limita cu Caucaz mutată ~150 m spre str. Ismail"
 
 def build_l3(u):
     reg = u["geom"]
