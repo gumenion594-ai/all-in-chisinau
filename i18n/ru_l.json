@@ -590,13 +590,13 @@
 "\"Culoarea arată tipul dominant din fiecare pătrat; mărimea, numărul de locuri de muncă din tipurile bifate. Fundalul colorează unitățile după densitatea locurilor de muncă.\"": "\"Цвет показывает основной тип в каждом квадрате; размер — число рабочих мест отмеченных типов. Фон окрашивает территории по плотности рабочих мест.\"",
 "\"Dealurile arată unde sunt mai multe locuri de muncă decât locuitori (aici vin oamenii la muncă); văile, unde sunt mai mulți locuitori decât locuri de muncă (de aici pleacă). Înălțimea = diferența pe km².\"": "\"Холмы показывают, где рабочих мест больше, чем жителей (сюда приезжают работать); впадины — где жителей больше, чем рабочих мест (отсюда уезжают). Высота = разница на км².\"",
 "\"Cartier\"": "\"Район\"",
-"\"Subcartiere\"": "\"Микрорайоны\"",
-"\"suma subcartierelor (proiect)\"": "\"сумма микрорайонов (проект)\"",
+"\"Microcartiere\"": "\"Микрорайоны\"",
+"\"suma microcartierelor (proiect)\"": "\"сумма микрорайонов (проект)\"",
 "\"Cartiere unite\"": "\"Районы объединены\"",
-"\"Subcartiere grupate\"": "\"Микрорайоны сгруппированы\"",
+"\"Microcartiere grupate\"": "\"Микрорайоны сгруппированы\"",
 "\"Unește cartierele\"": "\"Объединить районы\"",
 "\"Pune în cartierul\"": "\"Поместить в район\"",
 "\"cartier existent sau nume nou\"": "\"существующий район или новое название\"",
-"\"Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau subcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți subcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.\"": "\"Новые секторы: на уровне 2 выберите примэрии и укажите «новый сектор». Новые примэрии: на уровне 3 или 4 выберите районы, сёла или микрорайоны и укажите «новая примэрия». На уровне 3 можно объединять районы; на уровне 4 — переносить микрорайоны из одного района в другой. Соседние населённые пункты выбираются на уровне 3 или 4.\"",
-"\"subcartier\"": "\"микрорайон\""
+"\"Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau microcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți microcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.\"": "\"Новые секторы: на уровне 2 выберите примэрии и укажите «новый сектор». Новые примэрии: на уровне 3 или 4 выберите районы, сёла или микрорайоны и укажите «новая примэрия». На уровне 3 можно объединять районы; на уровне 4 — переносить микрорайоны из одного района в другой. Соседние населённые пункты выбираются на уровне 3 или 4.\"",
+"\"microcartier\"": "\"микрорайон\""
 }

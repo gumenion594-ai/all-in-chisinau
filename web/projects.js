@@ -191,7 +191,7 @@ async function pjRebuild() {
       const gkey = uk + "|" + g; PJ.gblocks[gkey] = gb.map((b) => b.key);
       const one = gb.length === 1;
       push(3, one ? gb[0].f.geometry : union(T, gb.map((b) => b.f)), { ro: g, en: g, pop: gb.reduce((a, b) => a + b.pop, 0), grp: g, gkey,
-        parts: one ? null : gb.map((b) => PJ.cur.names[b.key] || b.f.properties.ro).join(", "), src: one ? gb[0].f.properties.src : L("suma subcartierelor (proiect)", "sum of sub-neighbourhoods (project)"),
+        parts: one ? null : gb.map((b) => PJ.cur.names[b.key] || b.f.properties.ro).join(", "), src: one ? gb[0].f.properties.src : L("suma microcartierelor (proiect)", "sum of sub-neighbourhoods (project)"),
         sector: secName(u.sector), scol: pjSecCol(u.sector), unit: u.ro, ukey: uk, skey: u.sector, bkey: one ? gb[0].key : null });
     }
   }
@@ -294,7 +294,7 @@ function pjAction(kind, opts) {
   } else if (kind === "set-group") {
     // level 3: merge the selected neighbourhoods into one; level 4: put the selected sub-neighbourhoods into a neighbourhood (existing or new)
     const keys = pjBlockKeysOf(sel), g0 = nm || sel[0].grp || sel[0].ro, uk = sel[0].ukey;
-    pjCommit((sel[0].lvl === 3 ? L("Cartiere unite", "Neighbourhoods merged") : L("Subcartiere grupate", "Sub-neighbourhoods grouped")) + `: ${sel.map((p) => p.ro).join(" + ")} → ${g0}`, () => {
+    pjCommit((sel[0].lvl === 3 ? L("Cartiere unite", "Neighbourhoods merged") : L("Microcartiere grupate", "Sub-neighbourhoods grouped")) + `: ${sel.map((p) => p.ro).join(" + ")} → ${g0}`, () => {
       const g = { ...(PJ.cur.grp || {}) }, blk = { ...PJ.cur.blk };
       keys.forEach((k) => { g[k] = g0; if (uk) blk[k] = uk; });
       PJ.cur.grp = g; PJ.cur.blk = blk;
@@ -360,7 +360,7 @@ function pjRenderPanel() {
       if (sel.length === 1) h += `<div class="pjact"><b>${L("Redenumește", "Rename")}</b><input type="text" class="pjin" id="pjren" value="${esc(sel[0].ro)}"><button type="button" class="btn ghost" data-pj="rename">${L("Redenumește", "Rename")}</button></div>`;
     }
   }
-  h += `<p class="small">${L("Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau subcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți subcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.",
+  h += `<p class="small">${L("Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau microcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți microcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.",
     "New sectors: at level 2 select mayoralties and pick “new sector”. New mayoralties: at level 3 or 4 select neighbourhoods, villages or sub-neighbourhoods and pick “new mayoralty”. At level 3 you can merge neighbourhoods; at level 4 you move sub-neighbourhoods between neighbourhoods. Neighbouring localities are selected at level 3 or 4.")}</p>`;
   const log = PJ.cur.log || [];
   h += `<div class="cap">${L("Modificări", "Changes")} (${log.length})</div>`

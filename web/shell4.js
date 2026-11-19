@@ -62,7 +62,7 @@ const QCAT = [
   ["health", "🏥", ["Spitale și clinici", "Hospitals & clinics"], (x) => x.cat === "health"], ["bank", "🏦", ["Bănci", "Banks"], (x) => x.kk === "bank"],
   ["fuel", "⛽", ["Benzinării", "Fuel"], (x) => x.kk === "fuel"], ["school", "🏫", ["Școli", "Schools"], (x) => x.cat === "school"],
 ];
-const KLABEL = { sub: ["Subcartier", "Sub-neighbourhood"], nb: ["Cartier / sat", "Neighbourhood / village"], town: ["Localitate", "Locality"], unit: ["Primărie / sector", "Mayoralty / sector"], street: ["Stradă", "Street"], stop: ["Stație", "Stop"] };
+const KLABEL = { sub: ["Microcartier", "Sub-neighbourhood"], nb: ["Cartier / sat", "Neighbourhood / village"], town: ["Localitate", "Locality"], unit: ["Primărie / sector", "Mayoralty / sector"], street: ["Stradă", "Street"], stop: ["Stație", "Stop"] };
 const fmtKm = (d) => (d < 1 ? `${fmt(Math.round((d * 1000) / 10) * 10)} m` : `${fmt(d, d < 10 ? 1 : 0)} km`);
 async function runSearch(q, cat) {
   const idx = await searchIndex(), here = (myLoc() || MOCK_LOC).c;

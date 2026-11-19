@@ -550,7 +550,7 @@ def emit_l4_l3(u, extra, sc):
         one = len(xs) == 1 and xs[0]["ro"] == g
         gg = set_precision(_sh.make_valid(unary_union([x["_gg"] for x in xs])), 0.00001)
         emit(3, unary_union([x["geom"] for x in xs]).buffer(0), {"ro": g, "en": (xs[0]["en"] or g) if one else g, "pop": sum(x["pop"] for x in xs),
-             "src": xs[0]["src"] if one else "suma subcartierelor (nivelul 4)", "grp": g, "parts": None if one else ", ".join(x["ro"] for x in xs),
+             "src": xs[0]["src"] if one else "suma microcartierelor (nivelul 4)", "grp": g, "parts": None if one else ", ".join(x["ro"] for x in xs),
              "method": xs[0]["method"] if one else "cartier format din: " + ", ".join(x["ro"] for x in xs), "vil": xs[0].get("village"), "_gg": gg, **extra}, sc)
 for u in units:
     emit_l4_l3(u, {"sector": u["sector"], "unit": u["ro"], "ukey": u.get("key")}, "both")

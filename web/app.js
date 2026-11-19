@@ -9,7 +9,7 @@ const T = {
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
-    l3: "3 · Cartiere și sate", l3d: "Cartiere urbane, orașe și sate (fiecare sat separat)", l4: "4 · Subcartiere", l4d: "Cele mai mici unități: subcartiere și părți de sat; din ele se construiesc proiectele",
+    l3: "3 · Cartiere și sate", l3d: "Cartiere urbane, orașe și sate (fiecare sat separat)", l4: "4 · Microcartiere", l4d: "Cele mai mici unități: microcartiere și părți de sat; din ele se construiesc proiectele",
     create: "Creează", project: "Proiect", rename: "Redenumește", closeproj: "Închide proiectul", padmin: "Schimbări administrative", proads: "Drumuri noi", pnb: "Cartier nou", ped: "Zonă pietonală", pjbtn: "Proiecte", build: "Meniu de construcții", buildbtn: "Construcții", age: "Vechime", temp: "Vreme", cmp: "Comparație", cmp_h: "Bifează un oraș: conturul apare la mijlocul hărții, la aceeași scară. Trage de contur (sau de etichetă) ca să-l muți pe hartă.",
     cmp_note: "Contururile sunt limitele administrative din OpenStreetMap, la mărimea reală (proiecție echivalentă). New York City și Manhattan sunt fără ape, după limitele oficiale tăiate pe linia țărmului (NYC Planning). Bălți = municipiul (cu Elizaveta și Sadovoe).",
     cmp_center: "Adu la mijloc", cmp_ref: "Pentru comparație", age_l: "Perioada de construcție a clădirilor", age_n: "clădiri în municipiu", age_load: "Se încarcă clădirile (≈10 MB)…",
@@ -60,7 +60,7 @@ const T = {
     s_people: "Oameni și clădiri", s_places: "Locuri", s_mob: "Transport și infrastructură", s_terrain: "Relief",
     road_km: "Drumuri (km)", lane_km: "Benzi de circulație (km)", rail_km: "Cale ferată activă (km)", rail_tr: "Linii de cale ferată (km de șină)",
     elev: "Altitudine min / medie / max", popest: "Populație estimată", pop_note: "estimare după clădirile locuibile, Recensământ 2024",
-    lvlname: { mun: "Municipiu", 1: "Sector", 2: "Primărie", 3: "Cartier / sat", 4: "Subcartier", ctx: "Localitate vecină", poly: "Zonă desenată", circle: "Cerc", line: "Traseu măsurat" },
+    lvlname: { mun: "Municipiu", 1: "Sector", 2: "Primărie", 3: "Cartier / sat", 4: "Microcartier", ctx: "Localitate vecină", poly: "Zonă desenată", circle: "Cerc", line: "Traseu măsurat" },
     cat: { shop: "Magazine", mall: "Centre comerciale", food: "Restaurante, baruri, fast-food", cafe: "Cafenele", business: "Firme și servicii",
       health: "Spitale, clinici, stomatologii", pharmacy: "Farmacii", gov: "Instituții de stat, primării, poliție", school: "Școli, licee",
       kindergarten: "Grădinițe", college: "Colegii și școli profesionale", university: "Universități", religion: "Biserici și lăcașuri de cult", museum: "Muzee", monument: "Monumente istorice", hotel: "Hoteluri și pensiuni", park: "Parcuri și scuaruri" },
@@ -1389,7 +1389,7 @@ async function renderInfo() {
   const p = sel.props || {};
   let h = `<button type="button" class="closex" id="closeinfo" aria-label="${L("Închide", "Close")}">×</button><span class="chip">${t("lvlname")[sel.kind === "admin" ? p.lvl : sel.kind]}</span>`;
   if (sel.kind === "admin") {
-    h += `<h3>${esc(nameOf(p))}</h3><dl>${p.sector ? `<dt>${t("sector")}</dt><dd>${esc(p.sector)}</dd>` : ""}${p.unit && (p.lvl === 3 || p.lvl === 4) ? `<dt>${t("unit")}</dt><dd>${esc(p.unit)}</dd>` : ""}${p.lvl === 4 && p.grp && p.grp !== p.ro ? `<dt>${L("Cartier", "Neighbourhood")}</dt><dd>${esc(p.grp)}</dd>` : ""}${p.lvl === 3 && p.parts ? `<dt>${L("Subcartiere", "Sub-neighbourhoods")}</dt><dd>${esc(p.parts)}</dd>` : ""}
+    h += `<h3>${esc(nameOf(p))}</h3><dl>${p.sector ? `<dt>${t("sector")}</dt><dd>${esc(p.sector)}</dd>` : ""}${p.unit && (p.lvl === 3 || p.lvl === 4) ? `<dt>${t("unit")}</dt><dd>${esc(p.unit)}</dd>` : ""}${p.lvl === 4 && p.grp && p.grp !== p.ro ? `<dt>${L("Cartier", "Neighbourhood")}</dt><dd>${esc(p.grp)}</dd>` : ""}${p.lvl === 3 && p.parts ? `<dt>${L("Microcartiere", "Sub-neighbourhoods")}</dt><dd>${esc(p.parts)}</dd>` : ""}
       <dt>${t("popl")}</dt><dd>${p.pop ? `<b>${fmt(p.pop * s)}</b>` : t("none")}</dd>
       <dt>${t("area")}</dt><dd>${fmt(p.km2, 2)} km²</dd><dt>${t("perim")}</dt><dd>${fmt(geomPerim(sel.geom), 1)} km</dd>
       <dt>${t("dens")}</dt><dd>${p.dens ? fmt(p.dens * s) + " / km²" : t("none")}</dd>
