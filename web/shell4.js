@@ -106,6 +106,7 @@ function searchBind() {
   const page = document.getElementById("page");
   page.addEventListener("input", (e) => { if (e.target.id === "ms-q") { clearTimeout(STMR); if (!e.target.value && document.querySelector("[data-qcat].on")) return; STMR = setTimeout(() => { document.querySelectorAll("[data-qcat]").forEach((b) => b.classList.remove("on")); searchUpdate(e.target.value); }, 160); } });
   page.addEventListener("keydown", (e) => {
+    if (e.target.id?.startsWith("cm-") && e.key === "Enter") { e.preventDefault(); document.querySelector(`[data-cadd="${e.target.id.slice(3)}"]`)?.click(); return; }
     if (e.target.id === "ms-q" && e.key === "Enter" && SRES[0]) { e.preventDefault(); openHit(0); }
     const tl = e.target.closest?.(".tile[data-go]"); if (tl && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); tileGo(tl); }
   });

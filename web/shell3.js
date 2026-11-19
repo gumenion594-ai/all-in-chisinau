@@ -9,6 +9,20 @@ const RCAT = { pothole: ["Groapă în drum", "Pothole"], light: ["Iluminat strad
   water: ["Apă sau canalizare", "Water or sewer"], transit: ["Stație sau transport public", "Stop or public transport"], sidewalk: ["Trotuar deteriorat", "Damaged sidewalk"], other: ["Altceva", "Something else"] };
 const RTO = { pothole: "Î.M. Exdrupo", sidewalk: "Î.M. Exdrupo", light: "Î.M. Lumteh", trash: "Î.M. Regia Autosalubritate", tree: "Î.M. Asociația Spații Verzi", water: "S.A. Apă-Canal Chișinău", transit: "Direcția transport public", other: "Primăria – registratura" };
 const PETITION_GOAL = 1000;
+// generic pictograms per project category (and for petitions)
+const PICO = {
+  roads: ["#495057", '<path d="M9 28L15 4M23 28L17 4"/><path d="M16 8v3M16 15v3M16 22v3"/>'],
+  green: ["#2f9e44", '<path d="M16 28v-8"/><path d="M16 21c-7 0-10-5-10-10 6 0 10 3 10 10zM16 18c6 0 9-4 9-9-5 0-9 3-9 9z"/>'],
+  transport: ["#1971c2", '<rect x="7" y="6" width="18" height="16" rx="3"/><path d="M7 15h18M11 26l2-4M21 26l-2-4"/><circle cx="11.5" cy="18.5" r="1"/><circle cx="20.5" cy="18.5" r="1"/>'],
+  edu: ["#f08c00", '<path d="M3 12l13-6 13 6-13 6z"/><path d="M8 15v6c4 3 12 3 16 0v-6M29 12v7"/>'],
+  social: ["#e03131", '<path d="M16 27S5 20 5 12a5.5 5.5 0 0 1 11-2 5.5 5.5 0 0 1 11 2c0 8-11 15-11 15z"/>'],
+  culture: ["#9c36b5", '<path d="M5 12l11-6 11 6M7 13v11M12 13v11M20 13v11M25 13v11M4 27h24"/>'],
+  clean: ["#0c8599", '<path d="M8 10h16l-2 17H10z"/><path d="M6 10h20M13 10V6h6v4M14 14v9M18 14v9"/>'],
+  safety: ["#f59f00", '<path d="M16 4v4M16 8a6 6 0 0 0-6 6c0 3 2 4 2 7h8c0-3 2-4 2-7a6 6 0 0 0-6-6zM12 25h8"/>'],
+  other: ["#868e96", '<circle cx="16" cy="16" r="10"/><path d="M12 16h.01M16 16h.01M20 16h.01"/>'],
+  petition: ["#5f3dc4", '<path d="M8 4h12l5 5v19H8z"/><path d="M20 4v5h5M12 14h9M12 18h9M12 23l3-2 2 2 4-4"/>'],
+};
+const pIcon = (p) => { const [col, path] = PICO[p.type === "petition" ? "petition" : PCAT[p.cat] ? p.cat : "other"]; return `<span class="picon" style="--pc:${col}" aria-hidden="true"><svg viewBox="0 0 32 32">${path}</svg></span>`; };
 const MODR = { joke: ["Nu este serioasă", "Not serious"], abuse: ["Limbaj jignitor sau discriminatoriu", "Offensive or discriminatory language"], spam: ["Spam sau reclamă", "Spam or advertising"],
   dup: ["Duplicat al altei propuneri", "Duplicate of another proposal"], scope: ["Nu ține de competența primăriei", "Not within the city hall's remit"], personal: ["Conține date personale", "Contains personal data"], other: ["Nu respectă regulile", "Breaks the rules"] };
 const isOff = () => SH.role === "off" || SH.role === "adm";
@@ -65,6 +79,7 @@ async function shProjects() {
   const c = civic(), lv = levelOf(c.earned);
   const tabs = [["run", L("Proiecte în execuție", "Projects in progress"), live.filter((p) => p.status === "run").length], ["props", L("Proiecte propuse", "Proposed projects"), live.filter((p) => p.type !== "petition" && p.status !== "run").length],
     ["pet", L("Petiții", "Petitions"), live.filter((p) => p.type === "petition").length], ["reports", L("Sesizări", "Reports"), null], ["rewards", L("Puncte și reduceri", "Points & rewards"), null]];
+  tabs.push(["mine", L("Proiectele mele", "My projects"), all.filter((p) => p.author === VID).length || null]);
   if (isMod()) tabs.push(["mod", L("Moderare", "Moderation"), flagged || null]);
   let h = pageHead(L("Proiecte și petiții", "Projects & petitions"), L(`Rol curent: <b>${RL(SH.role)}</b>. Cetățenii propun, susțin sau contestă și semnalează probleme; primăria răspunde, aprobă și alege executantul; firmele fac oferte.`, `Current role: <b>${RL(SH.role)}</b>. Citizens propose, support or oppose and report problems; the city hall answers, approves and picks contractors; firms make offers.`))
     + `<div class="civicbar"><span>⭐ <b>${fmt(c.pts)}</b> ${L("puncte civice", "civic points")} · ${esc(tr2(lv[1]))}</span><button type="button" class="linkbtn small" data-ptab="rewards">${L("Ce pot primi?", "What can I get?")}</button></div>`
@@ -72,19 +87,18 @@ async function shProjects() {
   if (F.tab === "reports") return h + (await reportsHtml());
   if (F.tab === "rewards") return h + rewardsHtml();
   if (F.tab === "mod" && isMod()) return h + (await modHtml());
+  if (F.tab === "mine") return h + mineHtml(all);
   let list = live.filter((p) => (F.tab === "run" ? p.status === "run" : F.tab === "pet" ? p.type === "petition" : p.type !== "petition" && p.status !== "run"));
   const total = list.length;
   if (F.show === "near") list = list.filter((p) => nearKm(p.loc?.c));
   if (F.show === "follow") list = list.filter((p) => follows().includes(p.id));
-  if (F.show === "mine") list = list.filter((p) => p.author === VID || p.votes?.[VID]);
   if (F.cat) list = list.filter((p) => p.cat === F.cat);
   if (F.q) { const q = deacc(F.q); list = list.filter((p) => deacc(p.title + " " + (p.desc || "")).includes(q)); }
   const sk = { new: (p) => -Date.parse(p.t || 0), top: (p) => -tally(p).y, contested: (p) => -tally(p).n }[F.sort];
   list.sort((a, b) => sk(a) - sk(b));
-  const mineRemoved = F.show === "mine" ? all.filter((p) => p.status === "removed" && p.author === VID) : [];
   h += `<section class="pgrid wide"><div>
     <div class="pfilter">
-      <div class="chips">${[["all", L("Toate", "All")], ["near", L("Lângă mine", "Near me")], ["follow", L("Urmărite", "Following")], ["mine", L("Ale mele", "Mine")]].map(([k, v]) => `<button type="button" class="chipck ${F.show === k ? "on" : ""}" data-pshow="${k}">${v}</button>`).join("")}</div>
+      <div class="chips">${[["all", L("Toate", "All")], ["near", L("Lângă mine", "Near me")], ["follow", L("Urmărite", "Following")]].map(([k, v]) => `<button type="button" class="chipck ${F.show === k ? "on" : ""}" data-pshow="${k}">${v}</button>`).join("")}</div>
       <div class="frow"><input type="text" id="pf-q" class="pjin" value="${esc(F.q)}" placeholder="${L("Filtrează după cuvânt", "Filter by word")}">
       <select id="pf-cat"><option value="">${L("Toate categoriile", "All categories")}</option>${Object.entries(PCAT).map(([k, v]) => `<option value="${k}" ${F.cat === k ? "selected" : ""}>${esc(tr2(v))}</option>`).join("")}</select>
       <select id="pf-sort">${[["new", L("Cele mai noi", "Newest")], ["top", L("Cele mai susținute", "Most supported")], ["contested", L("Cele mai contestate", "Most opposed")]].map(([k, v]) => `<option value="${k}" ${F.sort === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
@@ -92,15 +106,19 @@ async function shProjects() {
     </div>
     <h3>${list.length} ${L("din", "of")} ${total}</h3>
     ${list.length ? `<ul class="plist">${list.map(propCard).join("")}</ul>` : `<p class="hint">${total ? L("Nimic pentru acest filtru.", "Nothing for this filter.") : F.tab === "run" ? L("Niciun proiect în execuție.", "No projects in progress.") : L("Încă nimic. Trimite prima propunere.", "Nothing yet. Submit the first one.")}</p>`}
-    ${mineRemoved.map((p) => `<div class="pcard removed"><b>${esc(p.title)}</b><p class="small">${L("Eliminată de moderator", "Removed by a moderator")}: ${esc(tr2(MODR[p.removed?.r] || MODR.other))}</p></div>`).join("")}
   </div><div>${isOff() ? officeSummary() : ""}${F.tab === "run" ? runSide() : `<h3>${F.tab === "pet" ? L("Pornește o petiție", "Start a petition") : L("Propune un proiect", "Propose a project")}</h3>${await proposalForm(F.tab === "pet" ? "petition" : "project")}
     <p class="small">${L("Propunerile sunt verificate de moderatori. Cele care nu sunt serioase, sunt jignitoare, conțin reclame sau date personale ori nu țin de primărie se elimină.", "Moderators check proposals. Those that are not serious, offensive, advertising, contain personal data or are outside the city hall's remit are removed.")}</p>`}</div></section>`;
   return h;
 }
 function runSide() {
-  return `<h3>${L("Proiecte de planificare din atlas", "Planning projects in the atlas")}</h3>
-    <ul class="plist">${Object.values(PJ.list).map((p) => `<li class="pcard"><b>${esc(p.name)}</b><p class="small">${(p.log || []).length} ${L("modificări", "changes")} · ${(p.roads || []).length} ${L("drumuri", "roads")} · ${(p.nbs || []).length} ${L("cartiere", "districts")}</p><button class="btn ghost sm" data-openproj="${p.id}">${L("Deschide în atlas", "Open in the atlas")}</button></li>`).join("") || `<p class="hint">${L("Niciun proiect.", "No projects.")}</p>`}</ul>
-    <p class="small">${L("Votul tău la proiectele în execuție ajunge la primărie ca evaluare a lucrării (calitate, termene, deranj).", "Your vote on projects in progress reaches the city hall as feedback on the works (quality, deadlines, disruption).")}</p>`;
+  return `<div class="pcard office"><b>${L("Despre proiectele în execuție", "About projects in progress")}</b><p class="small">${L("Votul tău la proiectele în execuție ajunge la primărie ca evaluare a lucrării (calitate, termene, deranj).", "Your vote on projects in progress reaches the city hall as feedback on the works (quality, deadlines, disruption).")}</p><p class="small">${L("Lasă un comentariu dacă observi probleme pe șantier: întârzieri, deranj, calitate.", "Leave a comment if you notice problems on site: delays, disruption, quality.")}</p></div>`;
+}
+function mineHtml(all) {
+  const mine = all.filter((p) => p.author === VID).sort((a, b) => Date.parse(b.t || 0) - Date.parse(a.t || 0));
+  const grp = [["new", L("În așteptare", "Pending")], ["ok", L("Aprobate", "Approved")], ["run", L("În execuție", "In progress")], ["no", L("Respinse", "Rejected")], ["removed", L("Eliminate de moderator", "Removed by a moderator")]];
+  if (!mine.length) return `<p class="hint">${L("Încă nu ai propus nimic. Mergi la „Proiecte propuse” sau „Petiții” ca să începi.", "You haven't proposed anything yet. Go to “Proposed projects” or “Petitions” to start.")}</p>`;
+  return `<div class="minesum">${grp.map(([k, v]) => { const n = mine.filter((p) => (p.status || "new") === k).length; return n ? `<span><b>${n}</b> ${v.toLowerCase()}</span>` : ""; }).join("")}</div>`
+    + grp.map(([k, v]) => { const ps = mine.filter((p) => (p.status || "new") === k); return ps.length ? `<h3>${v} (${ps.length})</h3>${k === "removed" ? `<ul class="plist">${ps.map((p) => `<li class="pcard removed"><div class="pc1">${pIcon(p)}<b>${esc(p.title)}</b></div><p class="small">${L("Motiv", "Reason")}: ${esc(tr2(MODR[p.removed?.r] || MODR.other))}</p></li>`).join("")}</ul>` : `<ul class="plist">${ps.map(propCard).join("")}</ul>`}` : ""; }).join("");
 }
 const STEPS = [["Propus", "Proposed"], ["Aprobat", "Approved"], ["Licitație", "Tender"], ["Execuție", "Works"], ["Recepție", "Handover"]];
 function timeline(p) {
@@ -122,7 +140,7 @@ function propCard(p) {
       <span class="small">${p.type === "petition" ? L("Petiție", "Petition") : L("Propunere", "Proposal")}${p.cat ? " · " + esc(tr2(PCAT[p.cat] || PCAT.other)) : ""}${p.loc?.label ? " · " + esc(p.loc.label) : ""}</span>
       <button type="button" class="follow ${fol ? "on" : ""}" data-follow="${p.id}" aria-pressed="${fol}" title="${fol ? L("Nu mai urmări", "Unfollow") : L("Urmărește", "Follow")}">${fol ? "★" : "☆"}</button></div>
     ${p.img || p.imgData ? `<img class="pimg" src="${p.img ? "/_blob/" + p.img : p.imgData}" alt="${esc(p.title)}" loading="lazy" onerror="this.remove()">` : ""}
-    <b>${esc(p.title_ro ? L(p.title_ro, p.title_en || p.title_ro) : p.title)}${p.demo ? " " + demo() : ""}</b><p class="small">${esc(p.desc || "")}</p>
+    <div class="ptitle">${pIcon(p)}<b>${esc(p.title_ro ? L(p.title_ro, p.title_en || p.title_ro) : p.title)}${p.demo ? " " + demo() : ""}</b></div><p class="small">${esc(p.desc || "")}</p>
     ${p.status === "run" ? `${p.pct != null ? `<div class="bar"><i style="width:${p.pct}%"></i></div><p class="small">${p.pct}% ${L("realizat", "done")}${p.cost ? ` · ${fmt(p.cost, 1)} mil. €` : ""}${p.end ? ` · ${L("termen", "deadline")}: ${esc(p.end)}` : ""}</p>` : ""}` : ""}
     ${p.type !== "petition" ? timeline(p) : ""}
     ${(p.docs || []).length ? `<ul class="pdocs">${p.docs.map((d, i) => `<li>${d.id ? `<button type="button" class="linkbtn" data-doc="${p.id}" data-i="${i}">` : "<span>"}<i>${docIcon(d.type)}</i>${esc(d.name)}${d.id ? "</button>" : "</span>"}<span class="small"> · ${fsize(d.size)}</span></li>`).join("")}</ul>` : ""}
@@ -140,18 +158,24 @@ function propCard(p) {
       <div class="btnrow"><button type="button" class="btn sm" data-objsend="${p.id}">${L("Trimite", "Submit")}</button><button type="button" class="btn ghost sm" data-objcancel="1">${L("Renunță", "Cancel")}</button></div></div>` : ""}
     ${os.length ? `<p class="small objs">${L("Motive de dezacord", "Reasons for opposing")}: ${os.map(([k, n]) => `${esc(tr2(OBJ[k] || OBJ.other))} (${n})`).join(" · ")}</p>` : ""}
     ${(p.objs || []).filter((o) => o.txt).slice(-2).map((o) => `<blockquote class="small">„${esc(o.txt)}”</blockquote>`).join("")}
-    ${p.reply ? `<div class="reply"><b class="small">${L("Răspunsul primăriei", "City hall reply")}</b><p class="small">${esc(p.reply)}</p></div>` : ""}
-    ${isOff() ? `<div class="frow"><input type="text" class="pjin" id="rep-${p.id}" placeholder="${L("Răspuns public al primăriei", "Public reply from the city hall")}" value="${esc(p.reply || "")}"><button type="button" class="btn ghost sm" data-reply="${p.id}">${L("Publică", "Publish")}</button></div>` : ""}
+    ${commentsHtml(p)}
     ${isMod() && (p.flags || []).length ? `<p class="small warn">⚑ ${(p.flags || []).length} ${L("semnalări de la utilizatori", "user reports")}</p>` : ""}
     ${p.contractor ? `<p class="small">${L("Executant", "Contractor")}: <b>${esc(p.contractor)}</b></p>` : ""}
     ${(p.offers || []).length && !p.contractor ? `<p class="small">${(p.offers || []).length} ${L("oferte de la firme", "offers from firms")}</p>` : ""}
     ${act ? `<div class="btnrow">${act}</div>` : ""}</li>`;
 }
+function commentsHtml(p) {
+  const cs = p.comments || [], open = SH.copen === p.id, show = open ? cs : cs.slice(-2);
+  const who = (c) => (c.role === "off" || c.role === "adm" ? `<span class="pill good">${L("Primăria", "City hall")}</span>` : c.role === "biz" ? `<span class="pill">${L("Firmă", "Business")}</span>` : "") + `<b>${esc(c.name || L("Cetățean", "Citizen"))}</b>`;
+  return `<div class="comments"><button type="button" class="linkbtn small" data-copen="${p.id}">💬 ${cs.length} ${cs.length === 1 ? L("comentariu", "comment") : L("comentarii", "comments")}${cs.length > 2 && !open ? ` · ${L("vezi toate", "see all")}` : ""}</button>
+    ${show.map((c) => `<div class="cmt ${c.role === "off" || c.role === "adm" ? "off" : ""}"><div class="small">${who(c)} · ${new Date(c.t).toLocaleDateString(loc())}${isMod() ? ` <button type="button" class="linkbtn small" data-cdel="${p.id}" data-ct="${esc(c.t)}">${L("șterge", "delete")}</button>` : ""}</div><p class="small">${esc(c.txt)}</p></div>`).join("")}
+    <div class="frow"><input type="text" class="pjin" id="cm-${p.id}" maxlength="500" placeholder="${L("Scrie un comentariu…", "Write a comment…")}"><button type="button" class="btn ghost sm" data-cadd="${p.id}">${L("Trimite", "Send")}</button></div></div>`;
+}
 function officeSummary() {
   const ps = Object.values(SH.props), pend = ps.filter((p) => (p.status || "new") === "new");
   const top = [...ps].sort((a, b) => tally(b).n - tally(a).n).filter((p) => tally(p).n).slice(0, 3);
   return `<div class="pcard office"><b>${L("Pentru primărie", "For the city hall")}</b>
-    <p class="small">${pend.length} ${L("propuneri așteaptă decizie", "proposals awaiting a decision")} · ${ps.filter((p) => p.type === "petition" && tally(p).y >= PETITION_GOAL && !p.reply).length} ${L("petiții cer răspuns", "petitions need a reply")}</p>
+    <p class="small">${pend.length} ${L("propuneri așteaptă decizie", "proposals awaiting a decision")} · ${ps.filter((p) => p.type === "petition" && tally(p).y >= PETITION_GOAL && !(p.comments || []).some((c) => c.role === "off" || c.role === "adm")).length} ${L("petiții cer răspuns", "petitions need a reply")}</p>
     ${top.length ? `<p class="small">${L("Cele mai contestate", "Most opposed")}: ${top.map((p) => `${esc(p.title)} (${tally(p).n})`).join(" · ")}</p>` : ""}</div>`;
 }
 async function proposalForm(type) {
@@ -309,7 +333,13 @@ function participClick(b) {
   }
   if (ds.objsend) { const r = document.querySelector("input[name=obj]:checked")?.value || "other"; const txt = document.getElementById("obj-txt").value; SH.oppose = null; vote(ds.objsend, -1, r, txt).then(shRender); return true; }
   if (ds.objcancel) { SH.oppose = null; shRender(); return true; }
-  if (ds.reply) { const p = SH.props[ds.reply]; shSaveProposal({ ...p, reply: document.getElementById("rep-" + p.id).value.trim() }).then(shRender); return true; }
+  if (ds.copen) { SH.copen = SH.copen === ds.copen ? null : ds.copen; shRender(); return true; }
+  if (ds.cadd) {
+    const p = SH.props[ds.cadd], inp = document.getElementById("cm-" + p.id), txt = inp.value.trim(); if (!txt) { inp.focus(); return true; }
+    const c = { v: VID, name: user()?.name || L("Cetățean", "Citizen"), role: SH.role, txt: txt.slice(0, 500), t: new Date().toISOString() };
+    SH.copen = p.id; shSaveProposal({ ...p, comments: [...(p.comments || []), c] }).then(shRender); return true;
+  }
+  if (ds.cdel) { const p = SH.props[ds.cdel]; shSaveProposal({ ...p, comments: (p.comments || []).filter((c) => c.t !== ds.ct) }).then(shRender); return true; }
   if (b.id === "rp-send") { sendReport(b); return true; }
   if (ds.rplus) { const r = SH.reps[ds.rplus], pl = r.plus || []; if (!pl.includes(VID)) award("plus", tr2(RCAT[r.cat] || RCAT.other)); reportSave({ ...r, plus: pl.includes(VID) ? pl.filter((x) => x !== VID) : [...pl, VID] }).then(shRender); return true; }
   if (ds.rst) { reportSave({ ...SH.reps[ds.rst], st: ds.k }).then(shRender); return true; }

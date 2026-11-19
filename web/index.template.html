@@ -427,6 +427,16 @@ blockquote { margin: 0; padding-left: 10px; border-left: 3px solid var(--rule); 
 .tile.green { background: linear-gradient(180deg, color-mix(in srgb, #2f9e44 10%, var(--surface)), var(--surface)); }
 .tile.gold { background: linear-gradient(180deg, color-mix(in srgb, #f6c343 16%, var(--surface)), var(--surface)); }
 .tile.big .hmap { pointer-events: none; width: 100%; align-self: stretch; }
+/* project icons, comments, my projects */
+.ptitle { display: flex; gap: 10px; align-items: center; }
+.picon { flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--pc) 14%, var(--surface)); color: var(--pc); }
+.picon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.comments { display: grid; gap: 6px; border-top: 1px solid var(--rule); padding-top: 6px; }
+.cmt { padding: 6px 10px; border-radius: 8px; background: color-mix(in srgb, var(--fg) 4%, transparent); } .cmt p { margin: 2px 0 0; }
+.comments > .linkbtn { justify-self: start; }
+.comments .frow > .btn { flex: 0 0 auto; min-width: 0; }
+.cmt.off { background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.minesum { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; padding: 4px 0; } .minesum b { font: 800 20px var(--display); color: var(--accent); }
 /* home */
 .phead.home h2 { font-size: 32px; }
 .phead { padding-right: 230px; }
