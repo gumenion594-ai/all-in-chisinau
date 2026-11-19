@@ -5,7 +5,7 @@
 // ================================================================== i18n
 const T = {
   ro: {
-    title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Documente", sec_settings: "Setări", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Proiecte", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
+    title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Documente", sec_settings: "Setări", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Participă", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
     transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
@@ -28,7 +28,7 @@ const T = {
     kept_tip_on: "Păstrat pe hartă. Dublu-clic ca să-l scoți.", kept_tip_off: "Dublu-clic ca să păstrezi harta când schimbi tab-ul.", places_v: "Locuri pe hartă (vizibile la orice zoom, ca să vezi densitatea)",
     date: "Data", today: "Azi", plan: "Planificare proiecte", soon: "În curând: planificarea proiectelor municipale",
     auto_b: "După dată", auto_d: (r) => r === "ref" ? "Data aleasă e după alegerile din 2027" : "Data aleasă e înainte de alegerile din 2027",
-    popview: "Afișare", pv_units: "Pe unități", pv_heat: "Hartă de căldură", heat_l: "Densitatea populației (estimare pe clădiri)", low: "scăzută", high: "ridicată",
+    popview: "Afișare", pv_units: "Pe unități", pv_heat: "Hartă de căldură", pv_hills: "Dealuri 3D", hills_n: "Înălțimea arată densitatea populației: cu cât mai mulți locuitori, cu atât mai înalt „dealul”. Ține apăsat clic dreapta (sau două degete) ca să rotești și să înclini harta.", heat_l: "Densitatea populației (estimare pe clădiri)", low: "scăzută", high: "ridicată",
     ring: "Inelul de transport planificat (Centura Chișinăului)", ring_ex: "Existent (urmează modernizarea la 4 benzi)", ring_pr: "Propus (în OSM)", ring_ap: "Traseu aproximativ (lipsă din date)",
     elev_l: "Altitudine (m)", snap: "Clădirile, locurile și drumurile sunt cele din OpenStreetMap la 17.11.2026; populația, limitele și bugetul urmează data aleasă.",
     census_d: "Recensământ 2024 → estimări BNS la data aleasă",
@@ -72,7 +72,7 @@ const T = {
     about: "Despre date", lang: "EN", sub: (km, n) => `Atlas · ${km} km² · ${n} localități`,
   },
   en: {
-    title: "All in Chișinău", sec_home: "Home", sec_archive: "Documents", sec_settings: "Settings", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Projects", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
+    title: "All in Chișinău", sec_home: "Home", sec_archive: "Documents", sec_settings: "Settings", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Take part", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
     transit: "Transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",
@@ -95,7 +95,7 @@ const T = {
     kept_tip_on: "Kept on the map. Double-click to remove.", kept_tip_off: "Double-click to keep this map when switching tabs.", places_v: "Places on the map (shown at every zoom, so you can see their density)",
     date: "Date", today: "Today", plan: "Project planning", soon: "Coming soon: municipal project planning",
     auto_b: "By date", auto_d: (r) => r === "ref" ? "Selected date is after the 2027 elections" : "Selected date is before the 2027 elections",
-    popview: "Display", pv_units: "By unit", pv_heat: "Heat map", heat_l: "Population density (building-based estimate)", low: "low", high: "high",
+    popview: "Display", pv_units: "By unit", pv_heat: "Heat map", pv_hills: "3D hills", hills_n: "Height shows population density: the more residents, the higher the “hill”. Hold the right mouse button (or use two fingers) to rotate and tilt the map.", heat_l: "Population density (building-based estimate)", low: "low", high: "high",
     ring: "Planned transport ring (Centura Chișinăului)", ring_ex: "Existing (to be widened to 4 lanes)", ring_pr: "Proposed (in OSM)", ring_ap: "Approximate route (missing from data)",
     elev_l: "Elevation (m)", snap: "Buildings, places and roads are the OpenStreetMap state of 17 Nov 2026; population, borders and budget follow the selected date.",
     census_d: "2024 Census → NBS estimates at the selected date",
@@ -208,9 +208,9 @@ const LIFE = {
 };
 const pick = (arr) => { let r = null; for (const x of arr) if (S.date >= x.from) r = x; return r; };
 const EUR_RATE = 20.1666, EUR_DATE = "2026-11-17"; // BNM official rate, MDL per 1 EUR
-const t = (k) => T[S.lang][k] ?? k;
+const t = (k) => T[S.lang]?.[k] ?? T.en[k] ?? k;
 const nameOf = (p) => (S.lang === "en" ? p.en : p.ro) || p.ro;
-const loc = () => (S.lang === "ro" ? "ro-RO" : "en-GB");
+const loc = () => ({ ro: "ro-RO", en: "en-GB", ru: "ru-RU" }[S.lang] || "ro-RO");
 const fmt = (n, d = 0) => n == null || Number.isNaN(n) ? "—" : Number(n).toLocaleString(loc(), { maximumFractionDigits: d, minimumFractionDigits: d });
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const scMatch = () => ["in", ["get", "sc"], ["literal", [REF(), "both"]]];
@@ -482,6 +482,43 @@ const GLYPHS_URL = "glyphs://{fontstack}/{range}";
 const ABBR = [[/^Strada /, "str. "], [/^Bulevardul /, "bd. "], [/^Șoseaua /, "șos. "], [/^Stradela /, "str-la "], [/^Calea /, "cal. "], [/^Piața /, "pța "], [/^Aleea /, "al. "], [/^Drumul /, "dr. "], [/^Fundacul /, "fund. "]];
 const shortName = (n) => { for (const [r, v] of ABBR) if (r.test(n)) return n.replace(r, v); return n; };
 const DBOX = [28.5, 46.82, 29.22, 47.23];
+const heatLike = () => S.popView === "heat" || S.popView === "hills";
+// ---------------------------------------------------------------- population as terrain: denser areas become higher hills
+let POPGRID = null;
+async function popGrid() {
+  if (POPGRID) return POPGRID;
+  const g = await load("popgrid.geojson"), dx = 0.00219, dy = 0.0015, x0 = DBOX[0], y0 = DBOX[1];
+  const W = Math.ceil((DBOX[2] - x0) / dx) + 1, H = Math.ceil((DBOX[3] - y0) / dy) + 1, a = new Float32Array(W * H);
+  for (const f of g.features) { const [x, y] = f.geometry.coordinates, i = Math.round((x - x0) / dx), j = Math.round((y - y0) / dy); if (i >= 0 && j >= 0 && i < W && j < H) a[j * W + i] += f.properties.p; }
+  const k = [], R = 4, sg = 1.6; for (let i = -R; i <= R; i++) k.push(Math.exp(-(i * i) / (2 * sg * sg))); const ks = k.reduce((u, v) => u + v, 0);
+  const tmp = new Float32Array(W * H), out = new Float32Array(W * H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { let v = 0; for (let t = -R; t <= R; t++) { const ii = Math.min(W - 1, Math.max(0, i + t)); v += a[j * W + ii] * k[t + R]; } tmp[j * W + i] = v / ks; }
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { let v = 0; for (let t = -R; t <= R; t++) { const jj = Math.min(H - 1, Math.max(0, j + t)); v += tmp[jj * W + i] * k[t + R]; } out[j * W + i] = v / ks; }
+  const cellKm2 = (dx * 111.32 * Math.cos((47.0 * Math.PI) / 180)) * (dy * 110.57);
+  return (POPGRID = { W, H, dx, dy, x0, y0, a: out, cellKm2 });
+}
+const HILL_M_PER_1000 = 45;   // metres of "hill" per 1,000 people/km²
+maplibregl.addProtocol("popdem", async (params) => {
+  const [z, x, y] = params.url.replace("popdem://", "").split("/").map(Number), G = await popGrid();
+  const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), n = 2 ** z, s = popScale();
+  for (let py = 0; py < N; py++) {
+    const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + (py + 0.5) / N)) / n))) * 180) / Math.PI, fy = (lat - G.y0) / G.dy;
+    for (let px = 0; px < N; px++) {
+      const lon = ((x + (px + 0.5) / N) / n) * 360 - 180, fx = (lon - G.x0) / G.dx;
+      let v = 0;
+      if (fx >= 0 && fy >= 0 && fx < G.W - 1 && fy < G.H - 1) {
+        const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, w = fy - j, A = G.a;
+        v = (A[j * G.W + i] * (1 - u) + A[j * G.W + i + 1] * u) * (1 - w) + (A[(j + 1) * G.W + i] * (1 - u) + A[(j + 1) * G.W + i + 1] * u) * w;
+      }
+      const h = ((v * s) / G.cellKm2 / 1000) * HILL_M_PER_1000 + 32768, o = (py * N + px) * 4;
+      img.data[o] = Math.floor(h / 256); img.data[o + 1] = Math.floor(h) % 256; img.data[o + 2] = Math.floor((h % 1) * 256); img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const blob = cv.convertToBlob ? await cv.convertToBlob({ type: "image/png" }) : await new Promise((r) => cv.toBlob(r, "image/png"));
+  return { data: await blob.arrayBuffer() };
+});
 const map = new maplibregl.Map({
   container: "map",
   style: { version: 8, glyphs: GLYPHS_URL, sources: {}, layers: [{ id: "bg", type: "background", paint: { "background-color": "#eee" } }] },
@@ -684,7 +721,7 @@ const ensure = {
     map.on("click", "roads-lanes", (e) => {
       if (S.tool || PJ.tool || map.queryRenderedFeatures(e.point, { layers: ["proj"] }).length) return;
       const p = e.features[0].properties;
-      popup(e.lngLat, `<b>${esc(p.n || p.ref || p.c)}</b><br>${esc(p.c)}${p.ref ? " · " + esc(p.ref) : ""}<br>${S.lang === "ro" ? "Benzi" : "Lanes"}: <b>${p.l}</b>${p.e == 1 ? " <small>(" + t("lanes_est") + ")</small>" : ""}${p.ms ? "<br>Max " + esc(p.ms) + " km/h" : ""}${p.ow == 1 ? "<br>" + (S.lang === "ro" ? "Sens unic" : "One-way") : ""}`);
+      popup(e.lngLat, `<b>${esc(p.n || p.ref || p.c)}</b><br>${esc(p.c)}${p.ref ? " · " + esc(p.ref) : ""}<br>${L("Benzi", "Lanes")}: <b>${p.l}</b>${p.e == 1 ? " <small>(" + t("lanes_est") + ")</small>" : ""}${p.ms ? "<br>Max " + esc(p.ms) + " km/h" : ""}${p.ow == 1 ? "<br>" + L("Sens unic", "One-way") : ""}`);
     });
   },
   async pois() {
@@ -722,6 +759,12 @@ const ensure = {
     map.addSource("builtup", { type: "geojson", data: g });
     map.addLayer({ id: "builtup", type: "fill", source: "builtup", paint: { "fill-color": "#e03131", "fill-opacity": 0.75 } }, "water-line");
   },
+  async popdem() {
+    if (map.getSource("popdem")) return;
+    map.addSource("popdem", { type: "raster-dem", tiles: ["popdem://{z}/{x}/{y}"], tileSize: 256, encoding: "terrarium", maxzoom: 12, bounds: DBOX });
+    map.addLayer({ id: "pophs", type: "hillshade", source: "popdem", layout: { visibility: "none" },
+      paint: { "hillshade-exaggeration": 0.3, "hillshade-shadow-color": isDark() ? "#000" : "#6d6680", "hillshade-highlight-color": "#fff", "hillshade-illumination-direction": 315 } }, "admin-fill");
+  },
   async heat() {
     if (map.getSource("popgrid")) return;
     const g = await load("popgrid.geojson");
@@ -748,7 +791,7 @@ const ensure = {
     map.addLayer({ id: "ring-plan", type: "line", source: "ringsrc", filter: ["!=", ["get", "st"], "existent"], layout: { "line-join": "round" },
       paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.5, 15, 4], "line-dasharray": [1.5, 1.5] } }, "train-line");
     map.on("click", "ring", (e) => { if (S.tool) return; const p = e.features[0].properties;
-      popup(e.lngLat, `<b>Centura Chișinăului</b><br>${t(p.st === "existent" ? "ring_ex" : p.st === "propus" ? "ring_pr" : "ring_ap")}<br><small>${S.lang === "ro" ? "Schema din 2014: 6 segmente, ~90 km; variantă actuală ~47 km, 4 benzi." : "2014 scheme: 6 segments, ~90 km; current plan ~47 km, 4 lanes."}</small>`); });
+      popup(e.lngLat, `<b>Centura Chișinăului</b><br>${t(p.st === "existent" ? "ring_ex" : p.st === "propus" ? "ring_pr" : "ring_ap")}<br><small>${L("Schema din 2014: 6 segmente, ~90 km; variantă actuală ~47 km, 4 benzi.", "2014 scheme: 6 segments, ~90 km; current plan ~47 km, 4 lanes.")}</small>`); });
     pointer("ring");
   },
   async buildings() {
@@ -769,7 +812,7 @@ const ensure = {
     map.addLayer({ id: "bld-age", type: "fill", source: "bld", minzoom: 12.5, layout: { visibility: "none" },
       paint: { "fill-color": ageCol, "fill-opacity": ["interpolate", ["linear"], ["zoom"], 12.5, 0, 13.5, 0.95], "fill-outline-color": ["interpolate", ["linear"], ["zoom"], 13, "rgba(0,0,0,0)", 15, "rgba(0,0,0,0.25)"] } }, "water-line");
     map.on("click", "bld-age", (e) => { if (S.tool) return; const p = e.features[0].properties;
-      popup(e.lngLat, `<b>${(S.lang === "ro" ? AGE_RO : AGE_EN)[p.a]}</b><br><small>${t("age_l")}</small>`); });
+      popup(e.lngLat, `<b>${L(AGE_RO[p.a], AGE_EN[p.a])}</b><br><small>${t("age_l")}</small>`); });
     map.addLayer({ id: "bld", type: "fill-extrusion", source: "bld", minzoom: 12,
       paint: { "fill-extrusion-color": ["interpolate", ["linear"], ["get", "h"], 3, isDark() ? "#5b6170" : "#ddd8d0", 20, isDark() ? "#7c8396" : "#c3b9ad", 60, isDark() ? "#a8b0c4" : "#9a8c7c"],
         "fill-extrusion-height": ["get", "h"], "fill-extrusion-opacity": 0.92 } }, map.getLayer("pois") ? "pois" : "draw-fill");
@@ -848,7 +891,7 @@ async function render() {
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, ["has", "scol"], ["get", "scol"], SECTOR_COL]);
     const k = (b === "elevation" ? 0.35 : 1) * (multi ? 0.6 : 1);
     map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.06 * k, ["==", ["get", "kind"], "city"], (onImg ? 0.2 : 0.28) * k, (onImg ? 0.12 : 0.14) * k]);
-  } else if (fillMode === "pop" && S.popView !== "heat") {
+  } else if (fillMode === "pop" && !heatLike()) {
     const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000];
     const col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], P.pop[0]]; br.slice(1).forEach((v, i) => col.push(v, P.pop[i + 1]));
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, col]);
@@ -858,7 +901,7 @@ async function render() {
   }
   const vector = b === "standard" || b === "simple";
   const luBase = only ? 0 : b === "standard" ? ["match", ["get", "z"], "water", 1, 0.3] : b === "simple" ? ["match", ["get", "z"], "water", 1, 0] : 0;
-  const popFill = fillMode === "pop" && S.popView !== "heat";
+  const popFill = fillMode === "pop" && !heatLike();
   map.setPaintProperty("landuse", "fill-opacity", has("zone") ? (vector || only ? (multi ? 0.7 : 0.88) : 0.6) : popFill ? (vector && !only ? ["match", ["get", "z"], "water", 1, 0] : 0) : luBase);
   map.setFilter("landuse", has("zone") ? ["in", ["get", "z"], ["literal", S.zones ?? Object.keys(T.ro.z)]] : null);
   const builtOn = has("zone") && S.zoneView === "built";
@@ -890,8 +933,8 @@ async function render() {
     map.setFilter("pois", ["all", ["in", ["get", "c"], ["literal", S.cats]], S.outside ? true : ["==", ["%", ["floor", ["/", ["get", "i"], mask]], 2], 1]]);
     vis("pois", S.cats.length > 0 && !only);
   }
-  if (has("pop") && S.popView === "heat") await ensure.heat();
-  if (map.getLayer("heat")) { vis("heat", has("pop") && S.popView === "heat"); map.setPaintProperty("heat", "heatmap-weight", ["*", popScale(), ["/", ["get", "p"], 400]]); }
+  if (has("pop") && heatLike()) await ensure.heat();
+  if (map.getLayer("heat")) { vis("heat", has("pop") && heatLike()); map.setPaintProperty("heat", "heatmap-weight", ["*", popScale(), ["/", ["get", "p"], 400]]); }
   if (has("transit") && S.ring) await ensure.ring();
   ["ring", "ring-casing", "ring-plan"].forEach((id) => vis(id, has("transit") && S.ring));
   const ageOn = has("age");
@@ -915,8 +958,15 @@ async function render() {
   const tempOn = has("temp");
   if (tempOn) await ensure.temp();
   if (map.getLayer("temp")) { vis("temp", tempOn); updateTempImage(); }
-  const wantT = S.terrain && !only ? 1 : 0;
-  if ((map.getTerrain() ? 1 : 0) !== wantT) map.setTerrain(wantT ? { source: "dem", exaggeration: 1.8 } : null);
+  const hills = has("pop") && S.popView === "hills";
+  if (hills) await ensure.popdem();
+  if (map.getLayer("pophs")) vis("pophs", hills);
+  if (map.getLayer("heat")) map.setPaintProperty("heat", "heatmap-radius", hills ? ["interpolate", ["exponential", 2], ["zoom"], 9, 7, 12, 24, 15, 90, 17, 200] : ["interpolate", ["exponential", 2], ["zoom"], 9, 4, 12, 14, 15, 60, 17, 160]);
+  const wantSrc = hills ? "popdem" : S.terrain && !only ? "dem" : null;
+  if ((map.getTerrain()?.source || null) !== wantSrc) {
+    map.setTerrain(wantSrc ? { source: wantSrc, exaggeration: hills ? 1 : 1.8 } : null);
+    if (hills && map.getPitch() < 35) map.easeTo({ pitch: 58, bearing: -18, duration: 900 });
+  }
   const er = document.getElementById("elevread");
   er.hidden = only || !(b === "elevation" || S.terrain) || !er.textContent;
   document.getElementById("elevlegend").hidden = only || S.base !== "elevation";
@@ -964,7 +1014,7 @@ async function renderLabels() {
     let txt = nameOf(p).replace(/^Chișinău – (sectorul )?/, "").replace(/ sector$/, "");
     if (p.lvl === 2 && p.kind === "city") txt = "Chișinău · " + txt;
     const DIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
-    const dir = p.lvl === 1 && (m === "admin" || m === "pop") && DIR[p.sector] ? DIR[p.sector][S.lang === "ro" ? 0 : 1] : null;
+    const dir = p.lvl === 1 && (m === "admin" || m === "pop") && DIR[p.sector] ? L(DIR[p.sector][0], DIR[p.sector][1]) : null;
     el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (m === "pop" && p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "")
       + (tmap && tmap.u?.[p.id] != null ? `<b class="tval">${fmt(tmap.u[p.id], 1)} °C</b>` : "");
     labelMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lx, p.ly]).addTo(map));
@@ -994,11 +1044,12 @@ function renderLegend() {
   const el = document.getElementById("legend"), P = pal(), m = bm(S.mode);
   let h = "";
   if (m === "admin") {
-    h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${S.lang === "ro" ? "Sectorul " + k : k + " sector"}</li>`).join("")
-      + `<li><i class="ln" style="border-color:${P.accent}"></i>${S.lang === "ro" ? "Limita municipiului" : "Municipality border"}${REF() === "ref" ? " (2027)" : ""}</li>`
+    h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}</li>`).join("")
+      + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
       + (S.ctx ? `<li><i class="ln dash" style="border-color:${P.line}"></i>${t("lvlname").ctx}</li>` : "");
-  } else if (m === "pop" && S.popView === "heat") {
-    h = `<li class="cap">${t("heat_l")}</li><li><span class="ramp heatramp"></span></li><li class="rampl"><span>${t("low")}</span><span>${t("high")}</span></li>`;
+  } else if (m === "pop" && heatLike()) {
+    h = `<li class="cap">${t("heat_l")}</li><li><span class="ramp heatramp"></span></li><li class="rampl"><span>${t("low")}</span><span>${t("high")}</span></li>`
+      + (S.popView === "hills" ? `<li class="small">${t("hills_n")}</li>` : "");
   } else if (m === "pop") {
     const b = [0, 100, 500, 1500, 4000, 8000];
     h = `<li class="cap">${t("density")}</li>` + b.map((v, i) => `<li><i style="background:${P.pop[i]}"></i>${fmt(v)}${b[i + 1] ? "–" + fmt(b[i + 1]) : "+"}</li>`).join("");
@@ -1007,15 +1058,15 @@ function renderLegend() {
     if (!list) { h = `<li class="loading"><span class="spin"></span>…</li>`; load("compare.json").then((x) => { DATA.__cmp = x; renderLegend(); }); }
     else {
       const mun = DATA.__zs?.[REF()];
-      h = `<li class="small">${t("cmp_h")}</li>` + list.map((c) => `<li><label><input type="checkbox" data-cmp="${c.k}" ${S.cmp[c.k] ? "checked" : ""}><i style="background:${CMPCOL[c.k]}"></i><span class="zl">${esc(S.lang === "ro" ? c.ro : c.en)}</span><span class="za">${fmt(c.km2, 1)} km²</span></label>${S.cmp[c.k] ? `<button type="button" class="btn ghost sm cmpc" data-cmpc="${c.k}">${t("cmp_center")}</button>` : ""}</li>`).join("")
-        + `<li class="cap">${t("cmp_ref")}</li><li class="zrow2"><i style="background:var(--accent)"></i><span class="zl">${S.lang === "ro" ? "Municipiul Chișinău" : "Chișinău Municipality"}</span><b class="za">${fmt(mun?.total ?? 575.5, 1)} km²</b></li>`
+      h = `<li class="small">${t("cmp_h")}</li>` + list.map((c) => `<li><label><input type="checkbox" data-cmp="${c.k}" ${S.cmp[c.k] ? "checked" : ""}><i style="background:${CMPCOL[c.k]}"></i><span class="zl">${esc(L(c.ro, c.en))}</span><span class="za">${fmt(c.km2, 1)} km²</span></label>${S.cmp[c.k] ? `<button type="button" class="btn ghost sm cmpc" data-cmpc="${c.k}">${t("cmp_center")}</button>` : ""}</li>`).join("")
+        + `<li class="cap">${t("cmp_ref")}</li><li class="zrow2"><i style="background:var(--accent)"></i><span class="zl">${L("Municipiul Chișinău", "Chișinău Municipality")}</span><b class="za">${fmt(mun?.total ?? 575.5, 1)} km²</b></li>`
         + `<li class="small">${t("cmp_note")}</li>`;
       if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
     }
   } else if (m === "age") {
-    const ZS = DATA.__zs?.[REF()], names = S.lang === "ro" ? AGE_RO : AGE_EN;
+    const ZS = DATA.__zs?.[REF()], names = AGE_RO.map((r, i) => L(r, AGE_EN[i]));
     const on = new Set(S.ages ?? AGE_ORDER);
-    h = `<li class="cap">${t("age_l")}</li><li class="cap" style="justify-content:flex-end;display:flex">${S.lang === "ro" ? "clădiri · suprafață la sol" : "buildings · footprint"}</li>` + AGE_ORDER.map((k) => `<li><label><input type="checkbox" data-age="${k}" ${on.has(k) ? "checked" : ""}><i style="background:${AGECOL[k]}"></i><span class="zl">${names[k]}</span>${ZS?.age ? `<span class="za">${fmt(ZS.age[k])} · ${fmt(ZS.age_km2?.[k] ?? 0, 2)} km²</span>` : ""}</label></li>`).join("")
+    h = `<li class="cap">${t("age_l")}</li><li class="cap" style="justify-content:flex-end;display:flex">${L("clădiri · suprafață la sol", "buildings · footprint")}</li>` + AGE_ORDER.map((k) => `<li><label><input type="checkbox" data-age="${k}" ${on.has(k) ? "checked" : ""}><i style="background:${AGECOL[k]}"></i><span class="zl">${names[k]}</span>${ZS?.age ? `<span class="za">${fmt(ZS.age[k])} · ${fmt(ZS.age_km2?.[k] ?? 0, 2)} km²</span>` : ""}</label></li>`).join("")
       + (ZS?.age ? `<li class="zrow2"><b class="zl">Total</b><b class="za">${fmt(ZS.age.reduce((a, b) => a + b, 0))} ${t("age_n")}</b></li>` : "")
       + `<li class="small">${t("age_replace")}</li><li class="small">${t("age_note")}</li>`;
     if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
@@ -1034,7 +1085,7 @@ function renderLegend() {
     }
   } else if (m === "zone" && S.zoneView === "built") {
     const ZS = DATA.__zs?.[REF()];
-    h = `<li><i style="background:#e03131"></i>${t("built_l")}</li>` + (ZS ? `<li class="cap">${REF() === "ref" ? "2027" : (S.lang === "ro" ? "Limite actuale" : "Current borders")}</li>
+    h = `<li><i style="background:#e03131"></i>${t("built_l")}</li>` + (ZS ? `<li class="cap">${REF() === "ref" ? "2027" : L("Limite actuale", "Current borders")}</li>
       <li class="zrow2"><span class="zl">${t("built_area")}</span><b class="za">${fmt(ZS.built_km2, 1)} km²</b></li>
       <li class="zrow2"><span class="zl"></span><span class="za">${fmt(100 * ZS.built_km2 / ZS.total, 1)}% ${t("built_share")} (${fmt(ZS.total, 1)} km²)</span></li>
       <li class="zrow2"><span class="zl">${t("built_n")}</span><b class="za">${fmt(ZS.buildings)}</b></li>` : "") + `<li class="small">${t("built_note")}</li>`;
@@ -1049,14 +1100,14 @@ function renderLegend() {
     if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
   } else if (m === "transit") {
     h = ["trolleybus", "bus", "minibus", "train"].map((k) => `<li><label><input type="checkbox" data-mode="${k}" ${S.modes[k] ? "checked" : ""}><i class="ln thick" style="border-color:${P.mode[k]}"></i>${t(k)}</label></li>`).join("")
-      + `<li class="cap">${S.lang === "ro" ? "Fiecare linie are culoarea ei (pe segmentele comune se vede linia principală); grosimea = numărul de rute. Apasă pe o linie pentru rute." : "Each line has its own colour (shared segments show the main line); width = number of routes. Tap a line for its routes."}</li>`
+      + `<li class="cap">${L("Fiecare linie are culoarea ei (pe segmentele comune se vede linia principală); grosimea = numărul de rute. Apasă pe o linie pentru rute.", "Each line has its own colour (shared segments show the main line); width = number of routes. Tap a line for its routes.")}</li>`
       + `<li><label><input type="checkbox" data-ring="1" ${S.ring ? "checked" : ""}><i class="ln thick" style="border-color:#0b7285"></i>${t("ring")}</label></li>`
       + (S.ring ? `<li><i class="ln thick" style="border-color:#0b7285"></i>${t("ring_ex")}</li><li><i class="ln thick dash" style="border-color:#7048e8"></i>${t("ring_pr")}</li><li><i class="ln thick dash" style="border-color:#e8590c"></i>${t("ring_ap")}</li>` : "");
   } else if (m === "roads") {
     h = `<li class="cap">${t("lanes")}</li>`
-      + [1, 2, 4, 6].map((n) => `<li><i class="ln" style="border-top-width:${Math.max(1, n * 1.6)}px;border-color:${P.road.primary}"></i>${n} ${S.lang === "ro" ? (n === 1 ? "bandă" : "benzi") : (n === 1 ? "lane" : "lanes")}</li>`).join("")
-      + `<li><i class="ln" style="border-color:${P.road.motorway}"></i>${S.lang === "ro" ? "Magistrale / naționale" : "Trunk / national"}</li>`
-      + `<li><i class="ln" style="border-color:${P.road.secondary}"></i>${S.lang === "ro" ? "Secundare" : "Secondary"}</li>`
+      + [1, 2, 4, 6].map((n) => `<li><i class="ln" style="border-top-width:${Math.max(1, n * 1.6)}px;border-color:${P.road.primary}"></i>${n} ${n === 1 ? L("bandă", "lane") : L("benzi", "lanes")}</li>`).join("")
+      + `<li><i class="ln" style="border-color:${P.road.motorway}"></i>${L("Magistrale / naționale", "Trunk / national")}</li>`
+      + `<li><i class="ln" style="border-color:${P.road.secondary}"></i>${L("Secundare", "Secondary")}</li>`
       + `<li><i class="ln" style="border-color:${P.road.other};opacity:.55"></i>${t("lanes_est")}</li>`
       + `<li><i class="ln" style="border-color:#e8590c;border-top-width:4px"></i>${t("ped")}</li>`
       + `<li class="cap">${t("bike")}</li><li><i class="ln" style="border-color:#13a36b"></i>${t("track")}</li><li><i class="ln dash" style="border-color:#13a36b"></i>${t("lane")}</li>`
@@ -1227,7 +1278,7 @@ async function renderInfo() {
     if (!sel) return;
   }
   const p = sel.props || {};
-  let h = `<button type="button" class="closex" id="closeinfo" aria-label="${S.lang === "ro" ? "Închide" : "Close"}">×</button><span class="chip">${t("lvlname")[sel.kind === "admin" ? p.lvl : sel.kind]}</span>`;
+  let h = `<button type="button" class="closex" id="closeinfo" aria-label="${L("Închide", "Close")}">×</button><span class="chip">${t("lvlname")[sel.kind === "admin" ? p.lvl : sel.kind]}</span>`;
   if (sel.kind === "admin") {
     h += `<h3>${esc(nameOf(p))}</h3><dl>${p.sector ? `<dt>${t("sector")}</dt><dd>${esc(p.sector)}</dd>` : ""}${p.unit && p.lvl === 3 ? `<dt>${t("unit")}</dt><dd>${esc(p.unit)}</dd>` : ""}
       <dt>${t("popl")}</dt><dd>${p.pop ? `<b>${fmt(p.pop * s)}</b>` : t("none")}</dd>
@@ -1235,7 +1286,7 @@ async function renderInfo() {
       <dt>${t("dens")}</dt><dd>${p.dens ? fmt(p.dens * s) + " / km²" : t("none")}</dd></dl>`;
     if (p.note) h += `<p class="note">${esc(p.note)}</p>`;
   } else if (sel.kind === "line") {
-    h += `<h3>${t("length")}: ${fmt(sel.len, sel.len < 10 ? 2 : 1)} km</h3><p class="small">${sel.n} ${S.lang === "ro" ? "puncte" : "points"}</p>`;
+    h += `<h3>${t("length")}: ${fmt(sel.len, sel.len < 10 ? 2 : 1)} km</h3><p class="small">${sel.n} ${L("puncte", "points")}</p>`;
   } else {
     if (sel.kind === "circle") h += `<h3>${t("radius")} ${sel.r < 1 ? fmt(sel.r * 1000) + " m" : fmt(sel.r, 2) + " km"}</h3>`;
     h += `<div class="measure"><div><span>${t("areaL")}</span><b>${fmt(sel.area / 1e6, sel.area < 1e7 ? 3 : 2)} km²</b></div><div><span>${t("perim")}</span><b>${fmt(sel.perim, 2)} km</b></div>`
@@ -1246,7 +1297,7 @@ async function renderInfo() {
     else if (sel.stats === null) h += `<div class="loading" role="status"><span class="spin"></span>${t("calc")}</div>`;
     else h += statsHtml(sel.stats, sel.kind === "admin");
   }
-  if (sel.kind === "admin") h += `<p class="src">${p.lvl === "ctx" ? t("outside") + "<br>" : ""}${p.src ? t("src") + ": " + esc(p.src) + (S.scen === "est" ? (S.lang === "ro" ? " · scalat la estimarea BNS 2019" : " · scaled to NBS 2019 estimate") : "") : ""}${p.method ? "<br>" + t("method") + ": " + esc(p.method) : ""}</p>`;
+  if (sel.kind === "admin") h += `<p class="src">${p.lvl === "ctx" ? t("outside") + "<br>" : ""}${p.src ? t("src") + ": " + esc(p.src) + (S.scen === "est" ? L(" · scalat la estimarea BNS 2019", " · scaled to NBS 2019 estimate") : "") : ""}${p.method ? "<br>" + t("method") + ": " + esc(p.method) : ""}</p>`;
   el.innerHTML = h;
   el.querySelector("#seeinfo")?.addEventListener("click", runStats);
   el.querySelector("#closeinfo")?.addEventListener("click", () => {
@@ -1258,19 +1309,19 @@ function fmtDate(iso) { return new Date(iso + "T12:00:00").toLocaleDateString(lo
 function budgetHtml(pop) {
   const y = +S.date.slice(0, 4), B = BUDGET[y];
   let h = `<div class="budget"><div class="bhead"><b>${t("b_title")} ${y}</b>`;
-  if (!B) return h + `<span class="pill warn">${S.lang === "ro" ? "fără date" : "no data"}</span></div><p class="small">${S.lang === "ro" ? "Nu există date publice despre bugetul acestui an." : "No public data for this year's budget."}</p></div>`;
+  if (!B) return h + `<span class="pill warn">${L("fără date", "no data")}</span></div><p class="small">${L("Nu există date publice despre bugetul acestui an.", "No public data for this year's budget.")}</p></div>`;
   const ok = B.approved && S.date >= B.approved;
-  const status = ok ? (S.lang === "ro" ? "aprobat " + fmtDate(B.approved) : "adopted " + fmtDate(B.approved))
-    : B.rev == null ? (S.lang === "ro" ? "fără proiect publicat" : "no draft published")
-    : (S.lang === "ro" ? "buget provizoriu · cifre din proiect" : "provisional budget · draft figures");
+  const status = ok ? L(`aprobat ${fmtDate(B.approved)}`, `adopted ${fmtDate(B.approved)}`)
+    : B.rev == null ? L("fără proiect publicat", "no draft published")
+    : L("buget provizoriu · cifre din proiect", "provisional budget · draft figures");
   h += `<span class="pill ${ok ? "good" : "warn"}">${status}</span></div>`;
   h = h.replace(`<b>${t("b_title")} ${y}</b>`, `<b>${t("b_title")} ${y}</b><span class="curseg" role="group" aria-label="Monedă"><button type="button" data-cur="lei" aria-pressed="${S.cur === "lei"}">lei</button><button type="button" data-cur="eur" aria-pressed="${S.cur === "eur"}">EUR</button></span>`);
   if (B.rev != null) {
     const eur = S.cur === "eur";
-    const bn = (v) => eur ? `${fmt(v * 1000 / EUR_RATE, 0)} ${S.lang === "ro" ? "mil. €" : "m €"}` : `${fmt(v, 2)} ${t("bln")}`;
+    const bn = (v) => eur ? `${fmt(v * 1000 / EUR_RATE, 0)} ${L("mil. €", "m €")}` : `${fmt(v, 2)} ${t("bln")}`;
     h += `<dl class="stats">${`<dt>${t("b_rev")}</dt><dd>${bn(B.rev)}</dd>`}${B.tr ? `<dt>&nbsp;&nbsp;${t("b_tr")}</dt><dd>${bn(B.tr)}</dd>` : ""}<dt>${t("b_exp")}</dt><dd>${bn(B.exp)}</dd>
       <dt>${t("b_bal")}</dt><dd>${bn(B.exp - B.rev)}</dd><dt>${t("b_pc")}</dt><dd>${eur ? fmt(B.exp * 1e9 / pop / EUR_RATE) + " €" : fmt(B.exp * 1e9 / pop) + " " + t("lei")}</dd></dl>`
-      + (eur ? `<p class="small">${S.lang === "ro" ? "Curs oficial BNM" : "Official NBM rate"} ${fmtDate(EUR_DATE)}: 1 € = ${fmt(EUR_RATE, 4)} lei</p>` : "");
+      + (eur ? `<p class="small">${L("Curs oficial BNM", "Official NBM rate")} ${fmtDate(EUR_DATE)}: 1 € = ${fmt(EUR_RATE, 4)} lei</p>` : "");
   }
   h += `<p class="small">${esc(B.note[S.lang])}</p><p class="small">${t("b_src")}: ${B.src.map(([n, u]) => `<a href="${u}" target="_blank" rel="noopener">${esc(n)}</a>`).join(" · ")}</p></div>`;
   return h;
@@ -1283,16 +1334,16 @@ function lifeHtml() {
   const pop = popAt(S.date);
   const row = (a, b, note) => `<dt>${a}</dt><dd>${b}</dd>${note ? `<div class="rownote">${note}</div>` : ""}`;
   let x = `<div class="bhead"><b>${t("life")}</b><span class="curseg" role="group"><button type="button" data-cur="lei" aria-pressed="${S.cur === "lei"}">lei</button><button type="button" data-cur="eur" aria-pressed="${S.cur === "eur"}">EUR</button></span></div>
-    <p class="small">${ro ? "Cele mai noi date publicate până la" : "Latest data published by"} ${fmtDate(S.date)}.</p><dl class="stats">`;
-  if (g) x += `<div class="sep">${ro ? "Economie" : "Economy"}</div>` + row(ro ? `PIB pe locuitor (${g.year})` : `GDP per capita (${g.year})`, money(g.pc), ro ? "mun. Chișinău, calcul BNS" : "Chișinău municipality, NBS")
-    + row(ro ? `PIB regional (${g.year})` : `Regional GDP (${g.year})`, S.cur === "eur" ? `${fmt(g.total * 1000 / EUR_RATE, 0)} ${ro ? "mil. €" : "m €"}` : `${fmt(g.total, 1)} ${t("bln")}`)
-    + row(ro ? "Ponderea în PIB-ul țării" : "Share of national GDP", `${fmt(g.share, 1)}%`);
-  if (w) x += `<div class="sep">${ro ? "Venituri" : "Income"}</div>` + row(ro ? `Salariu mediu brut (${w.label.ro})` : `Average gross wage (${w.label.en})`, money(w.v) + (ro ? "/lună" : "/month"),
-    w.nat ? (ro ? `media națională ${money(w.nat)}; Chișinău +${fmt((w.v / w.nat - 1) * 100, 1)}%` : `national average ${money(w.nat)}; Chișinău +${fmt((w.v / w.nat - 1) * 100, 1)}%`) : "");
-  if (p) x += row(ro ? `Rata sărăciei absolute (${p.year})` : `Absolute poverty rate (${p.year})`, `${fmt(p.v, 1)}%`, ro ? `media națională ${fmt(p.nat, 1)}% (metodologia veche)` : `national ${fmt(p.nat, 1)}% (old methodology)`);
-  if (h) x += `<div class="sep">${ro ? "Dezvoltare umană" : "Human development"}</div>` + row(ro ? `IDU Moldova (${h.year})` : `HDI Moldova (${h.year})`, fmt(h.v, 3),
-    (h.rank ? (ro ? `locul ${h.rank} din 193, dezvoltare umană ridicată` : `rank ${h.rank} of 193, high human development`) : "") + (ro ? " · PNUD nu publică IDU pe municipii" : " · UNDP does not publish HDI by municipality"));
-  x += `<div class="sep">${ro ? "Municipiu" : "Municipality"}</div>` + row(t("popl"), fmt(pop)) + (B && B.exp ? row(t("b_pc"), money(B.exp * 1e9 / pop)) : "");
+    <p class="small">${L("Cele mai noi date publicate până la", "Latest data published by")} ${fmtDate(S.date)}.</p><dl class="stats">`;
+  if (g) x += `<div class="sep">${L("Economie", "Economy")}</div>` + row(L(`PIB pe locuitor (${g.year})`, `GDP per capita (${g.year})`), money(g.pc), L("mun. Chișinău, calcul BNS", "Chișinău municipality, NBS"))
+    + row(L(`PIB regional (${g.year})`, `Regional GDP (${g.year})`), S.cur === "eur" ? `${fmt(g.total * 1000 / EUR_RATE, 0)} ${L("mil. €", "m €")}` : `${fmt(g.total, 1)} ${t("bln")}`)
+    + row(L("Ponderea în PIB-ul țării", "Share of national GDP"), `${fmt(g.share, 1)}%`);
+  if (w) x += `<div class="sep">${L("Venituri", "Income")}</div>` + row(L(`Salariu mediu brut (${w.label.ro})`, `Average gross wage (${w.label.en})`), money(w.v) + L("/lună", "/month"),
+    w.nat ? L(`media națională ${money(w.nat)}; Chișinău +${fmt((w.v / w.nat - 1) * 100, 1)}%`, `national average ${money(w.nat)}; Chișinău +${fmt((w.v / w.nat - 1) * 100, 1)}%`) : "");
+  if (p) x += row(L(`Rata sărăciei absolute (${p.year})`, `Absolute poverty rate (${p.year})`), `${fmt(p.v, 1)}%`, L(`media națională ${fmt(p.nat, 1)}% (metodologia veche)`, `national ${fmt(p.nat, 1)}% (old methodology)`));
+  if (h) x += `<div class="sep">${L("Dezvoltare umană", "Human development")}</div>` + row(L(`IDU Moldova (${h.year})`, `HDI Moldova (${h.year})`), fmt(h.v, 3),
+    (h.rank ? L(`locul ${h.rank} din 193, dezvoltare umană ridicată`, `rank ${h.rank} of 193, high human development`) : "") + L(" · PNUD nu publică IDU pe municipii", " · UNDP does not publish HDI by municipality"));
+  x += `<div class="sep">${L("Municipiu", "Municipality")}</div>` + row(t("popl"), fmt(pop)) + (B && B.exp ? row(t("b_pc"), money(B.exp * 1e9 / pop)) : "");
   x += `</dl>`;
   const src = [g, h, w, p].filter(Boolean).flatMap((o) => o.src || LIFE[Object.keys(LIFE).find((k) => LIFE[k].includes(o))].find((q) => q.src)?.src || []);
   const uniq = [...new Map(src.map((q) => [q[1], q])).values()];
@@ -1352,13 +1403,13 @@ const KIND_RO = { supermarket: "supermarket", convenience: "magazin alimentar", 
 const REL_RO = { christian: "creștin", orthodox: "ortodox", catholic: "catolic", jewish: "evreiesc", muslim: "musulman", buddhist: "budist", hindu: "hindus", baptist: "baptist", pentecostal: "penticostal", lutheran: "luteran", russian_orthodox: "ortodox (Mitropolia Moldovei)", romanian_orthodox: "ortodox (Mitropolia Basarabiei)" };
 async function showPoi(f, ll) {
   const p = f.properties;
-  const kind = S.lang === "ro" ? (KIND_RO[p.k] || String(p.k || "").replace(/_/g, " ")) : String(p.k || "").replace(/_/g, " ");
+  const kind = KIND_RO[p.k] ? L(KIND_RO[p.k], String(p.k).replace(/_/g, " ")) : String(p.k || "").replace(/_/g, " ");
   const inside = p.i & (REF() === "ref" ? 2 : 1);
   const web = p.w ? (p.w.startsWith("http") ? p.w : "https://" + p.w) : null;
   const html = (img) => `<div class="poipop">${img || ""}<b>${esc(p.n || t("cat")[p.c])}</b><div class="k">${esc(t("cat")[p.c])}${kind ? " · " + esc(kind) : ""}${p.b && p.b !== p.n ? " · " + esc(p.b) : ""}</div>
-    ${p.rel ? `<div>${S.lang === "ro" ? "Cult" : "Faith"}: ${esc(S.lang === "ro" ? [REL_RO[p.rel] || p.rel, p.den ? REL_RO[p.den] || p.den.replace(/_/g, " ") : null].filter(Boolean).join(", ") : [p.rel, p.den].filter(Boolean).join(", "))}</div>` : ""}
-    ${p.sd ? `<div>${S.lang === "ro" ? "Construit" : "Built"}: ${esc(p.sd)}</div>` : ""}${p.st ? `<div>${S.lang === "ro" ? "Stele" : "Stars"}: ${"★".repeat(Math.min(5, parseInt(p.st) || 0))}</div>` : ""}
-    ${p.her ? `<div class="k">${S.lang === "ro" ? "Monument ocrotit de stat" : "Listed heritage"}${/^\d+$/.test(p.her) ? "" : " · " + esc(p.her)}</div>` : ""}
+    ${p.rel ? `<div>${L("Cult", "Faith")}: ${esc([p.rel, p.den].filter(Boolean).map((x) => (REL_RO[x] ? L(REL_RO[x], x.replace(/_/g, " ")) : x.replace(/_/g, " "))).join(", "))}</div>` : ""}
+    ${p.sd ? `<div>${L("Construit", "Built")}: ${esc(p.sd)}</div>` : ""}${p.st ? `<div>${L("Stele", "Stars")}: ${"★".repeat(Math.min(5, parseInt(p.st) || 0))}</div>` : ""}
+    ${p.her ? `<div class="k">${L("Monument ocrotit de stat", "Listed heritage")}${/^\d+$/.test(p.her) ? "" : " · " + esc(p.her)}</div>` : ""}
     ${p.a ? `<div>${t("addr")}: ${esc(p.a)}</div>` : ""}${p.h ? `<div>${t("hours")}: ${esc(p.h)}</div>` : ""}
     ${web ? `<div>${t("web")}: <a href="${esc(web)}" target="_blank" rel="noopener">${esc(web.replace(/^https?:\/\//, "").slice(0, 40))}</a></div>` : ""}
     ${inside ? "" : `<div class="k">${t("outside")}</div>`}</div>`;
@@ -1544,7 +1595,7 @@ async function cmpUpdate() {
     feats.push({ type: "Feature", properties: { col: CMPCOL[c.k], k: c.k }, geometry: cmpGeom(c, pos[0], pos[1]) });
     if (!CMP_MARK[c.k]) {
       const el = document.createElement("div"); el.className = "cmplbl"; el.style.setProperty("--c", CMPCOL[c.k]);
-      el.innerHTML = `<span>⠿</span>${esc(S.lang === "ro" ? c.ro : c.en)}<small>${fmt(c.km2, 1)} km²</small>`;
+      el.innerHTML = `<span>⠿</span>${esc(L(c.ro, c.en))}<small>${fmt(c.km2, 1)} km²</small>`;
       const mk = new maplibregl.Marker({ element: el, draggable: true }).setLngLat(pos).addTo(map);
       mk.on("drag", () => { const p = mk.getLngLat(); S.cmp[c.k] = [p.lng, p.lat]; cmpData(list); });
       CMP_MARK[c.k] = mk;
@@ -1611,7 +1662,7 @@ function bindEvents() {
     else if (!S.terrain) map.easeTo({ pitch: 0, bearing: 0 });
     render();
   });
-  $("lang").addEventListener("click", () => { S.lang = S.lang === "ro" ? "en" : "ro"; fillRoutes(); render(); topbarRender(); chatRender(); });
+  $("lang").addEventListener("click", () => setLang({ ro: "en", en: "ru", ru: "ro" }[S.lang] || "ro"));
   $("viewbtn").addEventListener("click", () => {
     if (S.tool) setTool(S.tool);
     $("toolopts").hidden = true; $("measurebtn").setAttribute("aria-expanded", "false");
@@ -1712,7 +1763,7 @@ function bindEvents() {
   });
   map.on("mouseleave", "admin-fill", () => { if (!S.tool) map.getCanvas().style.cursor = ""; });
   map.on("click", "train-stops", (e) => { if (S.tool) return; const p = e.features[0].properties;
-    popup(e.lngLat, `<b>${esc(p.n)}</b><br><small>${t("trainline")} · ${S.lang === "ro" ? "stația" : "stop"} ${p.i}</small>`); });
+    popup(e.lngLat, `<b>${esc(p.n)}</b><br><small>${t("trainline")} · ${L("stația", "stop")} ${p.i}</small>`); });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
   $("collapse").addEventListener("click", () => $("panel").classList.toggle("min"));

@@ -1,8 +1,8 @@
 // ================================================================== ALL IN CHIȘINĂU — app shell (prototype / mock-up)
 // Sections: Atlas (the map), Proiecte & petiții, Transport public, Ghid turistic, Noutăți, Cont (mock role).
 const SH = { sec: store.get("start", "home") || "home", role: store.get("role", "cit"), tickets: store.get("tickets", []), props: {}, sim: null };
-const ROLES = { cit: ["Cetățean", "Citizen"], biz: ["Agent economic", "Business"], off: ["Funcționar primărie", "City-hall official"] };
-const RL = (k) => ROLES[k][S.lang === "ro" ? 0 : 1];
+const ROLES = { cit: ["Cetățean", "Citizen"], biz: ["Agent economic", "Business"], off: ["Funcționar primărie", "City-hall official"], adm: ["Administrator", "Administrator"] };
+const RL = (k) => L(ROLES[k][0], ROLES[k][1]);
 
 function shGo(sec) {
   SH.sec = sec;
@@ -28,8 +28,17 @@ async function shProposals() {
   if (PJ.db) {
     try { const s = await PJ.db.collection("proposals").get(); const o = {}; s.docs.forEach((d) => (o[d.id] = { ...d.data(), id: d.id })); SH.props = o; return; } catch {}
   }
-  SH.props = store.get("proposals", {});
+  SH.props = store.get("proposals", null) ?? seedLocal();
 }
+// demo projects in progress for a browser without the shared database (the published app gets the same rows in its database)
+const DEMO_RUN = [
+  { id: "demo-str", title: ["Reabilitarea străzii Grenoble (Botanica)", "Rehabilitation of Grenoble street (Botanica)"], cat: "roads", pct: 60, cost: 1.2, contractor: "SRL Exemplu Drum", end: "2027-06", c: [28.8335, 46.9905], loc: "Botanica" },
+  { id: "demo-kg", title: ["Grădiniță nouă în Durlești, 220 de locuri", "New 220-place kindergarten in Durlești"], cat: "edu", pct: 35, cost: 2.1, contractor: "SA Exemplu Construct", end: "2027-09", c: [28.7705, 47.0185], loc: "Durlești Centru" },
+  { id: "demo-led", title: ["Iluminat public LED pe bd. Mircea cel Bătrân", "LED street lighting on Mircea cel Bătrân boulevard"], cat: "safety", pct: 85, cost: 0.4, contractor: "SRL Exemplu Lumină", end: "2026-12", c: [28.8915, 47.0395], loc: "Ciocana" },
+  { id: "demo-park", title: ["Amenajarea scuarului de lângă lacul Valea Morilor", "Landscaping of the square by Valea Morilor lake"], cat: "green", pct: 20, cost: 0.6, contractor: "SRL Exemplu Verde", end: "2027-05", c: [28.8175, 47.0305], loc: "Valea Morilor" },
+];
+const demoRow = (d) => ({ type: "project", status: "run", demo: 1, title: L(d.title[0], d.title[1]), title_ro: d.title[0], title_en: d.title[1], cat: d.cat, pct: d.pct, cost: d.cost, contractor: d.contractor, end: d.end, loc: { c: d.c, label: d.loc }, votes: {}, t: "2026-03-01T09:00:00Z" });
+function seedLocal() { const o = {}; for (const d of DEMO_RUN) o[d.id] = { ...demoRow(d), id: d.id }; store.set("proposals", o); return o; }
 async function shSaveProposal(p) {
   SH.props[p.id] = p;
   if (PJ.db) { try { const b = { ...p }; delete b.id; await PJ.db.collection("proposals").doc(p.id).set(b); return; } catch {} }
@@ -54,7 +63,7 @@ async function uploadAttachments(msg) {
     try {
       if (A) { const sm = await shrinkImage(imgF, 1600, 0.85); out.img = (await A.upload(sm.blob, { type: "image/jpeg" })).id; }
       else out.imgData = (await shrinkImage(imgF, 720, 0.72)).data();
-    } catch (e) { throw new Error((ASSET_ERR[e?.code] || [L("Imaginea nu s-a putut încărca.", "The image could not be uploaded.")])[S.lang === "ro" ? 0 : 1]); }
+    } catch (e) { throw new Error((ASSET_ERR[e?.code] ? L(...ASSET_ERR[e.code]) : L("Imaginea nu s-a putut încărca.", "The image could not be uploaded."))); }
   }
   for (const [i, f] of docF.entries()) {
     const ext = (f.name.split(".").pop() || "").toLowerCase(), type = DOC_TYPES[ext];
@@ -62,7 +71,7 @@ async function uploadAttachments(msg) {
     if (!A) { out.docs.push({ name: f.name, type, size: f.size, local: 1 }); continue; }
     say(L(`Se încarcă documentul ${i + 1} din ${docF.length}…`, `Uploading document ${i + 1} of ${docF.length}…`));
     try { const r = await A.upload(f, { type }); out.docs.push({ id: r.id, name: f.name, type, size: f.size }); }
-    catch (e) { throw new Error(`„${f.name}”: ` + (ASSET_ERR[e?.code] || [L("nu s-a putut încărca.", "could not be uploaded.")])[S.lang === "ro" ? 0 : 1]); }
+    catch (e) { throw new Error(`„${f.name}”: ` + (ASSET_ERR[e?.code] ? L(...ASSET_ERR[e.code]) : L("nu s-a putut încărca.", "could not be uploaded."))); }
   }
   say("");
   return out;
@@ -84,39 +93,6 @@ const DEMO_EXEC = [
   { t: ["Grădiniță nouă în Durlești", "New kindergarten in Durlești"], who: "SA Exemplu Construct", pct: 35, cost: 2.1 },
   { t: ["Iluminat public LED, Ciocana", "LED street lighting, Ciocana"], who: "SRL Exemplu Lumină", pct: 85, cost: 0.4 },
 ];
-async function shProjects() {
-  await shProposals();
-  const list = Object.values(SH.props).sort((a, b) => (b.t || "").localeCompare(a.t || ""));
-  const card = (p) => {
-    const st = { new: L("în așteptare", "pending"), ok: L("aprobat", "approved"), no: L("respins", "rejected"), run: L("în execuție", "in progress") }[p.status || "new"];
-    let act = "";
-    if (SH.role === "cit" && p.type === "petition" && p.status !== "no") act += `<button class="btn ghost sm" data-sign="${p.id}">${L("Semnează", "Sign")} (${p.sig || 0})</button>`;
-    if (SH.role === "off" && (p.status || "new") === "new") act += `<button class="btn sm" data-approve="${p.id}">${L("Aprobă", "Approve")}</button><button class="btn ghost sm" data-reject="${p.id}">${L("Respinge", "Reject")}</button>`;
-    if (SH.role === "biz" && p.status === "ok") act += `<button class="btn sm" data-offer="${p.id}">${L("Oferă servicii", "Offer services")}</button>`;
-    if (SH.role === "off" && p.status === "ok" && (p.offers || []).length) act += (p.offers || []).map((o, i) => `<button class="btn ghost sm" data-pick="${p.id}" data-i="${i}">${L("Alege", "Pick")}: ${esc(o.firm)} · ${fmt(o.price)} €</button>`).join("");
-    return `<li class="pcard"><div class="pc1"><span class="pill ${p.status === "ok" || p.status === "run" ? "good" : p.status === "no" ? "warn" : ""}">${st}</span><span class="small">${p.type === "petition" ? L("Petiție", "Petition") : L("Propunere de proiect", "Project proposal")} · ${RL(p.role || "cit")}</span></div>
-      ${p.img || p.imgData ? `<img class="pimg" src="${p.img ? "/_blob/" + p.img : p.imgData}" alt="${esc(p.title)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'pimg ph',textContent:'${L("Imaginea nu e disponibilă în această vizualizare", "Image not available in this view")}'}))">` : ""}
-      <b>${esc(p.title)}</b><p class="small">${esc(p.desc || "")}</p>
-      ${(p.docs || []).length ? `<ul class="pdocs">${p.docs.map((d, i) => `<li>${d.id ? `<button type="button" class="linkbtn" data-doc="${p.id}" data-i="${i}">` : "<span>"}<i>${docIcon(d.type)}</i>${esc(d.name)}${d.id ? "</button>" : "</span>"}<span class="small"> · ${fsize(d.size)}${d.local ? " · " + L("doar numele (încărcarea nu e disponibilă aici)", "name only (upload unavailable here)") : ""}</span></li>`).join("")}</ul>` : ""}${p.contractor ? `<p class="small">${L("Executant", "Contractor")}: <b>${esc(p.contractor)}</b></p>` : ""}
-      ${(p.offers || []).length && !p.contractor ? `<p class="small">${(p.offers || []).length} ${L("oferte de la firme", "offers from firms")}</p>` : ""}<div class="btnrow">${act}</div></li>`;
-  };
-  return pageHead(L("Proiecte și petiții", "Projects & petitions"), L(`Rol curent: <b>${RL(SH.role)}</b> (schimbă-l din „Setări” sau la autentificare). Cetățenii propun și semnează, primăria aprobă și alege executantul, firmele oferă servicii.`, `Current role: <b>${RL(SH.role)}</b> (change it in Settings or when signing in). Citizens propose and sign, the city hall approves and picks contractors, firms make offers.`))
-    + `<section class="pgrid"><div><h3>${L("Propune", "Propose")}</h3>
-      <div class="pform"><select id="pr-type"><option value="project">${L("Propunere de proiect", "Project proposal")}</option><option value="petition">${L("Petiție", "Petition")}</option></select>
-      <input id="pr-title" class="pjin" maxlength="120" placeholder="${L("Titlu", "Title")}"><textarea id="pr-desc" class="pjin" rows="3" maxlength="800" placeholder="${L("Descriere", "Description")}"></textarea>
-      <label class="upl"><span>${L("Imagine reprezentativă", "Representative image")}</span><input type="file" id="pr-img" accept="image/png,image/jpeg,image/webp,image/gif"><img id="pr-prev" alt="" hidden></label>
-      <label class="upl"><span>${L("Documente (PDF, imagini, text)", "Documents (PDF, images, text)")}</span><input type="file" id="pr-docs" multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.md,.json"></label>
-      <p class="small">${(await assetsNs()) ? L("Fișierele se păstrează împreună cu aplicația și le vede oricine deschide propunerea.", "Files are stored with the app and anyone who opens the proposal can see them.") : L("În această vizualizare încărcarea fișierelor nu e disponibilă: imaginea se păstrează micșorată, iar din documente doar numele.", "File upload is not available in this view: the image is kept at a smaller size and only document names are kept.")}</p>
-      <p class="small warn" id="pr-msg" role="status"></p>
-      <button class="btn" id="pr-send">${L("Trimite", "Submit")}</button></div>
-      <h3>${L("Propuneri și petiții", "Proposals and petitions")} (${list.length})</h3>
-      ${list.length ? `<ul class="plist">${list.map(card).join("")}</ul>` : `<p class="hint">${L("Încă nimic. Trimite prima propunere.", "Nothing yet. Submit the first one.")}</p>`}</div>
-      <div><h3>${L("Proiecte în execuție", "Projects in progress")}</h3><ul class="plist">${DEMO_EXEC.map((d) => `<li class="pcard"><div class="pc1">${demo()}<span class="small">${L("Executant", "Contractor")}: ${d.who}</span></div><b>${d.t[S.lang === "ro" ? 0 : 1]}</b>
-        <div class="bar"><i style="width:${d.pct}%"></i></div><p class="small">${d.pct}% · ${fmt(d.cost, 1)} mil. €</p></li>`).join("")}</ul>
-      <h3>${L("Proiecte de planificare din atlas", "Planning projects in the atlas")}</h3>
-      <ul class="plist">${Object.values(PJ.list).map((p) => `<li class="pcard"><b>${esc(p.name)}</b><p class="small">${(p.log || []).length} ${L("modificări", "changes")} · ${(p.roads || []).length} ${L("drumuri", "roads")} · ${(p.nbs || []).length} ${L("cartiere", "districts")}</p><button class="btn ghost sm" data-openproj="${p.id}">${L("Deschide în atlas", "Open in the atlas")}</button></li>`).join("") || `<p class="hint">${L("Niciun proiect.", "No projects.")}</p>`}</ul></div></section>`;
-}
-
 // ---------------------------------------------------------------- Transport public
 async function shTransit() {
   const routes = await load("routes.json");
@@ -146,6 +122,8 @@ function qr(cv, code) {
   }
 }
 function buyTicket(what, price, minutes) {
+  const dk = minutes > 20000 ? "disc_pass" : "disc_ride", disc = store.get(dk, null);
+  if (disc) { price = Math.round(price * disc); store.set(dk, null); what += ` · ${L("reducere din puncte civice", "civic points discount")}`; }
   const code = Math.random().toString(36).slice(2, 8).toUpperCase();
   SH.tickets = [...SH.tickets.filter((x) => Date.now() < x.until), { what, price, code, until: Date.now() + minutes * 60000 }];
   store.set("tickets", SH.tickets); shRender();
@@ -193,7 +171,7 @@ function shNews() {
 
 // ---------------------------------------------------------------- events
 function shAfter() {
-  guideMap(); homeMap();
+  guideMap(); homeMap(); participAfter();
   document.querySelectorAll("#pagebody canvas[data-qr]").forEach((c) => qr(c, c.dataset.qr));
   const tp = document.getElementById("ti-price");
   if (tp) {
@@ -211,11 +189,14 @@ function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
   applyStoredTheme(); chatBind(); loginBind(); topbarBind();
+  // the artifact's owner (or an editor) opens it as administrator
+  (async () => { try { const u = window.claude?.use ? await window.claude.use("user") : null; if (u && (u.isOwner() || u.canEdit())) {
+    SH.canAdmin = true; if (!user() || user().role !== "adm") { store.set("user", { name: "Administrator", role: "adm" }); SH.role = "adm"; store.set("role", "adm"); topbarRender(); if (SH.sec !== "atlas") shRender(); } } } catch {} })();
   shGo(SH.sec);
   $("docdlg").addEventListener("click", (e) => { if (e.target.id === "docx" || e.target === $("docdlg")) $("docdlg").close(); });
   $("page").addEventListener("change", (e) => {
     if (e.target.id === "pr-img") { const f = e.target.files[0], im = $("pr-prev"); if (im.src) URL.revokeObjectURL(im.src); if (f) { im.src = URL.createObjectURL(f); im.hidden = false; } else im.hidden = true; return; }
-    if (guideChange(e) || settingsChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
+    if (participChange(e) || guideChange(e) || settingsChange(e)) return; if (e.target.name === "role") { SH.role = e.target.value; store.set("role", SH.role); } });
   $("page").addEventListener("submit", (e) => {
     const f = e.target.closest("[data-hsearch]"); if (!f) return; e.preventDefault();
     const q = f.querySelector("input").value;
@@ -227,6 +208,7 @@ function shBind() {
     if (SH.sec === "guide" && guideBind(e)) return;
     if (SH.sec === "settings" && settingsClick(b)) return;
     if (SH.sec === "transit" && journeyClick(b)) return;
+    if (participClick(b)) return;
     if (ds.go) { const [sec, md] = ds.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } return; }
     if (ds.ask) { ask(ds.ask); return; }
     if (b.id === "md-add") { addMyDoc(); return; }
@@ -237,12 +219,12 @@ function shBind() {
       b.disabled = true;
       let att;
       try { att = await uploadAttachments($("pr-msg")); } catch (err) { $("pr-msg").textContent = err.message; b.disabled = false; return; }
-      const p = { id, type: $("pr-type").value, title, desc: $("pr-desc").value.trim(), role: SH.role, status: "new", sig: 0, offers: [], t: new Date().toISOString() };
+      const p = { id, type: $("pr-type").value, cat: $("pr-cat").value, title, desc: $("pr-desc").value.trim(), role: SH.role, author: VID, votes: { [VID]: 1 }, status: "new", sig: 0, offers: [], t: new Date().toISOString() };
+      const lc = pickedLoc(); if (lc) p.loc = lc;
       if (att.img) p.img = att.img; if (att.imgData) p.imgData = att.imgData; if (att.docs.length) p.docs = att.docs;
-      await shSaveProposal(p);
+      await shSaveProposal(p); award("propose", title);
       shRender();
-    } else if (ds.sign) { const p = SH.props[ds.sign]; await shSaveProposal({ ...p, sig: (p.sig || 0) + 1 }); shRender(); }
-    else if (ds.approve) { await shSaveProposal({ ...SH.props[ds.approve], status: "ok" }); shRender(); }
+    } else if (ds.approve) { await shSaveProposal({ ...SH.props[ds.approve], status: "ok" }); shRender(); }
     else if (ds.reject) { await shSaveProposal({ ...SH.props[ds.reject], status: "no" }); shRender(); }
     else if (ds.offer) { const p = SH.props[ds.offer]; const price = Math.round((50 + Math.random() * 450) * 1000); await shSaveProposal({ ...p, offers: [...(p.offers || []), { firm: L("Firma ta (exemplu)", "Your firm (example)"), price }] }); shRender(); }
     else if (ds.pick) { const p = SH.props[ds.pick]; await shSaveProposal({ ...p, status: "run", contractor: p.offers[+ds.i].firm }); shRender(); }

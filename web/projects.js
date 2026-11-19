@@ -2,7 +2,9 @@
 // A project = a saved set of edits on top of the atlas: administrative re-mapping (level-3 blocks are the
 // building blocks) and new roads. Stored in the artifact's shared database (db capability), or in this
 // browser when the database is not available.
-const L = (ro, en) => (S.lang === "ro" ? ro : en);
+// Russian strings are added at build time (third argument) or looked up in RUX by the Romanian text
+const RUX = {};
+const L = (ro, en, ru) => (S.lang === "ro" ? ro : S.lang === "ru" ? (ru ?? RUX[ro] ?? en) : en);
 const ROAD_COST_M2 = 190;   // € per m² of carriageway — Centura Chișinău concept (2014): segment 6, 86.7 M€ / 32 km / 4 lanes
 const LANE_W = 3.5;         // m per lane
 const NEWSEC_COL = ["#0ca678", "#f76707", "#ae3ec9", "#1098ad", "#d6336c", "#74b816", "#4263eb", "#f59f00"];

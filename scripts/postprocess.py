@@ -68,7 +68,19 @@ print("projects", len(fc["features"]), sum(f["properties"]["major"] for f in fc[
 os.makedirs(os.path.join(DIST, "data"), exist_ok=True)
 tpl = open(os.path.join(ROOT, "web", "index.template.html")).read()
 css = open(os.path.join(ROOT, "node_modules", "maplibre-gl", "dist", "maplibre-gl.css")).read()
-js = open(os.path.join(ROOT, "web", "app.js")).read().replace("/*__PROJECTS_JS__*/", "\n".join(open(os.path.join(ROOT, "web", n)).read() for n in ("projects.js", "nb.js", "shell.js", "shell2.js")))
+# Russian: T.ru + RUX pairs + third argument injected into every L("ro", "en") call that has a translation
+import sys as _sys; _sys.path.insert(0, os.path.dirname(__file__))
+from i18n_extract import calls as _calls
+I18N = os.path.join(ROOT, "i18n")
+RU_L = json.load(open(os.path.join(I18N, "ru_l.json")))
+RU_P = json.load(open(os.path.join(I18N, "ru_pairs.json")))
+def add_ru(src):
+    ins = [(b1, RU_L[ro]) for st, en, ro, e, b1 in _calls(src) if ro in RU_L]
+    for pos, ru in sorted(ins, reverse=True): src = src[:pos] + ", " + ru + src[pos:]
+    return src
+parts = [add_ru(open(os.path.join(ROOT, "web", n)).read()) for n in ("projects.js", "nb.js", "shell.js", "shell2.js", "shell3.js")]
+parts.insert(1, open(os.path.join(I18N, "t_ru.js")).read() + "\nObject.assign(RUX, " + json.dumps(RU_P, ensure_ascii=False) + ");")
+js = add_ru(open(os.path.join(ROOT, "web", "app.js")).read()).replace("/*__PROJECTS_JS__*/", "\n".join(parts))
 html = tpl.replace("/*__MAPLIBRE_CSS__*/", css).replace("/*__APP_JS__*/", js).replace("__DATE__", datetime.date.today().isoformat())
 open(os.path.join(DIST, "index.html"), "w").write(html)
 for n in ["admin.geojson", "landuse.geojson", "base.geojson", "roads.geojson", "rail.geojson", "train.geojson", "bike.geojson",

@@ -187,7 +187,7 @@ async function nbFinish() {
   PJ.nbBusy = false;
   nb.est = nbCompute(nb);
   PJ.cur.nbs = [...(PJ.cur.nbs || []), nb];
-  PJ.cur.log = [...(PJ.cur.log || []), { t: nb.t, what: `${L("Cartier nou", "New district")}: ${nb.name} (${T[S.lang === "ro" ? "ro" : "en"]}, ${fmt(nb.ha, 1)} ha)` }].slice(-60);
+  PJ.cur.log = [...(PJ.cur.log || []), { t: nb.t, what: `${L("Cartier nou", "New district")}: ${nb.name} (${L(T.ro, T.en)}, ${fmt(nb.ha, 1)} ha)` }].slice(-60);
   PJ.nbOpen = nb.id;
   nbData(); pjSave(); pjRebuild(); nbRender();
 }
@@ -202,7 +202,7 @@ function pjEnsureNbLayers() {
   map.on("click", "pj-nb", (e) => {
     if (PJ.tool) return;
     const nb = (PJ.cur?.nbs || []).find((x) => x.id === e.features[0].properties.id); if (!nb) return;
-    popup(e.lngLat, `<b>${esc(nb.name)}</b><br>${esc(NB_TYPES[nb.type][S.lang === "ro" ? "ro" : "en"])} · ${fmt(nb.ha, 1)} ha${nb.est.pop ? `<br>${fmt(nb.est.pop)} ${L("locuitori (capacitate)", "residents (capacity)")}` : ""}<br>${fmt(nb.est.pub[0] / 1e6 + nb.est.priv[0] / 1e6, 0)}–${fmt(nb.est.pub[1] / 1e6 + nb.est.priv[1] / 1e6, 0)} mil. €`);
+    popup(e.lngLat, `<b>${esc(nb.name)}</b><br>${esc(L(NB_TYPES[nb.type].ro, NB_TYPES[nb.type].en))} · ${fmt(nb.ha, 1)} ha${nb.est.pop ? `<br>${fmt(nb.est.pop)} ${L("locuitori (capacitate)", "residents (capacity)")}` : ""}<br>${fmt(nb.est.pub[0] / 1e6 + nb.est.priv[0] / 1e6, 0)}–${fmt(nb.est.pub[1] / 1e6 + nb.est.priv[1] / 1e6, 0)} mil. €`);
   });
 }
 function nbData() {
@@ -258,7 +258,7 @@ function nbRender() {
   const cur = document.getElementById("nb-type")?.value || PJ.nbType || "res_mid", T = NB_TYPES[cur];
   let h = `<div class="pjact"><b>${L("Cartier nou", "New district")}</b>
     <input type="text" class="pjin" id="nb-name" placeholder="${esc(L("Numele cartierului (opțional)", "District name (optional)"))}">
-    <label class="pjrow nbtype"><span>${L("Tipul", "Type")}</span><select id="nb-type">${Object.entries(NB_TYPES).map(([k, v]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${esc(v[S.lang === "ro" ? "ro" : "en"])}</option>`).join("")}</select></label>
+    <label class="pjrow nbtype"><span>${L("Tipul", "Type")}</span><select id="nb-type">${Object.entries(NB_TYPES).map(([k, v]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${esc(L(v.ro, v.en))}</option>`).join("")}</select></label>
     ${T.res ? `<label class="pjrow"><span>${L("Densitate (loc./ha)", "Density (people/ha)")}: <b id="nb-dv">${PJ.nbDens?.[cur] ?? T.dens}</b></span><input type="range" id="nb-dens" min="${T.min}" max="${T.max}" step="5" value="${PJ.nbDens?.[cur] ?? T.dens}"></label>` : `<p class="small">${T.park ? L("Nu adaugă locuitori; costul depinde de suprafață.", "Adds no residents; cost depends on the area.") : L("Nu adaugă locuitori; locurile de muncă și costul se calculează din suprafață.", "Adds no residents; jobs and cost are derived from the area.")}</p>`}
     ${PJ.tool === "nb" ? `<p class="small">${L("Apasă pe hartă colțurile zonei. Clic dreapta sau dublu-clic închide zona.", "Tap the map for the corners. Right-click or double-click closes the area.")}</p>
       <div class="btnrow"><button type="button" class="btn" data-nb="finish">${L("Gata", "Done")}</button><button type="button" class="btn ghost" data-nb="cancel">${L("Renunță", "Cancel")}</button></div>`
@@ -271,13 +271,13 @@ function nbRender() {
       nbSite(nb.ring).then((st) => { nb.site = st; }).catch(() => { nb.site = null; }).finally(() => { delete nb._busy; nb.est = nbCompute(nb); pjSave(); pjRebuild(); nbRender(); });
     }
     const e = nb.est, Tn = NB_TYPES[nb.type], open = PJ.nbOpen === nb.id;
-    h += `<div class="nbcard"><button type="button" class="nbhead" data-nbopen="${nb.id}" aria-expanded="${open}"><b>${esc(nb.name)}</b><small>${esc(Tn[S.lang === "ro" ? "ro" : "en"])} · ${fmt(nb.ha, 1)} ha${e.pop ? ` · ${fmt(e.pop)} ${L("loc.", "people")}` : ""}${e.jobs ? ` · ${fmt(e.jobs)} ${L("locuri de muncă", "jobs")}` : ""}</small><span>${eurRange(e.pub[0] + e.priv[0], e.pub[1] + e.priv[1])}</span></button>`;
+    h += `<div class="nbcard"><button type="button" class="nbhead" data-nbopen="${nb.id}" aria-expanded="${open}"><b>${esc(nb.name)}</b><small>${esc(L(Tn.ro, Tn.en))} · ${fmt(nb.ha, 1)} ha${e.pop ? ` · ${fmt(e.pop)} ${L("loc.", "people")}` : ""}${e.jobs ? ` · ${fmt(e.jobs)} ${L("locuri de muncă", "jobs")}` : ""}</small><span>${eurRange(e.pub[0] + e.priv[0], e.pub[1] + e.priv[1])}</span></button>`;
     if (open) {
       h += nbSiteHtml(nb);
       (e.warns || []).forEach((w) => (h += `<p class="small warn">${w}</p>`));
       h += `<table class="nbt"><tbody>${e.items.map((it) => {
         const editable = { houses: 1, blocks: 1, schools: 1, kinder: 1, clinics: 1 }[it.key];
-        return `<tr><td>${esc(it[S.lang === "ro" ? "ro" : "en"])}</td><td>${editable ? `<input type="number" min="0" class="nbin" data-ov="${it.key}" data-nb="${nb.id}" value="${it.n}">` : `${fmt(it.n, it.unit === "km" ? 2 : 0)}`} <small>${esc(it.unit)}</small></td><td>${eurRange(it.lo, it.hi)}</td></tr>`;
+        return `<tr><td>${esc(L(it.ro, it.en))}</td><td>${editable ? `<input type="number" min="0" class="nbin" data-ov="${it.key}" data-nb="${nb.id}" value="${it.n}">` : `${fmt(it.n, it.unit === "km" ? 2 : 0)}`} <small>${esc(it.unit)}</small></td><td>${eurRange(it.lo, it.hi)}</td></tr>`;
       }).join("")}
         ${e.fl ? `<tr><td>${L("Etaje", "Floors")}</td><td><input type="number" min="1" max="30" class="nbin" data-ov="floors" data-nb="${nb.id}" value="${e.fl}"></td><td></td></tr>` : ""}</tbody></table>
         <dl class="stats"><dt>${L("Public (străzi, rețele, școli, grădinițe, sănătate, spații verzi)", "Public (streets, networks, schools, kindergartens, health, green)")}</dt><dd>${eurRange(e.pub[0], e.pub[1])}</dd>
@@ -285,7 +285,7 @@ function nbRender() {
         <dt>${L("Durată estimată", "Estimated duration")}</dt><dd>${e.months[0]}–${e.months[1]} ${L("luni", "months")}</dd>
         <dt>${L("Muncitori (în medie pe șantier)", "Workers (average on site)")}</dt><dd>≈ ${fmt(e.workers)}</dd>
         ${e.pop || e.displaced ? `<dt>${L("Schimbarea populației", "Population change")} (${Math.round(NB_OCC * 100)}% ${L("din capacitate", "of capacity")}${e.displaced ? L(", minus locuitorii mutați", ", minus displaced residents") : ""})</dt><dd>${e.added >= 0 ? "+" : ""}${fmt(e.added)}</dd>` : ""}</dl>
-        <div class="cap">${L("Calificări necesare", "Skills needed")}</div><ul class="qual">${e.qual.map((q) => `<li><span>${esc(q[S.lang === "ro" ? "ro" : "en"])}</span><b>${fmt(q.n)}</b></li>`).join("")}</ul>
+        <div class="cap">${L("Calificări necesare", "Skills needed")}</div><ul class="qual">${e.qual.map((q) => `<li><span>${esc(L(q.ro, q.en))}</span><b>${fmt(q.n)}</b></li>`).join("")}</ul>
         <div class="btnrow"><button type="button" class="btn ghost sm" data-nbreset="${nb.id}">${L("Revino la estimare", "Reset to estimate")}</button><button type="button" class="btn ghost sm" data-nbdel="${nb.id}">${L("Șterge cartierul", "Delete district")}</button></div>`;
     }
     h += `</div>`;

@@ -83,7 +83,7 @@ const gSave = () => store.set("guide2", { ...SH.g, plan: undefined });
 
 async function shGuide() {
   const g = gState(), P = await guidePools();
-  const nm = (v) => v[S.lang === "ro" ? 0 : 1];
+  const nm = (v) => L(v[0], v[1]);
   const steps = [L("Zile", "Days"), L("Buget", "Budget"), L("Interese", "Interests"), L("Planul", "Plan")];
   let h = `<ol class="gsteps">${steps.map((s, i) => `<li class="${i + 1 === g.step ? "on" : i + 1 < g.step ? "done" : ""}"><button type="button" data-gstep="${i + 1}" ${i + 1 > g.step && !(i === 3 && g.plan) ? "disabled" : ""}><b>${i + 1}</b>${s}</button></li>`).join("")}</ol>`;
   if (g.step === 1) {
@@ -114,7 +114,7 @@ async function guideMap() {
   if (!SH.gm || SH.gm.getContainer() !== el) { SH.gm?.remove(); SH.gm = miniMap(el, { zoom: 12.4 }); SH.gmk = []; }
   const m = await SH.gm.ready;
   SH.gmk.forEach((x) => x.remove()); SH.gmk = [];
-  const nm = (v) => v[S.lang === "ro" ? 0 : 1];
+  const nm = (v) => L(v[0], v[1]);
   const leg = document.getElementById("g-leg");
   if (g.step === 4 && g.plan) {
     m.getSource("gp")?.setData({ type: "FeatureCollection", features: [] });
@@ -211,7 +211,7 @@ async function guideMake() {
   const wineTrip = tripFlag.filter(Boolean).length * (tierK === "eco" ? 8 : tierK === "mid" ? 30 : 60);
   const nights = Math.max(1, days - (days > 1 ? 0 : 0)), stay = T[3] * nights, food = T[4] * days, local = 2 * days;
   const total = stay + food + local + visits + wineTrip, lo = Math.round(total * 0.85), hi = Math.round(total * 1.2);
-  const nm = (v) => v[S.lang === "ro" ? 0 : 1], DC = ["#e03131", "#1971c2", "#2f9e44", "#f08c00", "#9c36b5", "#0c8599", "#c2255c", "#5c940d", "#3b5bdb", "#d9480f", "#087f5b", "#862e9c", "#1098ad", "#495057"];
+  const nm = (v) => L(v[0], v[1]), DC = ["#e03131", "#1971c2", "#2f9e44", "#f08c00", "#9c36b5", "#0c8599", "#c2255c", "#5c940d", "#3b5bdb", "#d9480f", "#087f5b", "#862e9c", "#1098ad", "#495057"];
   let verdict = "";
   if (g.bmode === "exact") verdict = hi <= g.eur ? `<span class="pill good">${L("în buget", "within budget")}</span>` : lo > g.eur ? `<span class="pill warn">${L("peste buget", "over budget")}</span>` : `<span class="pill">${L("la limita bugetului", "about at budget")}</span>`;
   let h = `<h3>${L("Planul tău", "Your plan")}: ${days} ${days === 1 ? L("zi", "day") : L("zile", "days")} · ${nm(T)}${g.bmode === "none" ? ` (${L("buget nespecificat", "budget not given")})` : g.bmode === "exact" ? ` · ${fmt(g.eur)} €` : ""}</h3>
@@ -272,10 +272,11 @@ async function shHome() {
   return `<header class="phead home"><h2>${user() ? `${L("Bună", "Hi")}, ${esc(user().name.split(" ")[0])}!` : L("Bun venit în All in Chișinău", "Welcome to All in Chișinău")}</h2><p>${fmtDate(S.date)} · ${L("prototip", "prototype")}</p></header>
   <div class="tiles">
     ${tile("atlas", "big", L("Atlasul municipiului", "Municipality atlas"), `<div class="kpis"><div><b>${fmt(mun.pop * s)}</b><span>${L("locuitori", "residents")}</span></div><div><b>${fmt(mun.km2, 0)} km²</b><span>${L("suprafață", "area")}</span></div><div><b>${nLoc}</b><span>${L("localități și sectoare", "localities & sectors")}</span></div></div><div id="home-map" class="hmap"></div>`, L("Deschide atlasul", "Open the atlas"))}
+    ${tile("", "", L("Cartierul meu", "My neighbourhood"), await myAreaTile(), "")}
     ${tile("atlas:temp", "", L("Vremea acum", "Weather now"), temp ? `<p class="big">${fmt(temp.mean, 1)} °C</p><p class="small">${L("în municipiu", "across the municipality")}: ${fmt(temp.min, 1)} … ${fmt(temp.max, 1)} °C</p>` : `<p class="small">—</p>`, L("Harta temperaturii", "Temperature map"))}
     ${tile("transit", "", L("Transport public", "Public transport"), `<p>${L("Bilet urban", "City ticket")}: <b>6 lei</b> · ${L("abonament", "monthly pass")}: <b>300 lei</b></p><p class="small">${live ? `${live} ${L("bilete active", "active tickets")}` : L("Niciun bilet activ", "No active ticket")}</p>`, L("Bilete și trasee live", "Tickets & live tracking"))}
     ${tile("guide", "", L("Ghid turistic", "Tourist guide"), `<p>${L("Trei întrebări și primești un plan pe zile, cu toate locurile pe hartă.", "Three questions and you get a day-by-day plan with every place on a map.")}</p>`, L("Planifică vizita", "Plan a visit"))}
-    ${tile("projects", "", L("Proiecte și petiții", "Projects & petitions"), `<p><b>${props.length}</b> ${L("propuneri", "proposals")} · <b>${props.filter((p) => p.status === "run").length + 3}</b> ${L("în execuție", "in progress")}</p><p class="small">${projN} ${L("proiecte de planificare în atlas", "planning projects in the atlas")}</p>`, L("Vezi proiectele", "See projects"))}
+    ${tile("projects", "", L("Participă", "Take part"), `<p><b>${props.length}</b> ${L("propuneri și petiții", "proposals & petitions")} · <b>${props.filter((p) => p.status === "run").length + 3}</b> ${L("în execuție", "in progress")}</p><p class="small">${L("Susține sau contestă proiectele, semnalează probleme din cartier.", "Support or oppose projects, report problems in your area.")}</p>`, L("Vezi propunerile", "See proposals"))}
     ${B ? tile("atlas", "", `${L("Bugetul municipal", "Municipal budget")} ${y}`, `<p>${L("Venituri", "Revenue")} <b>${fmt(B.rev, 2)} ${L("mld lei", "bn lei")}</b></p><p>${L("Cheltuieli", "Spending")} <b>${fmt(B.exp, 2)} ${L("mld lei", "bn lei")}</b></p>`, "") : ""}
     ${tile("news", "", L("Noutăți", "News"), `<ul class="hnews">${news.map((n) => `<li><span class="small">${fmtDate(n[0])}</span>${n[1]}</li>`).join("")}</ul>`, L("Toate noutățile", "All news"))}
     ${tile("archive", "", L("Documente", "Documents"), `<p>${fmt(ARCH.filter((a) => a.vis === "pub").length)} ${L("documente publice", "public documents")} · ${fmt(myDocs().length)} ${L("personale", "personal")}</p><p class="small">${L("Decizii, bugete, planuri urbanistice, hărți istorice.", "Decisions, budgets, urban plans, historic maps.")}</p>`, L("Deschide documentele", "Open documents"))}
@@ -312,7 +313,7 @@ const myDocs = () => store.get("mydocs", []);
 async function searchAll(q) {
   const k = deacc(q.trim()); if (!k) return null;
   const words = k.split(/\s+/).filter(Boolean), hit = (s) => { const d = deacc(s); return words.every((w) => d.includes(w)); };
-  const docs = ARCH.filter((a) => (a.vis === "pub" || SH.role === "off") && (hit(a.t[0]) || hit(a.t[1]) || hit(ARCH_CAT[a.cat][0]) || String(a.y) === k)).map((a) => ({ ...a }))
+  const docs = ARCH.filter((a) => (a.vis === "pub" || isOff()) && (hit(a.t[0]) || hit(a.t[1]) || hit(ARCH_CAT[a.cat][0]) || String(a.y) === k)).map((a) => ({ ...a }))
     .concat(myDocs().filter((d) => hit(d.title) || hit(d.note || "")).map((d) => ({ ...d, vis: "me" })));
   const admin = await adminFC();
   const locs = admin.features.filter((f) => [2, 3, "ctx"].includes(f.properties.lvl) && [REF(), "both"].includes(f.properties.sc ?? "both") && (hit(f.properties.ro) || hit(f.properties.en || ""))).slice(0, 10);
@@ -322,13 +323,13 @@ async function searchAll(q) {
   return { docs, locs, pois, props };
 }
 function docCard(a) {
-  const nm = (v) => v[S.lang === "ro" ? 0 : 1];
+  const nm = (v) => L(v[0], v[1]);
   if (a.vis === "me") return `<li class="pcard"><div class="pc1"><span class="pill">${L("doar tu", "only you")}</span><b>${esc(a.title)}</b></div>${a.note ? `<p class="small">${esc(a.note)}</p>` : ""}<p class="small">${fmtDate(a.t.slice(0, 10))}${a.file ? ` · ${esc(a.file)}` : ""} <button type="button" class="linkbtn" data-deldoc="${a.id}">${L("șterge", "delete")}</button></p></li>`;
   return `<li class="pcard"><div class="pc1"><span class="pill ${a.vis === "int" ? "warn" : ""}">${a.vis === "int" ? L("intern", "internal") : L("public", "public")}</span><span class="small">${nm(ARCH_CAT[a.cat])} · ${a.y}</span>${a.mock ? demo() : ""}</div><b>${esc(nm(a.t))}</b>${a.url ? `<a class="small" href="${a.url}" target="_blank" rel="noopener">${L("Deschide sursa", "Open source")}</a>` : `<span class="small">${L("Document de exemplu, fără fișier.", "Example document, no file.")}</span>`}</li>`;
 }
 async function shArchive() {
   const q = SH.q || "", r = q ? await searchAll(q) : null;
-  const vis = ARCH.filter((a) => a.vis === "pub" || SH.role === "off");
+  const vis = ARCH.filter((a) => a.vis === "pub" || isOff());
   let res = "";
   if (r) {
     const n = r.docs.length + r.locs.length + r.pois.length + r.props.length;
@@ -342,8 +343,8 @@ async function shArchive() {
   return pageHead(L("Documente", "Documents"), L("Documente publice, documente interne (vizibile doar funcționarilor primăriei) și documentele tale personale. Căutarea include și locurile din atlas.", "Public documents, internal documents (visible to city-hall staff only) and your personal documents. Search also covers places in the atlas."))
     + `<form class="hsearch big" data-hsearch="archive"><input type="search" value="${esc(q)}" placeholder="${L("Caută documente, locuri, cartiere, propuneri…", "Search documents, places, districts, proposals…")}"><button class="btn">${L("Caută", "Search")}</button></form>`
     + (res ? `<section>${res}</section>` : "")
-    + `<section class="pgrid"><div><h3>${L("Documente publice", "Public documents")}${SH.role === "off" ? ` + ${L("interne", "internal")}` : ""}</h3><ul class="plist">${vis.map(docCard).join("")}</ul>
-      ${SH.role !== "off" ? `<p class="small">${L("Documentele interne apar doar pentru rolul „Funcționar primărie” (vezi Cont).", "Internal documents appear only for the “City-hall official” role (see Account).")}</p>` : ""}</div>
+    + `<section class="pgrid"><div><h3>${L("Documente publice", "Public documents")}${isOff() ? ` + ${L("interne", "internal")}` : ""}</h3><ul class="plist">${vis.map(docCard).join("")}</ul>
+      ${!isOff() ? `<p class="small">${L("Documentele interne apar doar pentru rolul „Funcționar primărie” (vezi Cont).", "Internal documents appear only for the “City-hall official” role (see Account).")}</p>` : ""}</div>
       <div><h3>${L("Documentele mele", "My documents")}</h3><div class="pform">
         <input type="text" class="pjin" id="md-title" placeholder="${L("Titlu", "Title")}">
         <textarea id="md-note" rows="2" class="pjin" placeholder="${L("Notă (opțional)", "Note (optional)")}"></textarea>
@@ -383,7 +384,7 @@ async function answer(q) {
   if (place) { const p = place.properties; return `${esc(nameOf(p))}: ${fmt(p.pop * s)} ${L("locuitori", "residents")}, ${fmt(p.km2, 1)} km². ${fly([p.lx, p.ly], L("Arată pe hartă", "Show on map"))}`; }
   const term = k.replace(/[?!.,;:„”"']/g, " ").replace(/\b(unde|este|e|gasesc|caut|un|o|cel mai apropiat|cea mai apropiata|where|is|find|the|a)\b/g, " ").trim();
   const r = term.length > 2 ? await searchAll(term) : null;
-  if (r && (r.pois.length || r.docs.length)) return L("Am găsit:", "I found:") + `<ul class="rlist">${r.pois.slice(0, 5).map((f) => `<li>${fly(f.geometry.coordinates, f.properties.n)}<span class="small"> · ${esc(t("cat")[f.properties.c] || "")}</span></li>`).join("")}${r.docs.slice(0, 3).map((d) => `<li>${esc(d.t ? d.t[S.lang === "ro" ? 0 : 1] : d.title)} <span class="small">· ${L("document", "document")}</span></li>`).join("")}</ul>`;
+  if (r && (r.pois.length || r.docs.length)) return L("Am găsit:", "I found:") + `<ul class="rlist">${r.pois.slice(0, 5).map((f) => `<li>${fly(f.geometry.coordinates, f.properties.n)}<span class="small"> · ${esc(t("cat")[f.properties.c] || "")}</span></li>`).join("")}${r.docs.slice(0, 3).map((d) => `<li>${esc(d.t ? L(d.t[0], d.t[1]) : d.title)} <span class="small">· ${L("document", "document")}</span></li>`).join("")}</ul>`;
   return L("Nu știu încă să răspund la asta. Pot spune populația sau suprafața unei localități, vremea, prețul biletelor, bugetul, sau pot căuta un loc („unde e Muzeul de Istorie?”).", "I can't answer that yet. I can tell you a place's population or area, the weather, ticket prices, the budget, or look up a place (“where is the History Museum?”).");
 }
 // floating assistant: always available
@@ -429,7 +430,7 @@ function loginOpen() {
   const d = document.getElementById("logindlg");
   d.innerHTML = `<form method="dialog" class="logincard"><header><b>${L("Autentificare", "Sign in")}</b><button type="button" class="closex sm" value="x" id="loginx" aria-label="${L("Închide", "Close")}">×</button></header>
     <p class="small mock">${L("Machetă: nu se trimite nimic, nu e nevoie de parolă reală.", "Mock-up: nothing is sent, no real password needed.")}</p>
-    <div class="seg row3 rolepick">${Object.keys(ROLES).map((k) => `<label><input type="radio" name="lrole" value="${k}" ${SH.role === k ? "checked" : ""}><b>${RL(k)}</b><small>${{ cit: L("MPass", "MPass"), biz: L("IDNO al firmei", "company IDNO"), off: L("cont de serviciu", "staff account") }[k]}</small></label>`).join("")}</div>
+    <div class="seg row3 rolepick">${Object.keys(ROLES).filter((k) => k !== "adm" || SH.canAdmin).map((k) => `<label><input type="radio" name="lrole" value="${k}" ${SH.role === k ? "checked" : ""}><b>${RL(k)}</b><small>${{ cit: L("MPass", "MPass"), biz: L("IDNO al firmei", "company IDNO"), off: L("cont de serviciu", "staff account"), adm: L("moderare și gestionare", "moderation and management") }[k]}</small></label>`).join("")}</div>
     <label class="pjrow"><span>${L("Nume", "Name")}</span><input type="text" id="lname" class="pjin" value="${esc(user()?.name || "")}" placeholder="${L("de ex. Ana Popescu", "e.g. Ana Popescu")}"></label>
     <div class="btnrow"><button type="button" class="btn" id="loginok">${L("Intră", "Sign in")}</button><button type="button" class="btn ghost" id="loginmp">${L("Intră cu MPass (simulat)", "Sign in with MPass (simulated)")}</button></div></form>`;
   d.showModal();
@@ -440,7 +441,7 @@ function loginBind() {
     const b = e.target.closest("button"); if (e.target === d || b?.id === "loginx") { d.close(); return; }
     if (b?.id === "loginok" || b?.id === "loginmp") {
       const role = d.querySelector("input[name=lrole]:checked")?.value || "cit";
-      const name = d.querySelector("#lname").value.trim() || { cit: L("Cetățean", "Citizen"), biz: L("Firma exemplu SRL", "Example Ltd"), off: L("Funcționar", "Official") }[role];
+      const name = d.querySelector("#lname").value.trim() || { cit: L("Cetățean", "Citizen"), biz: L("Firma exemplu SRL", "Example Ltd"), off: L("Funcționar", "Official"), adm: "Administrator" }[role];
       store.set("user", { name, role }); SH.role = role; store.set("role", role); d.close(); topbarRender(); if (SH.sec !== "atlas") shRender();
     }
   });
@@ -448,7 +449,7 @@ function loginBind() {
 function topbarRender() {
   const el = document.getElementById("topbar"); if (!el) return;
   const u = user();
-  el.innerHTML = `<button type="button" class="tbpill" id="tb-lang" aria-label="Language">${S.lang === "ro" ? "EN" : "RO"}</button>
+  el.innerHTML = `<span class="tblang" role="group" aria-label="Language">${["ro", "en", "ru"].map((l) => `<button type="button" data-lang="${l}" aria-pressed="${S.lang === l}">${l.toUpperCase()}</button>`).join("")}</span>
     ${u ? `<button type="button" class="tbpill user" id="tb-user" title="${esc(RL(u.role))}"><i>${esc(u.name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase())}</i>${esc(u.name)}</button><button type="button" class="tbpill" id="tb-out">${L("Ieșire", "Sign out")}</button>`
       : `<button type="button" class="tbpill primary" id="tb-login">${L("Autentificare", "Sign in")}</button>`}`;
 }
@@ -456,7 +457,7 @@ function setLang(l) { S.lang = l; try { fillRoutes(); } catch {} render(); topba
 function topbarBind() {
   document.getElementById("topbar").addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.id === "tb-lang") setLang(S.lang === "ro" ? "en" : "ro");
+    if (b.dataset.lang) setLang(b.dataset.lang);
     else if (b.id === "tb-login") loginOpen();
     else if (b.id === "tb-user") shGo("settings");
     else if (b.id === "tb-out") { store.set("user", null); topbarRender(); if (SH.sec !== "atlas") shRender(); }
@@ -465,15 +466,16 @@ function topbarBind() {
 }
 const THEMES = { auto: ["Automat (ca sistemul)", "Automatic (system)"], light: ["Luminoasă", "Light"], dark: ["Întunecată", "Dark"] };
 function applyStoredTheme() { const th = store.get("theme", "auto"); if (th === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", th); }
-function shSettings() {
+async function shSettings() {
   const u = user(), th = store.get("theme", "auto"), start = store.get("start", "home");
   const radio = (name, val, cur, label) => `<label><input type="radio" name="${name}" value="${val}" ${val === cur ? "checked" : ""}><b>${label}</b></label>`;
   return pageHead(L("Setări", "Settings"), "")
     + `<section class="setgrid">
-      <div class="pcard"><h3>${L("Limba", "Language")}</h3><div class="seg row2">${radio("s-lang", "ro", S.lang, "Română")}${radio("s-lang", "en", S.lang, "English")}</div></div>
-      <div class="pcard"><h3>${L("Aspect", "Appearance")}</h3><div class="seg row3">${Object.entries(THEMES).map(([k, v]) => radio("s-theme", k, th, v[S.lang === "ro" ? 0 : 1])).join("")}</div></div>
+      <div class="pcard"><h3>${L("Limba", "Language")}</h3><div class="seg row3">${radio("s-lang", "ro", S.lang, "Română")}${radio("s-lang", "en", S.lang, "English")}${radio("s-lang", "ru", S.lang, "Русский")}</div></div>
+      <div class="pcard"><h3>${L("Aspect", "Appearance")}</h3><div class="seg row3">${Object.entries(THEMES).map(([k, v]) => radio("s-theme", k, th, L(v[0], v[1]))).join("")}</div></div>
       <div class="pcard"><h3>${L("Pagina de pornire", "Start page")}</h3><div class="seg row2">${radio("s-start", "home", start, L("Acasă", "Home"))}${radio("s-start", "atlas", start, "Atlas")}</div></div>
       <div class="pcard"><h3>${L("Monedă pentru bugete", "Currency for budgets")}</h3><div class="seg row2">${radio("s-cur", "lei", S.cur, "lei")}${radio("s-cur", "eur", S.cur, "EUR")}</div></div>
+      <div class="pcard"><h3>${L("Cartierul meu", "My neighbourhood")}</h3>${await homeSelect("s-home")}<p class="small">${L("Folosit pentru „Lângă mine”, pagina principală și ca loc implicit în propuneri și sesizări.", "Used for “Near me”, the home page and as the default place in proposals and reports.")}</p></div>
       <div class="pcard"><h3>${L("Hartă", "Map")}</h3>
         <label class="check"><input type="checkbox" id="s-names" ${S.names ? "checked" : ""}> ${t("names")}</label>
         <label class="check"><input type="checkbox" id="s-labels" ${S.labels ? "checked" : ""}> ${t("labels")}</label></div>
