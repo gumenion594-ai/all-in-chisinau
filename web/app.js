@@ -502,6 +502,14 @@ async function ensureJobs() {
   }
   admin.__jobs = true; map.getSource("admin")?.setData(admin);
 }
+const RATIO_HOW = () => `<li><details class="how"><summary>${L("Cum se calculează?", "How is it calculated?")}</summary><ol class="small">
+  <li>${L("Locuitori: recensământul 2024 repartizat pe clădirile de locuit (aceeași hartă ca „Locuitori”).", "Residents: the 2024 census spread over residential buildings (the same map as “Residents”).")}</li>
+  <li>${L("Locuri de muncă: estimate din clădirile nelocuite, zonele industriale și comerciale și locurile din OpenStreetMap (harta „Locuri de muncă”).", "Jobs: estimated from non-residential buildings, industrial and commercial land and OpenStreetMap places (the “Jobs” map).")}</li>
+  <li>${L("Pe unități: raportul = locuri de muncă ÷ locuitori în fiecare zonă.", "By unit: the ratio = jobs ÷ residents in each area.")}</li>
+  <li>${L("Hartă de căldură: același raport, calculat pe pătrate de 150 m netezite pe ~250 m; culoarea e mai intensă unde trăiesc sau lucrează mai mulți oameni.", "Heat map: the same ratio on 150 m squares smoothed over ~250 m; colour is stronger where more people live or work.")}</li>
+  <li>${L("Dealuri 3D: înălțimea = locuri de muncă minus locuitori pe km² (deal = vin oameni la muncă; vale = pleacă).", "3D hills: height = jobs minus residents per km² (hill = people come to work; valley = they leave).")}</li>
+  <li>${L("Media municipiului e ~0,49 locuri de muncă la un locuitor (copiii, elevii, pensionarii nu lucrează), deci 1 nu e „normalul”: sub ~0,35 e zonă-dormitor, peste ~1 e centru de muncă.", "The municipal average is ~0.49 jobs per resident (children, pupils and pensioners don't work), so 1 is not the “normal”: below ~0.35 is a dormitory area, above ~1 a job centre.")}</li>
+  <li>${L("Nu sunt fluxuri reale de navetă (de unde unde merge fiecare): pentru asta ar trebui date de la transport sau de la operatorii mobili. E un indicator de echilibru.", "These are not real commuting flows (who travels from where to where): that needs transport or mobile-operator data. It is a balance indicator.")}</li></ol></details></li>`;
 const heatLike = () => S.popView === "heat" || S.popView === "hills";
 // ---------------------------------------------------------------- population as terrain: denser areas become higher hills
 const GRIDS = {};
@@ -1135,11 +1143,11 @@ function renderLegend() {
     const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
     h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
       + (S.popView === "hills" ? `<li class="small">${L("Dealurile arată unde sunt mai multe locuri de muncă decât locuitori (aici vin oamenii la muncă); văile, unde sunt mai mulți locuitori decât locuri de muncă (de aici pleacă). Înălțimea = diferența pe km².", "Hills show where there are more jobs than residents (people come here to work); valleys, more residents than jobs (people leave from here). Height = the difference per km².")}</li><li><label class="check"><input type="checkbox" data-hillsqrt="1" ${S.hillSqrt ? "checked" : ""}> ${L("Evidențiază satele (scară cu rădăcină pătrată)", "Highlight villages (square-root scale)")}</label></li>` : `<li class="small">${L("Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.", "Blue: people live here and commute elsewhere. Red: people from other areas come here to work.")}</li>`)
-      + `<li class="small">${t("jobs_note")}</li>`;
+      + `<li class="small">${t("jobs_note")}</li>` + RATIO_HOW();
   } else if (m === "pop" && S.popWhat === "ratio") {
     const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
     h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
-      + `<li class="small">${L("Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.", "Blue: people live here and commute elsewhere. Red: people from other areas come here to work.")}</li><li class="small">${t("jobs_note")}</li>`;
+      + `<li class="small">${L("Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.", "Blue: people live here and commute elsewhere. Red: people from other areas come here to work.")}</li><li class="small">${t("jobs_note")}</li>` + RATIO_HOW();
   } else if (m === "pop" && S.popView === "hills") {
     const lab = wantJobs() ? L("Locuri de muncă pe km²", "Jobs per km²") : L("Locuitori pe km²", "Residents per km²");
     h = `<li class="cap">${lab}</li>` + HILL_STOPS.slice(1).map(([v, c], i) => `<li><i style="background:rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})"></i>${fmt(HILL_STOPS[i][0])}–${fmt(v)}${i === HILL_STOPS.length - 2 ? "+" : ""}</li>`).join("")

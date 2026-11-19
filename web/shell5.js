@@ -24,7 +24,8 @@ function pickByName(feats, name) {
   if (!hit.length) hit = feats.filter((f) => n(f).includes(k) || k.includes(n(f)));
   if (!hit.length) throw new Error(`No match for "${name}". Some names at this level: ${feats.slice(0, 40).map((f) => f.properties.ro).join(", ")}`);
   if (hit.length > 1 && !hit.every((f) => f.properties.ro === hit[0].properties.ro)) throw new Error(`"${name}" is ambiguous: ${hit.map((f) => f.properties.ro).join(", ")}`);
-  return hit[0];
+  const rank = { mun: 0, 1: 1, 2: 2, 3: 3, 4: 4, ctx: 5 };   // same name on several levels: the larger area first
+  return hit.sort((a, b) => (rank[a.properties.lvl] ?? 9) - (rank[b.properties.lvl] ?? 9))[0];
 }
 async function placePoint(q) {
   if (Array.isArray(q) && q.length === 2) return { c: q.map(Number), n: q.join(",") };
@@ -57,6 +58,31 @@ function aiTools() {
     { name: "area_details", description: "Details of one named area (any level): population at the selected date, area, density, estimated jobs and jobs per resident (commuting balance), sector, mayoralty, source.",
       inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
       async execute({ name }) { await ensureJobs(); const p = pickByName(await featsAt(null), name).properties; return { name: p.ro, level: lvlWord(p.lvl), pop: Math.round((p.pop || 0) * popScale()), km2: p.km2, density: p.dens, jobs_estimate: p.jobs, jobs_per_resident: p.jr != null ? Math.round((p.jr / popScale()) * 100) / 100 : null, sector: p.sector, mayoralty: p.unit, source: p.src, date: S.date }; } },
+    { name: "infrastructure_stats", description: "Measured totals for the whole municipality or one named area (any level): road km by class and traffic-lane km, bike tracks and bike lanes km, pedestrian streets km, railway km, public transport stops and lines, road projects under construction / proposed (km), buildings, estimated residents and jobs, and counts of places (shops, schools, hospitals, parks…). From OpenStreetMap as of 17 Nov 2026.",
+      inputSchema: { type: "object", properties: { area: { type: "string", description: "area name; omit for the whole municipality" } } },
+      async execute({ area }) {
+        const admin = await adminFC();
+        const f = area ? pickByName(await featsAt(null), area) : admin.features.find((x) => x.properties.lvl === "mun" && [REF(), "both"].includes(x.properties.sc));
+        const g = f.geometry, pg = prepGeom(g), st = await computeStats(g);
+        const [bike, proj, roads, routes] = await Promise.all([load("bike.geojson"), load("projects.geojson"), load("roads.geojson"), load("routes.json")]);
+        const km = {}, add = (k, v) => (km[k] = (km[k] || 0) + v);
+        sumLines(roads.features, pg, (p, d) => add("road_" + ({ motorway: "national", trunk: "national", trunk_link: "national", primary: "main", primary_link: "main", secondary: "secondary", secondary_link: "secondary", tertiary: "tertiary", tertiary_link: "tertiary", pedestrian: "pedestrian" }[p.c] || "local"), d));
+        sumLines(bike.features, pg, (p, d) => add(p.b === "track" || p.b === "path" ? "bike_track" : "bike_lane", d));
+        sumLines(proj.features, pg, (p, d) => add(p.st === "construction" ? "proj_construction" : "proj_proposed", d));
+        const r1 = (v) => Math.round((v || 0) * 10) / 10;
+        const routeKeys = new Set(); for (const s2 of (await load("stops.geojson")).features) { const c = s2.geometry.coordinates; if (pg.has(c[0], c[1])) (s2.properties.r || []).forEach((r) => routeKeys.add(r)); }
+        const modes = {}; for (const k of routeKeys) { const m = k.split(":")[0]; modes[m] = (modes[m] || 0) + 1; }
+        await ensureJobs();
+        return {
+          area: f.properties.ro, km2: f.properties.km2, residents: Math.round((f.properties.pop || 0) * popScale()), jobs_estimate: f.properties.jobs, buildings: st.bld,
+          roads_km: { total: r1(st.roadKm), national: r1(km.road_national), main: r1(km.road_main), secondary: r1(km.road_secondary), tertiary: r1(km.road_tertiary), local_and_residential: r1(km.road_local) },
+          traffic_lanes_km: r1(st.laneKm), pedestrian_streets_km: r1(km.road_pedestrian), bike_tracks_km: r1(km.bike_track), bike_lanes_shared_km: r1(km.bike_lane),
+          railway_km: r1(st.trackKm), road_projects_km: { under_construction: r1(km.proj_construction), proposed: r1(km.proj_proposed) },
+          transit: { stops: st.stops, lines_serving_area: modes },
+          places: Object.fromEntries(Object.entries(st.cats).filter(([, v]) => v)),
+          note: "OpenStreetMap data (17 Nov 2026); lanes are estimated where OSM has no lane count; jobs are an estimate",
+        };
+      } },
     { name: "search_places", description: "Search streets, stops, neighbourhoods and points of interest by text, or by category (pharmacy, stop, food, cafe, shop, park, health, bank, fuel, school). Results are sorted by distance from the user's location and include the distance in km.",
       inputSchema: { type: "object", properties: { query: { type: "string" }, category: { type: "string" } } },
       async execute({ query, category }) { const r = await runSearch(String(query || ""), category ? String(category) : null); return r.slice(0, 8).map((h) => ({ name: h.x.n, kind: h.x.k === "poi" ? h.x.cat : h.x.k, km: Math.round(h.d * 100) / 100, lon: h.x.c[0], lat: h.x.c[1] })); } },

@@ -598,5 +598,13 @@
 "\"Pune în cartierul\"": "\"Поместить в район\"",
 "\"cartier existent sau nume nou\"": "\"существующий район или новое название\"",
 "\"Sectoare noi: la nivelul 2 selectează primăriile și alege „sector nou”. Primării noi: la nivelul 3 sau 4 selectează cartierele, satele sau microcartierele și alege „primărie nouă”. La nivelul 3 poți uni cartiere; la nivelul 4 muți microcartiere dintr-un cartier în altul. Localitățile vecine se selectează la nivelul 3 sau 4.\"": "\"Новые секторы: на уровне 2 выберите примэрии и укажите «новый сектор». Новые примэрии: на уровне 3 или 4 выберите районы, сёла или микрорайоны и укажите «новая примэрия». На уровне 3 можно объединять районы; на уровне 4 — переносить микрорайоны из одного района в другой. Соседние населённые пункты выбираются на уровне 3 или 4.\"",
-"\"microcartier\"": "\"микрорайон\""
+"\"microcartier\"": "\"микрорайон\"",
+"\"Cum se calculează?\"": "\"Как это считается?\"",
+"\"Locuitori: recensământul 2024 repartizat pe clădirile de locuit (aceeași hartă ca „Locuitori”).\"": "\"Жители: перепись 2024 года, распределённая по жилым зданиям (та же карта, что «Жители»).\"",
+"\"Locuri de muncă: estimate din clădirile nelocuite, zonele industriale și comerciale și locurile din OpenStreetMap (harta „Locuri de muncă”).\"": "\"Рабочие места: оценка по нежилым зданиям, промышленным и торговым зонам и местам из OpenStreetMap (карта «Рабочие места»).\"",
+"\"Pe unități: raportul = locuri de muncă ÷ locuitori în fiecare zonă.\"": "\"По единицам: соотношение = рабочие места ÷ жители в каждой зоне.\"",
+"\"Hartă de căldură: același raport, calculat pe pătrate de 150 m netezite pe ~250 m; culoarea e mai intensă unde trăiesc sau lucrează mai mulți oameni.\"": "\"Тепловая карта: то же соотношение по квадратам 150 м, сглаженное на ~250 м; цвет ярче там, где больше людей живёт или работает.\"",
+"\"Dealuri 3D: înălțimea = locuri de muncă minus locuitori pe km² (deal = vin oameni la muncă; vale = pleacă).\"": "\"3D-холмы: высота = рабочие места минус жители на км² (холм — сюда едут работать; впадина — отсюда уезжают).\"",
+"\"Media municipiului e ~0,49 locuri de muncă la un locuitor (copiii, elevii, pensionarii nu lucrează), deci 1 nu e „normalul”: sub ~0,35 e zonă-dormitor, peste ~1 e centru de muncă.\"": "\"В среднем по муниципию ~0,49 рабочего места на жителя (дети, школьники и пенсионеры не работают), поэтому 1 — не «норма»: ниже ~0,35 — спальный район, выше ~1 — центр занятости.\"",
+"\"Nu sunt fluxuri reale de navetă (de unde unde merge fiecare): pentru asta ar trebui date de la transport sau de la operatorii mobili. E un indicator de echilibru.\"": "\"Это не реальные потоки поездок (кто откуда куда ездит): для этого нужны данные транспорта или мобильных операторов. Это индикатор баланса.\""
 }
