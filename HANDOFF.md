@@ -33,5 +33,10 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - Guide: day trips by direction (Cricova, Orheiul Vechi, Mileștii Mici, Bardar, Căpriana, Castel Mimi…; curated ones have approximate coordinates).
 - Transport: journey planner from stop to stop (direct or one change, simulated times from typical frequency, 6 lei per urban boarding, km-based suburban/train fares), buy tickets for the chosen connection.
 
+- Level 4 (Microcartiere) = building blocks; level 3 groups them (build_admin.py GROUPS; villages whole). remap_temp_units.py re-keys weather means after an admin rebuild.
+- Jobs grid (build_jobs.py) by type, commuting ratio; population/jobs hills (proportional, optional square root).
+- AI assistant (shell5.js, `sample` capability): data tools, project edits, building, map drawing (highlight, walk catchment, places), set_view for every menu setting.
+- Rail reduced to Home + Settings; every section opens from the Home tiles.
+
 ## Next
 - Real AI assistant (`sample` capability), mobile pass on the new pages.
