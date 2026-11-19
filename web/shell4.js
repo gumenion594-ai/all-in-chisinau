@@ -28,6 +28,7 @@ function requestLoc(force) {
 }
 function showLocOnMap() {
   const l = myLoc(); if (!l || typeof map === "undefined") return;
+  if (!store.get("showLoc", false)) { LOCMK?.remove(); return; }   // hidden unless turned on in View
   if (!LOCMK) { const e = document.createElement("div"); e.className = "youare"; e.title = L("Ești aici", "You are here"); LOCMK = new maplibregl.Marker({ element: e }); }
   LOCMK.setLngLat(l.c).addTo(map);
 }
@@ -115,7 +116,7 @@ function searchBind() {
 function openHit(i) {
   const h = SRES[i]; if (!h) return;
   const near = h.x.pts.reduce((a, p) => (hav((myLoc() || MOCK_LOC).c, p) < hav((myLoc() || MOCK_LOC).c, a) ? p : a), h.x.pts[0]);
-  shGo("atlas"); showLocOnMap();
+  shGo("atlas");
   const z = { sub: 15, nb: 14, unit: 13, town: 13, street: 16.5, stop: 17, poi: 17 }[h.x.k];
   map.flyTo({ center: near, zoom: z });
   popup({ lng: near[0], lat: near[1] }, `<b>${esc(h.x.n)}</b><br><small>${esc(h.x.k === "poi" ? t("cat")[h.x.cat] || "" : tr2(KLABEL[h.x.k]))} · ${fmtKm(h.d)} ${L("de tine", "from you")}</small>`);
@@ -164,4 +165,55 @@ async function shHome() {
     ${tile("archive", "", L("Documente", "Documents"), ART.docs, `${fmt(ARCH.filter((a) => a.vis === "pub").length)} ${L("documente publice", "public documents")}`)}
     ${B ? tile("atlas", "sand", `${L("Bugetul municipal", "Municipal budget")} ${y}`, ART.budget, `<b>${fmt(B.exp, 1)}</b> ${L("mld lei cheltuieli", "bn lei spending")}`) : ""}
   </div>`;
+}
+
+// ---------------------------------------------------------------- atlas search bar (streets, places, stops, neighbourhoods)
+let ASRES = [], ASTMR = null, ASON = -1;
+const asEl = (id) => document.getElementById(id);
+function asRender() {
+  const el = asEl("as-res"), q = asEl("as-q").value.trim();
+  if (!q) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = ASRES.length ? ASRES.map((h, i) => hitHtml(h, i).replace('data-hit=', 'data-ahit=').replace('class="hit"', `class="hit${i === ASON ? " on" : ""}"`)).join("")
+    : `<li class="hint" style="padding:8px">${L("Nimic găsit.", "Nothing found.", "Ничего не найдено.")}</li>`;
+}
+async function asPick(i) {
+  const h = ASRES[i]; if (!h) return;
+  const x = h.x; asEl("as-res").hidden = true; asEl("as-q").value = x.n; asEl("as-x").hidden = false; asEl("as-q").blur();
+  try {
+    if (x.k === "street") {   // the same name exists in several villages: keep the segments around the chosen result
+      const here = (myLoc() || MOCK_LOC).c, near = x.pts.reduce((a, p) => (hav(here, p) < hav(here, a) ? p : a), x.pts[0]);
+      const segs = (await load("roads.geojson")).features.filter((f) => f.properties.n === (x.full || x.n));
+      const mid = (f) => { const c = f.geometry.type === "LineString" ? f.geometry.coordinates : f.geometry.coordinates[0]; return c[Math.floor(c.length / 2)]; };
+      let keep = segs.filter((f) => hav(near, mid(f)) < 0.6);
+      for (let grow = true; grow;) { grow = false; for (const f of segs) if (!keep.includes(f) && keep.some((k) => hav(mid(k), mid(f)) < 0.7)) { keep.push(f); grow = true; } }
+      const draw = keep.map((f) => ({ type: "Feature", properties: { k: "street", n: x.full || x.n }, geometry: f.geometry }));
+      const km = keep.reduce((a, f) => a + (f.geometry.type === "LineString" ? lineLen(f.geometry.coordinates) : f.geometry.coordinates.reduce((u, c) => u + lineLen(c), 0)), 0);
+      shGo("atlas"); aiDraw(draw, false); aiFit(draw);
+      const where = await placeName(near);
+      popup({ lng: near[0], lat: near[1] }, `<b>${esc(x.full || x.n)}</b><br><small>${L("Stradă", "Street", "Улица")}${where ? " · " + esc(where) : ""} · ${fmt(km, 2)} km</small>`); return; }
+    if (["nb", "sub", "unit", "town"].includes(x.k)) { const g = await aiGeom("area", x.n); aiDraw(g.draw, false); aiFit(g.draw); return; }
+  } catch {}
+  const c = x.c, sub = x.k === "poi" ? (t("cat")[x.cat] || "") : tr2(KLABEL[x.k]);
+  aiDraw([{ type: "Feature", properties: { k: "pt", n: x.n }, geometry: { type: "Point", coordinates: c } }], false);
+  map.flyTo({ center: c, zoom: x.k === "stop" ? 17 : 17, duration: 900 });
+  popup({ lng: c[0], lat: c[1] }, `<b>${esc(x.n)}</b><br><small>${esc(sub)}${x.f?.properties?.k && x.k === "poi" ? "" : ""}</small>`);
+}
+function asClear() { asEl("as-q").value = ""; asEl("as-x").hidden = true; asEl("as-res").hidden = true; ASRES = []; if (map.getSource("aihl")) aiDraw([], false); }
+function atlasSearchBind() {
+  const q = asEl("as-q"); if (!q) return;
+  q.placeholder = L("Caută o stradă sau un loc…", "Search a street or a place…", "Найти улицу или место…");
+  asEl("as-x").setAttribute("aria-label", L("Șterge căutarea", "Clear search", "Очистить поиск"));
+  q.addEventListener("input", () => { asEl("as-x").hidden = !q.value; clearTimeout(ASTMR); ASTMR = setTimeout(async () => { ASRES = await runSearch(q.value); ASON = -1; asRender(); }, 140); });
+  q.addEventListener("focus", () => { if (q.value && ASRES.length) asRender(); });
+  q.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!ASRES.length) return; ASON = (ASON + (e.key === "ArrowDown" ? 1 : -1) + ASRES.length) % ASRES.length; asRender(); }
+    else if (e.key === "Enter") { e.preventDefault(); asPick(ASON >= 0 ? ASON : 0); }
+    else if (e.key === "Escape") { asEl("as-res").hidden = true; q.blur(); }
+  });
+  asEl("as-x").addEventListener("click", asClear);
+  asEl("as-res").addEventListener("click", (e) => { const b = e.target.closest("[data-ahit]"); if (b) asPick(+b.dataset.ahit); });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".asearch")) asEl("as-res").hidden = true; });
+  const sl = asEl("showloc"); sl.checked = store.get("showLoc", false);
+  sl.addEventListener("change", () => { store.set("showLoc", sl.checked); if (sl.checked && !myLoc()) requestLoc(false).then(showLocOnMap); else showLocOnMap(); });
 }

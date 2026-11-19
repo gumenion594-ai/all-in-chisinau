@@ -123,6 +123,16 @@ body:not(.ready) #info::after { content: "…"; }
 #toolbar { position: absolute; z-index: 6; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(56px + env(safe-area-inset-right, 0px));
   display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 4px; box-shadow: var(--shadow); }
 .tbtn { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--fg); padding: 7px 10px; border-radius: 8px; font: 600 12px var(--body); cursor: pointer; }
+.asearch { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; border-radius: 8px; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.asearch > svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; opacity: .6; }
+.asearch input { width: 230px; border: 0; background: transparent; color: var(--fg); font: 500 13px var(--body); padding: 7px 2px; outline: none; }
+.asearch input::-webkit-search-cancel-button { display: none; }
+#toolbar:has(.asres:not([hidden])) { z-index: 80; }
+.asx { border: 0; background: none; color: var(--fg); font-size: 18px; line-height: 1; cursor: pointer; opacity: .6; padding: 0 4px; }
+.asres { position: absolute; top: calc(100% + 8px); left: -4px; width: 340px; max-height: 60vh; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--shadow); z-index: 9; }
+.asres .hit { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; width: 100%; text-align: left; border: 0; background: none; color: var(--fg); padding: 7px 8px; border-radius: 8px; cursor: pointer; font: inherit; }
+.asres .hit .small { grid-column: 1; opacity: .7; } .asres .hit .hd { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-size: 12px; opacity: .75; }
+.asres .hit:hover, .asres .hit.on { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
 .tbtn:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .tbtn[aria-pressed="true"], .tbtn[aria-expanded="true"] { background: var(--accent); color: var(--surface); }
@@ -615,7 +625,9 @@ nav.tabs2 { margin-top: -1px; }
 .tab.kept svg { stroke: var(--gold); }
 .hidebar { background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 9px; padding: 8px 10px; }
 @media (max-width: 1180px) { .tbtn > span:not(.tip) { display: none; } }
+@media (max-width: 1180px) { .asearch input { width: 170px; } }
 @media (max-width: 640px) {
+  .asearch { flex: 1; min-width: 0; } .asearch input { width: 100%; min-width: 0; } .asres { width: calc(100vw - 24px); }
   .tbtn.plan span:not(.tip), .tsep { display: none; }
   .datebox input { width: 112px; padding: 4px; font-size: 12px; }
   .datebox svg { display: none; }
@@ -668,6 +680,8 @@ nav.tabs2 { margin-top: -1px; }
 <main id="page" hidden><div id="pagebody"></div></main>
 <div id="map" role="application" aria-label="Harta Municipiului Chișinău"></div>
 <div id="toolbar" role="toolbar" aria-label="Instrumente">
+  <div class="asearch" role="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg><input type="search" id="as-q" autocomplete="off" spellcheck="false"><button type="button" class="asx" id="as-x" hidden aria-label="Șterge">×</button><ol id="as-res" class="asres" hidden></ol></div>
+  <span class="tsep" aria-hidden="true"></span>
   <label class="datebox" for="date"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span class="vh" data-t="date"></span><input type="date" id="date" min="2024-01-01" max="2030-12-31"></label>
   <button type="button" class="tbtn sm" id="todaybtn" hidden><span data-t="today"></span></button>
   <span class="tsep" aria-hidden="true"></span>
@@ -691,6 +705,7 @@ nav.tabs2 { margin-top: -1px; }
   <label class="check"><input type="checkbox" id="outside"><span data-t="outside_poi"></span></label>
   <label class="check"><input type="checkbox" id="labels"><span data-t="labels"></span></label>
   <label class="check"><input type="checkbox" id="names"><span data-t="names"></span></label>
+  <label class="check"><input type="checkbox" id="showloc"><span data-t="showloc"></span></label>
   <div class="cap" data-t="region"></div>
   <select id="region" aria-label="Regiune"></select>
   <p class="small" data-t="region_note"></p>

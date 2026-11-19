@@ -17,7 +17,7 @@ const STK = {
   jobs:    { ro: "Locuri de muncă", en: "Jobs", ru: "Рабочие места", ic: "💼", q: -1,
     d: ["Locuri de muncă pe km² (estimare).", "Jobs per km² (estimate).", "Рабочих мест на км² (оценка)."] },
 };
-Object.assign(T.ro, { stats: "Statistici" }); Object.assign(T.en, { stats: "Statistics" }); if (T.ru) Object.assign(T.ru, { stats: "Статистика" });
+Object.assign(T.ro, { stats: "Statistici", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Statistics", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Статистика", showloc: "Показывать моё местоположение на карте" });
 const STN = (k) => L(STK[k].ro, STK[k].en, STK[k].ru);
 const ST_HOW = {
   green: ["Toate parcurile, grădinile publice, bazele de odihnă și pădurile din jur, nu doar cel mai apropiat. Se ignoră spațiile private și petele mici de iarbă (sub 0,3 ha; păduri sub 1 ha). Fiecare hectar contează mai puțin cu cât e mai departe pe jos (la 400 m contează ~37%, peste 1,6 km nu mai contează).", "All parks, public gardens, recreation grounds and forests around, not only the nearest. Private gardens and small grass patches are ignored (under 0.3 ha; forests under 1 ha). Each hectare counts less the further it is on foot (~37% at 400 m, nothing beyond 1.6 km).", "Все парки, общественные сады, зоны отдыха и леса вокруг, а не только ближайший. Частные участки и мелкие газоны не учитываются (меньше 0,3 га; леса меньше 1 га). Каждый гектар весит тем меньше, чем дальше пешком (~37% на 400 м, дальше 1,6 км не учитывается)."],
@@ -168,6 +168,7 @@ async function stApplyUnits() {
 }
 // layers (heat = flat colours, hills = same colours on a terrain made from the values)
 async function statsRender(on, only) {
+  document.getElementById("as-q")?.setAttribute("placeholder", L("Caută o stradă sau un loc…", "Search a street or a place…", "Найти улицу или место…"));
   if (bm(S.mode) === "stats") { const el = document.getElementById("stpanel"), sig = [S.lang, S.stat, S.stRatio, S.stA, S.stB, S.stView].join("|"); if (el && el.dataset.sig !== sig) { statsPanel(); el.dataset.sig = sig; } }
   const key = stKey(), view = S.stView, sq = S.hillSqrt && !key.startsWith("r~") ? "sqrt" : "lin";
   const want = on && view !== "units" ? `stc-${key}` : null, wantDem = on && view === "hills" ? `std-${key}-${sq}` : null;

@@ -188,7 +188,7 @@ function shAfter() {
 function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
-  applyStoredTheme(); chatBind(); loginBind(); topbarBind(); searchBind();
+  applyStoredTheme(); chatBind(); loginBind(); topbarBind(); searchBind(); atlasSearchBind();
   aiNs();
   requestLoc(false).then(showLocOnMap);
   // the artifact's owner (or an editor) opens it as administrator
