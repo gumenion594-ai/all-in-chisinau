@@ -175,7 +175,7 @@ function aiTools() {
           jobs_estimate: Math.round(jobs), buildings: st.bld, schools: st.cats.school, kindergartens: st.cats.kindergarten, clinics_hospitals: st.cats.health, pharmacies: st.cats.pharmacy, transit_stops: st.stops,
           note: "straight-line radius; real walking distance follows streets. Residents from the 2024 census spread over residential buildings; jobs estimated." };
       } },
-    { name: "show_places", description: "Put markers on the map for places of one category (shop, mall, food, cafe, business, health, pharmacy, gov, school, kindergarten, college, university, religion, museum, monument, hotel, park, stop) inside an area name, or inside the last drawn catchment (within='catchment'), or the whole municipality. Returns the count and the first names.",
+    { name: "show_places", description: "Put markers on the map for places of one category (shop, mall, food, cafe, business, health, pharmacy, gov, school, kindergarten, college, university, religion, museum, monument, hotel, park, sport (sports centres, gyms, stadiums, pools), stop) inside an area name, or inside the last drawn catchment (within='catchment'), or the whole municipality. Returns the count and the first names.",
       inputSchema: { type: "object", properties: { category: { type: "string" }, within: { type: "string" } }, required: ["category"] },
       async execute({ category, within }) {
         const cat = String(category);

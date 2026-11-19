@@ -63,7 +63,7 @@ const T = {
     lvlname: { mun: "Municipiu", 1: "Sector", 2: "Primărie", 3: "Cartier / sat", 4: "Microcartier", ctx: "Localitate vecină", poly: "Zonă desenată", circle: "Cerc", line: "Traseu măsurat" },
     cat: { shop: "Magazine", mall: "Centre comerciale", food: "Restaurante, baruri, fast-food", cafe: "Cafenele", business: "Firme și servicii",
       health: "Spitale, clinici, stomatologii", pharmacy: "Farmacii", gov: "Instituții de stat, primării, poliție", school: "Școli, licee",
-      kindergarten: "Grădinițe", college: "Colegii și școli profesionale", university: "Universități", religion: "Biserici și lăcașuri de cult", museum: "Muzee", monument: "Monumente istorice", hotel: "Hoteluri și pensiuni", park: "Parcuri și scuaruri" },
+      kindergarten: "Grădinițe", college: "Colegii și școli profesionale", university: "Universități", religion: "Biserici și lăcașuri de cult", museum: "Muzee", monument: "Monumente istorice", hotel: "Hoteluri și pensiuni", park: "Parcuri și scuaruri", sport: "Centre sportive și săli de forță" },
     z: { residential: "Locuințe", commercial: "Comerț / birouri", industrial: "Industrie / depozite", public: "Instituții publice, școli, spitale",
       park: "Parcuri și grădini", sport: "Sport", forest: "Păduri", agri: "Agricol (arabil, livezi, vii)", grass: "Pajiști / tufișuri",
       water: "Ape", wetland: "Zone umede", cemetery: "Cimitire", military: "Militar", transport: "Transport (gări, aeroport)",
@@ -130,7 +130,7 @@ const T = {
     lvlname: { mun: "Municipality", 1: "Sector", 2: "Mayoralty", 3: "Neighbourhood / village", 4: "Sub-neighbourhood", ctx: "Neighbouring locality", poly: "Drawn area", circle: "Circle", line: "Measured route" },
     cat: { shop: "Shops", mall: "Shopping malls", food: "Restaurants, bars, fast food", cafe: "Cafés", business: "Businesses and services",
       health: "Hospitals, clinics, dentists", pharmacy: "Pharmacies", gov: "Government, town halls, police", school: "Schools, lyceums",
-      kindergarten: "Kindergartens", college: "Colleges and vocational schools", university: "Universities", religion: "Churches and places of worship", museum: "Museums", monument: "Historic monuments", hotel: "Hotels and guesthouses", park: "Parks and squares" },
+      kindergarten: "Kindergartens", college: "Colleges and vocational schools", university: "Universities", religion: "Churches and places of worship", museum: "Museums", monument: "Historic monuments", hotel: "Hotels and guesthouses", park: "Parks and squares", sport: "Sports centres and gyms" },
     z: { residential: "Housing", commercial: "Retail / offices", industrial: "Industry / warehouses", public: "Public institutions, schools, hospitals",
       park: "Parks and gardens", sport: "Sport", forest: "Forest", agri: "Agriculture (fields, orchards, vineyards)", grass: "Meadow / scrub",
       water: "Water", wetland: "Wetland", cemetery: "Cemeteries", military: "Military", transport: "Transport (stations, airport)",
@@ -161,7 +161,7 @@ const AGE_RO = ["Nedatat", "Imperiul Rus (până în 1918)", "Perioada româneas
 const AGE_EN = ["Undated", "Russian Empire (before 1918)", "Romanian rule (1918–1941)", "USSR (1941–1991)", "Independence (1991–present)"];
 const AGE_ORDER = [1, 2, 3, 4, 0];
 const TEMP_STOPS = [[-20, "#313695"], [-10, "#4575b4"], [-3, "#74add1"], [2, "#abd9e9"], [7, "#e0f3f8"], [12, "#fee090"], [18, "#fdae61"], [24, "#f46d43"], [30, "#d73027"], [35, "#a50026"]];
-const CATS = ["shop", "mall", "food", "cafe", "business", "health", "pharmacy", "gov", "school", "kindergarten", "college", "university", "religion", "museum", "monument", "hotel", "park"];
+const CATS = ["shop", "mall", "food", "cafe", "business", "health", "pharmacy", "gov", "school", "kindergarten", "college", "university", "religion", "museum", "monument", "hotel", "park", "sport"];
 const S = {
   lang: store.get("lang", "ro"), mode: ((m) => (m === "places" ? "admin" : m))(store.get("mode", "admin")), level: store.get("level", 2), ref: ((r) => (r === "cur" ? "auto" : r))(store.get("ref3", "auto")),
   ages: store.get("ages", null),
@@ -222,7 +222,7 @@ const scMatch = () => ["in", ["get", "sc"], ["literal", [REF(), "both"]]];
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const isDark = () => { const a = document.documentElement.getAttribute("data-theme"); return a ? a === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; };
 const CATCOL = { shop: "#e8590c", mall: "#c2255c", food: "#d6336c", cafe: "#8d5a3b", business: "#5f3dc4", health: "#e03131", pharmacy: "#2b8a3e",
-  gov: "#1c4f8a", school: "#f08c00", kindergarten: "#d9a400", college: "#0c8599", university: "#364fc7", religion: "#862e9c", museum: "#a61e4d", monument: "#5c3d2e", hotel: "#1098ad", park: "#37b24d" };
+  gov: "#1c4f8a", school: "#f08c00", kindergarten: "#d9a400", college: "#0c8599", university: "#364fc7", religion: "#862e9c", museum: "#a61e4d", monument: "#5c3d2e", hotel: "#1098ad", park: "#37b24d", sport: "#e8590c" };
 function pal() {
   const d = isDark();
   return {
@@ -627,6 +627,7 @@ const GLYPH = {
   religion: ["M12 2.5v19", "M7 7.5h10", "M8.5 15l7-2"],
   museum: ["M3 9l9-5 9 5", "M5 10v8M9.5 10v8M14.5 10v8M19 10v8", "M3 20.5h18", "M10 7h4"],
   monument: ["M10 3h4l1 15H9z", "M6 21h12", "M7.5 18h9"],
+  sport: ["M6.5 8v8M17.5 8v8", "M4 10v4M20 10v4", "M6.5 12h11"],
   hotel: ["M3 18V7", "M3 14h18v4", "M21 14v-2.5a3 3 0 0 0-3-3h-6v5.5", "M7 11.5a1.6 1.6 0 1 0 0-.1"],
 };
 function iconImage(cat, size = 26) {
@@ -1553,7 +1554,7 @@ function showStop(name, rs, ll) {
   const chips = rs.map((k) => { const [m, r] = k.split(":"); return `<span class="rchip" style="background:${pal().mode[m] || "#666"}">${esc(r)}</span>`; }).join(" ");
   popup(ll, `<b>${esc(name || "—")}</b><br><small>${t("routes_here")}</small><div class="rchips">${chips || t("none")}</div>`);
 }
-const KIND_RO = { supermarket: "supermarket", convenience: "magazin alimentar", clothes: "îmbrăcăminte", pharmacy: "farmacie", restaurant: "restaurant", fast_food: "fast-food",
+const KIND_RO = { fitness_centre: "sală de forță / fitness", sports_centre: "centru sportiv", stadium: "stadion", sports_hall: "sală de sport", swimming_pool: "bazin de înot", supermarket: "supermarket", convenience: "magazin alimentar", clothes: "îmbrăcăminte", pharmacy: "farmacie", restaurant: "restaurant", fast_food: "fast-food",
   bar: "bar", pub: "pub", cafe: "cafenea", bank: "bancă", hospital: "spital", clinic: "clinică", dentist: "stomatologie", doctors: "cabinet medical", doctor: "cabinet medical",
   school: "școală", kindergarten: "grădiniță", childcare: "îngrijire copii", university: "universitate", college: "colegiu", townhall: "primărie", police: "poliție",
   government: "instituție de stat", park: "parc", garden: "grădină", mall: "centru comercial", department_store: "magazin universal", hotel: "hotel", fuel: "benzinărie",
@@ -1912,6 +1913,7 @@ function bindEvents() {
   });
   map.on("click", "admin-fill", async (e) => {
     if (S.tool || !(bm(S.mode) === "admin" || S.mode === "pop" || S.mode === "stats")) return;
+    if (S.mode === "stats" && S.stView !== "units" && !PJ.tool && !pjAdminActive()) { stPointPopup(e.lngLat); return; }
     if (REGION_PG && !REGION_PG.has(e.lngLat.lng, e.lngLat.lat)) return;   // hidden area: nothing to select
     const top = ["pois", "tstops"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") !== "none");
     if (top.length && map.queryRenderedFeatures(e.point, { layers: top }).length) return;

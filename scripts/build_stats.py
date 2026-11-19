@@ -104,13 +104,15 @@ def snap(lon, lat):
 cnode, csnap = snap(cell_lon, cell_lat)
 csnap = np.minimum(csnap, 400)
 
-def access(src_lon, src_lat, weight, d0, cut, name):
-    """Gravity sum over all sources reachable within `cut` metres of walking."""
+def access(src_lon, src_lat, weight, d0, cut, name, group=None, ngroups=0):
+    """Gravity sum over all sources reachable within `cut` metres of walking (optionally also split by source group)."""
     snode, ssnap = snap(np.asarray(src_lon), np.asarray(src_lat))
-    keep = ssnap < 300; snode, ssnap, weight = snode[keep], ssnap[keep], np.asarray(weight, float)[keep]
+    grp = np.asarray(group if group is not None else np.zeros(len(snode), int))
+    keep = ssnap < 300; snode, ssnap, weight, grp = snode[keep], ssnap[keep], np.asarray(weight, float)[keep], grp[keep]
     raw = np.zeros(NC); nearest = np.full(NC, np.inf); cum = np.zeros(NC)
+    graw = np.zeros((ngroups, NC), np.float32) if ngroups else None
     # cells only need sources within cut + their own snap: limit each Dijkstra to `cut`
-    order = np.argsort(snode); snode, ssnap, weight = snode[order], ssnap[order], weight[order]
+    order = np.argsort(snode); snode, ssnap, weight, grp = snode[order], ssnap[order], weight[order], grp[order]
     uniq, inv = np.unique(snode, return_inverse=True)
     B = 64
     for s in range(0, len(uniq), B):
@@ -125,12 +127,14 @@ def access(src_lon, src_lat, weight, d0, cut, name):
                 d = row[ok] + csnap[ok] + ssnap[m]
                 okd = d <= cut
                 idx = np.where(ok)[0][okd]; dd = d[okd]
-                raw[idx] += weight[m] * np.exp(-dd / d0)
+                contrib = weight[m] * np.exp(-dd / d0)
+                raw[idx] += contrib
+                if graw is not None: graw[grp[m], idx] += contrib
                 nearest[idx] = np.minimum(nearest[idx], dd)
                 c10 = dd <= 800
                 cum[idx[c10]] += weight[m]
     log(name, "sources", len(snode), "cells reached", int(np.isfinite(nearest).sum()))
-    return raw, nearest, cum
+    return (raw, nearest, cum, graw) if ngroups else (raw, nearest, cum)
 
 def score(raw, R): return np.round(100 * (1 - np.exp(-raw / R))).astype(int)
 
@@ -151,41 +155,99 @@ sp = [f for f in pois if f["properties"]["c"] == "school"]
 raw, near, cum = access([f["geometry"]["coordinates"][0] for f in sp], [f["geometry"]["coordinates"][1] for f in sp], [1] * len(sp), 600, 2500, "school")
 res["school"] = score(raw, 0.8); aux["school_near"] = near; aux["school_cum"] = cum
 
-# ---------------------------------------------------------------- public green space
+# ---------------------------------------------------------------- public green space, weighted by how usable it is
+# Each public green area gets a category from what OpenStreetMap shows inside it, and a weight (editable in the app):
+#   a = landscaped (alleys, lighting, benches, playgrounds) 100%  ·  s = semi-landscaped (paths, no facilities) 50%
+#   n = natural / unlandscaped (no paths) 20%.  For s and n only the part within 100 m of a path or of the edge counts.
+from shapely.ops import transform as _tf
 GREEN_L = {"park", "garden", "recreation_ground", "nature_reserve", "village_green"}
-greens = []
 def is_public(tg): return tg.get("access") not in ("private", "no", "customers") and tg.get("garden:type") not in ("residential", "private")
+to_xy = lambda g: _tf(lambda x, y, z=None: ((np.asarray(x) - 28.85) * MX, (np.asarray(y) - LAT0) * MY), g)
+to_ll = lambda g: _tf(lambda x, y, z=None: (np.asarray(x) / MX + 28.85, np.asarray(y) / MY + LAT0), g)
+PATHW = {"footway", "path", "track", "pedestrian", "cycleway", "steps", "bridleway", "living_street", "service"}
+plines, plit = [], []
+for w in S.ways.values():
+    tg = w.get("tags") or {}
+    if tg.get("highway") in PATHW:
+        l = S.way_line(w["id"])
+        if l is not None: plines.append(to_xy(l)); plit.append(tg.get("lit") == "yes")
+ptree = STRtree(plines)
+AMEN = {"bench": 1, "playground": 3, "toilets": 3, "fountain": 2, "drinking_water": 2, "street_lamp": 0.3, "waste_basket": 0.5, "shelter": 1}
+apts, aw = [], []
+for n in S.nodes.values():
+    tg = n.get("tags") or {}
+    k = tg.get("amenity") if tg.get("amenity") in AMEN else tg.get("leisure") if tg.get("leisure") == "playground" else "street_lamp" if tg.get("highway") == "street_lamp" else None
+    if k: apts.append(to_xy(Point(n["lon"], n["lat"]))); aw.append(AMEN[k])
+atree = STRtree(apts)
+CUR = {"la izvor": "a", "muzeul satului": "s"}   # known exceptions where OSM lacks the details (editable in the app)
+munxy = to_xy(mun.buffer(0.03))
+cand = []
 for kind, coll in (("w", S.ways), ("r", S.rels)):
     for oid, o in coll.items():
         tg = o.get("tags") or {}
-        ok = (tg.get("leisure") in GREEN_L or tg.get("landuse") in ("forest", "recreation_ground") or tg.get("natural") == "wood")
+        isforest = tg.get("landuse") == "forest" or tg.get("natural") == "wood"
+        ok = tg.get("leisure") in GREEN_L or tg.get("landuse") == "recreation_ground" or isforest
         if not ok or not is_public(tg): continue
         if tg.get("leisure") == "garden" and tg.get("access") not in ("yes", "public", "permissive") and not tg.get("name"): continue   # unnamed gardens are usually private yards
-        g = S.way_polygon(oid) if kind == "w" else S.rel_polygon(oid)[0]
-        g = polys_only(g)
+        g = polys_only(S.way_polygon(oid) if kind == "w" else S.rel_polygon(oid)[0])
         if g is None: continue
-        ha = g.area * MX * MY / 1e4
-        big = tg.get("landuse") == "forest" or tg.get("natural") == "wood"
-        if ha < (1.0 if big else 0.3): continue
-        greens.append(g)
-gu = unary_union(greens).intersection(mun.buffer(0.03))
-log("green polygons", len(greens), "ha", round(gu.area * MX * MY / 1e4))
-# split into grid cells -> sources weighted by green ha in the cell
-gx0, gy0, gx1, gy1 = gu.bounds
-src_lon, src_lat, src_w = [], [], []
-parts = list(getattr(gu, "geoms", [gu])); st = STRtree(parts)
-for kx in range(int(gx0 / CX), int(gx1 / CX) + 1):
-    for ky in range(int(gy0 / CY), int(gy1 / CY) + 1):
-        cb = box(kx * CX, ky * CY, (kx + 1) * CX, (ky + 1) * CY)
-        hits = [parts[i] for i in st.query(cb)]
-        if not hits: continue
-        inter = unary_union([h.intersection(cb) for h in hits])
-        ha = inter.area * MX * MY / 1e4
-        if ha < 0.05: continue
-        c = inter.representative_point()
-        src_lon.append(c.x); src_lat.append(c.y); src_w.append(ha)
-raw, near, cum = access(src_lon, src_lat, src_w, 400, 1600, "green")
-res["green"] = score(raw, 5.0); aux["green_near"] = near; aux["green_cum"] = cum
+        gx = to_xy(g)
+        if not gx.intersects(munxy): continue
+        gx = gx.intersection(munxy); ha = gx.area / 1e4
+        park = tg.get("leisure") in ("park", "garden", "recreation_ground", "village_green") and not isforest
+        if ha < (0.3 if park else 1.0): continue
+        ins = [i for i in ptree.query(gx)]
+        segs = [(plines[i].intersection(gx), plit[i]) for i in ins]
+        pkm = sum(sg.length for sg, _ in segs) / 1000; lkm = sum(sg.length for sg, lt in segs if lt) / 1000
+        am = sum(aw[i] for i in atree.query(gx) if gx.contains(apts[i]))
+        q = am / ha + 4 * lkm / ha
+        if park: cat = "a" if (q >= 0.25 or lkm / ha >= 0.02 or (ha < 8 and pkm / ha >= 0.08)) else "s" if (pkm / ha >= 0.04 or ha < 3) else "n"
+        else: cat = "a" if (q >= 0.4 and pkm / ha >= 0.08) else "s" if pkm / ha >= 0.05 else "n"
+        nm = tg.get("name") or ""
+        for k, v in CUR.items():
+            if k in nm.lower(): cat = v
+        cand.append({"g": gx, "cat": cat, "n": nm, "ha": ha, "pkm": pkm, "q": q, "lines": [sg for sg, _ in segs if not sg.is_empty], "osm": f"{kind}{oid}"})
+# overlaps: the better-landscaped polygon keeps the shared ground
+cand.sort(key=lambda c: ("asn".index(c["cat"]), -c["ha"]))
+taken = None; greens = []
+for c in cand:
+    g = c["g"] if taken is None else c["g"].difference(taken)
+    if g.is_empty or g.area < 2000: continue
+    taken = c["g"] if taken is None else unary_union([taken, c["g"]])
+    if c["cat"] != "a":   # only the reachable fringe: 100 m from a path or the edge
+        reach = unary_union([g.boundary.buffer(100)] + [l.buffer(100) for l in c["lines"]])
+        g = g.intersection(reach)
+    c["use"] = g; greens.append(c)
+for k in "asn": log("green", k, sum(1 for c in greens if c["cat"] == k), "areas", round(sum(c["ha"] for c in greens if c["cat"] == k)), "ha", round(sum(c["use"].area for c in greens if c["cat"] == k) / 1e4), "usable ha")
+# split into grid cells -> sources weighted by usable ha, one group per green area
+src_lon, src_lat, src_w, src_g = [], [], [], []
+for gi, c in enumerate(greens):
+    gl = to_ll(c["use"]); x0, y0, x1, y1 = gl.bounds
+    for kx in range(int(x0 / CX), int(x1 / CX) + 1):
+        for ky in range(int(y0 / CY), int(y1 / CY) + 1):
+            cb = box(kx * CX, ky * CY, (kx + 1) * CX, (ky + 1) * CY)
+            if not gl.intersects(cb): continue
+            inter = gl.intersection(cb); ha = to_xy(inter).area / 1e4
+            if ha < 0.03: continue
+            pt = inter.representative_point()
+            src_lon.append(pt.x); src_lat.append(pt.y); src_w.append(ha); src_g.append(gi)
+raw, near, cum, graw = access(src_lon, src_lat, src_w, 400, 1600, "green", src_g, len(greens))
+COEF = {"a": 1.0, "s": 0.5, "n": 0.2}; GREEN_R = 5.0
+wraw = sum(COEF[c["cat"]] * graw[i] for i, c in enumerate(greens))
+res["green"] = score(wraw, GREEN_R); aux["green_near"] = near; aux["green_cum"] = cum
+# for the app: named areas (≥ 2 ha) separately so their category can be changed; the rest summed per category
+GREEN_OUT = {"coef": COEF, "R": GREEN_R, "rest": {}, "areas": []}
+rest = {k: np.zeros(NC) for k in "asn"}
+flat = cells[:, 0] * W + cells[:, 1]
+for i, c in enumerate(greens):
+    if c["n"] and c["ha"] >= 2:
+        nz = np.where(graw[i] > 0.002)[0]
+        lon, lat = to_ll(c["g"].representative_point()).coords[0]
+        GREEN_OUT["areas"].append({"id": c["osm"], "n": c["n"], "cat": c["cat"], "ha": round(c["ha"], 1), "uha": round(c["use"].area / 1e4, 1), "km": round(c["pkm"], 1),
+                                   "c": [round(lon, 5), round(lat, 5)], "k": flat[nz].tolist(), "v": [round(float(x), 3) for x in graw[i][nz]]})
+    else: rest[c["cat"]] += graw[i]
+GREEN_OUT["areas"].sort(key=lambda a: -a["ha"])
+log("named green areas", len(GREEN_OUT["areas"]), "by cat", {k: sum(1 for a in GREEN_OUT["areas"] if a["cat"] == k) for k in "asn"})
 
 # ---------------------------------------------------------------- air (estimated exposure index)
 RW = {"motorway": 6, "trunk": 6, "primary": 4, "secondary": 2.5, "tertiary": 1.2, "unclassified": 0.4, "residential": 0.3, "living_street": 0.1, "service": 0.1,
@@ -237,6 +299,7 @@ out = {"kx0": kx0, "ky0": ky0, "W": W, "H": H, "dx": CX, "dy": CY,
        "s": {k: full(v) for k, v in res.items()},
        "near": {k: full(np.minimum(aux[k + "_near"], 9999)) for k in ("transit", "health", "school", "green")},
        "cum": {"transit": full(aux["transit_cum"]), "green": full(aux["green_cum"], dec=1), "health": full(aux["health_cum"], dec=1), "school": full(aux["school_cum"])},
+       "green": {**GREEN_OUT, "rest": {k: full(v, 0, 3) for k, v in rest.items()}},
        "pop": [round(float(x), 1) for x in POP.ravel()], "jobs": [round(float(x), 1) for x in JOBS.ravel()]}
 json.dump(out, open(os.path.join(OUT, "statgrid.json"), "w"), separators=(",", ":"))
 log("statgrid.json", round(os.path.getsize(os.path.join(OUT, "statgrid.json")) / 1e6, 2), "MB")

@@ -20,7 +20,7 @@ const STK = {
 Object.assign(T.ro, { stats: "Statistici", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Statistics", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Статистика", showloc: "Показывать моё местоположение на карте" });
 const STN = (k) => L(STK[k].ro, STK[k].en, STK[k].ru);
 const ST_HOW = {
-  green: ["Toate parcurile, grădinile publice, bazele de odihnă și pădurile din jur, nu doar cel mai apropiat. Se ignoră spațiile private și petele mici de iarbă (sub 0,3 ha; păduri sub 1 ha). Fiecare hectar contează mai puțin cu cât e mai departe pe jos (la 400 m contează ~37%, peste 1,6 km nu mai contează).", "All parks, public gardens, recreation grounds and forests around, not only the nearest. Private gardens and small grass patches are ignored (under 0.3 ha; forests under 1 ha). Each hectare counts less the further it is on foot (~37% at 400 m, nothing beyond 1.6 km).", "Все парки, общественные сады, зоны отдыха и леса вокруг, а не только ближайший. Частные участки и мелкие газоны не учитываются (меньше 0,3 га; леса меньше 1 га). Каждый гектар весит тем меньше, чем дальше пешком (~37% на 400 м, дальше 1,6 км не учитывается)."],
+  green: ["Toate parcurile, grădinile publice, bazele de odihnă și pădurile din jur, nu doar cel mai apropiat. Se ignoră spațiile private și petele mici de iarbă (sub 0,3 ha; păduri sub 1 ha). Fiecare hectar contează după cât de amenajat e (amenajat 100%, semi-amenajat 50%, natural 20%, vezi mai jos) și mai puțin cu cât e mai departe pe jos (la 400 m ~37%, peste 1,6 km nu mai contează).", "All parks, public gardens, recreation grounds and forests around, not only the nearest. Private gardens and small grass patches are ignored (under 0.3 ha; forests under 1 ha). Each hectare counts by how landscaped it is (landscaped 100%, semi 50%, natural 20%, see below) and less the further it is on foot (~37% at 400 m, nothing beyond 1.6 km).", "Все парки, общественные сады, зоны отдыха и леса вокруг, а не только ближайший. Частные участки и мелкие газоны не учитываются (меньше 0,3 га; леса меньше 1 га). Каждый гектар весит по степени благоустройства (благоустроенный 100%, частично 50%, естественный 20%, см. ниже) и тем меньше, чем дальше пешком (~37% на 400 м, дальше 1,6 км не учитывается)."],
   transit: ["Toate stațiile de troleibuz și autobuz (inclusiv rutiere) din jur. Fiecare stație cântărește după numărul de linii care o deservesc (maxim 12) și scade cu distanța pe jos (la 250 m ~37%, peste 1 km nu mai contează). Trenul nu e inclus.", "All trolleybus and bus (incl. minibus) stops around. Each stop weighs by the number of lines serving it (max 12) and fades with walking distance (~37% at 250 m, nothing beyond 1 km). Trains are not included.", "Все остановки троллейбусов и автобусов (вкл. маршрутки) вокруг. Каждая весит по числу линий (макс. 12) и убывает с расстоянием пешком (~37% на 250 м, дальше 1 км не учитывается). Поезд не включён."],
   health: ["Toate unitățile medicale din jur: spital = 4, policlinică / centru medical = 2, cabinet = 1,5, stomatologie sau laborator = 0,5. Distanța pe jos reduce greutatea (la 700 m ~37%, peste 3 km nu mai contează). Farmaciile nu sunt incluse.", "All health facilities around: hospital = 4, polyclinic / health centre = 2, doctor's practice = 1.5, dentist or lab = 0.5. Walking distance lowers the weight (~37% at 700 m, nothing beyond 3 km). Pharmacies are not included.", "Все медучреждения вокруг: больница = 4, поликлиника / медцентр = 2, кабинет = 1,5, стоматология или лаборатория = 0,5. Расстояние пешком снижает вес (~37% на 700 м, дальше 3 км не учитывается). Аптеки не включены."],
   school: ["Toate școlile și liceele din jur, fiecare cu aceeași greutate, care scade cu distanța pe jos (la 600 m ~37%, peste 2,5 km nu mai contează). O școală la ~500 m dă ~42 de puncte; două, ~66; trei, ~80.", "All schools and lyceums around, equal weight, fading with walking distance (~37% at 600 m, nothing beyond 2.5 km). One school ~500 m away gives ~42 points; two ~66; three ~80.", "Все школы и лицеи вокруг, одинаковый вес, убывающий с расстоянием пешком (~37% на 600 м, дальше 2,5 км не учитывается). Одна школа в ~500 м даёт ~42 балла, две — ~66, три — ~80."],
@@ -36,7 +36,7 @@ const lerpStops = (st, v) => { if (v <= st[0][0]) return st[0][1]; for (let i = 
 const RT_GOOD = [[-2, [165, 0, 38]], [-1, [240, 123, 63]], [0, [250, 240, 200]], [1, [140, 198, 101]], [2, [0, 104, 55]]];
 const RT_NEU = [[-2, [94, 60, 153]], [-1, [178, 171, 210]], [0, [247, 247, 247]], [1, [253, 184, 99]], [2, [230, 97, 1]]];
 const rgbHex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
-Object.assign(S, { stat: store.get("stat", "green"), stRatio: store.get("stRatio", false), stA: store.get("stA", "green"), stB: store.get("stB", "pop"), stView: store.get("stView", "heat") });
+Object.assign(S, { stat: store.get("stat", "green"), stRatio: store.get("stRatio", false), stA: store.get("stA", "green"), stB: store.get("stB", "pop"), stView: store.get("stView", "heat"), stEmpty: store.get("stEmpty", false) });
 
 // ---------------------------------------------------------------- grid
 let SG = null;
@@ -48,7 +48,7 @@ async function statGrid() {
   const inside = new Float32Array(n), pop = Float32Array.from(g.pop), jobs = Float32Array.from(g.jobs);
   for (let k = 0; k < n; k++) inside[k] = g.s.green[k] >= 0 ? 1 : 0;
   const act = box(Float32Array.from(pop, (p, k) => p + jobs[k] * 0.5));
-  const mask = Float32Array.from(inside, (v, k) => v * (act[k] >= 1.5 ? 1 : 0.3));
+  const mask = Float32Array.from(inside, (v, k) => v * (act[k] >= 1.5 ? 1 : 0));   // where people live or work
   const vals = {};
   for (const k in g.s) vals[k] = Float32Array.from(g.s[k], (v) => (v < 0 ? 0 : v));
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
@@ -59,7 +59,8 @@ async function statGrid() {
   // resident-weighted distribution of every statistic → percentile (position in the city's ranking)
   const dist = {};
   for (const k in vals) { const idx = []; for (let i = 0; i < n; i++) if (inside[i] && pop[i] > 0) idx.push(i); idx.sort((a, b) => vals[k][a] - vals[k][b]); let c = 0; const v = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { c += pop[i]; v[t] = vals[k][i]; cw[t] = c; }); dist[k] = { v, cw, tot: c }; }
-  SG = { box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
+  SG = { g, box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
+  if (g.green?.areas) await greenLoadCfg();
   return SG;
 }
 const stLog = (a, b) => Math.max(-3, Math.min(3, Math.log2(Math.max(a, 1e-3) / Math.max(b, 1e-3))));
@@ -80,10 +81,10 @@ function stField(key) {   // key: "green" | "pop" | "r~A~B" → Float32Array of 
   if (key.startsWith("r~")) { const [, A, B] = key.split("~"), a = G.vals[A], b = G.vals[B]; const r = Float32Array.from(a, (v, i) => (G.inside[i] ? stRatioVal(A, B, v, b[i]) : 0)); return (G.f[key] = G.box(r)); }
   return (G.f[key] = G.vals[key]);
 }
-function stSample(F, lon, lat) {   // normalized bilinear sampling (cells outside the municipality do not bleed in)
+function stSample(F, lon, lat, M = SG.mask) {   // normalized bilinear sampling (cells outside the municipality do not bleed in)
   const G = SG, fx = (lon - G.x0) / G.dx, fy = (lat - G.y0) / G.dy;
   if (!(fx >= 0 && fy >= 0 && fx < G.W - 1 && fy < G.H - 1)) return [0, 0];
-  const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, w = fy - j, k = j * G.W + i, M = G.mask, I = G.inside;
+  const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, w = fy - j, k = j * G.W + i, I = G.inside;
   const ws = [(1 - u) * (1 - w), u * (1 - w), (1 - u) * w, u * w], ks = [k, k + 1, k + G.W, k + G.W + 1];
   let s = 0, m = 0, a = 0; for (let t = 0; t < 4; t++) { const q = ws[t] * I[ks[t]]; s += F[ks[t]] * q; m += q; a += ws[t] * M[ks[t]]; }
   return m > 0.05 ? [s / m, a] : [0, 0];
@@ -99,14 +100,14 @@ function stHeight(key, v, sq) {
   return sq ? Math.sqrt(v / 100) * 1200 : v * 12;
 }
 async function stTile(url, dem) {
-  const [key, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number);
-  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0;
+  const [key0, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number), all = key0.endsWith("~e"), key = all ? key0.slice(0, -2) : key0;
+  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0, M = all ? SG.inside : SG.mask;
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
   const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), a = img.data, n = 2 ** z;
   for (let py = 0; py < N; py++) {
     const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + (py + 0.5) / N)) / n))) * 180) / Math.PI;
     for (let px = 0; px < N; px++) {
-      const lon = ((x + (px + 0.5) / N) / n) * 360 - 180, [v, m] = stSample(F, lon, lat), o = (py * N + px) * 4;
+      const lon = ((x + (px + 0.5) / N) / n) * 360 - 180, [v, m] = stSample(F, lon, lat, M), o = (py * N + px) * 4;
       if (dem) { const h = (m > 0 ? stHeight(key, v, mode === "sqrt") * (dens ? 1 : Math.min(1, m)) : 0) + 32768; a[o] = Math.floor(h / 256); a[o + 1] = Math.floor(h) % 256; a[o + 2] = Math.floor((h % 1) * 256); a[o + 3] = 255; continue; }
       if (m <= 0) { a[o + 3] = 0; continue; }
       const c = stColour(key, v); a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2];
@@ -120,6 +121,9 @@ async function stTile(url, dem) {
 maplibregl.addProtocol("stcol", (p) => stTile(p.url.replace("stcol://", ""), false));
 maplibregl.addProtocol("stdem", (p) => stTile(p.url.replace("stdem://", ""), true));
 const stKey = () => (S.stRatio ? `r~${S.stA}~${S.stB}` : S.stat);
+// "show uninhabited land too": only for access / environment statistics (residents and jobs are simply 0 there)
+const stEmptyOk = () => (S.stRatio ? STK[S.stA].q > 0 && STK[S.stB].q > 0 : STK[S.stat].q > 0);
+const stTileKey = () => stKey() + (S.stEmpty && stEmptyOk() ? "~e" : "");
 
 // ---------------------------------------------------------------- per unit (resident-weighted averages)
 const ST_CELLS = new Map();   // admin id → grid cells with residents
@@ -169,8 +173,8 @@ async function stApplyUnits() {
 // layers (heat = flat colours, hills = same colours on a terrain made from the values)
 async function statsRender(on, only) {
   document.getElementById("as-q")?.setAttribute("placeholder", L("Caută o stradă sau un loc…", "Search a street or a place…", "Найти улицу или место…"));
-  if (bm(S.mode) === "stats") { const el = document.getElementById("stpanel"), sig = [S.lang, S.stat, S.stRatio, S.stA, S.stB, S.stView].join("|"); if (el && el.dataset.sig !== sig) { statsPanel(); el.dataset.sig = sig; } }
-  const key = stKey(), view = S.stView, sq = S.hillSqrt && !key.startsWith("r~") ? "sqrt" : "lin";
+  if (bm(S.mode) === "stats") { const el = document.getElementById("stpanel"), sig = [S.lang, S.stat, S.stRatio, S.stA, S.stB, S.stView, S.stEmpty].join("|"); if (el && el.dataset.sig !== sig) { statsPanel(); el.dataset.sig = sig; } }
+  const key = stTileKey(), view = S.stView, sq = S.hillSqrt && !key.startsWith("r~") ? "sqrt" : "lin";
   const want = on && view !== "units" ? `stc-${key}` : null, wantDem = on && view === "hills" ? `std-${key}-${sq}` : null;
   if (want && !map.getSource(want)) {
     map.addSource(want, { type: "raster", tiles: [`stcol://${key}/c/{z}/{x}/{y}`], tileSize: 256, maxzoom: 13, bounds: DBOX });
@@ -250,7 +254,7 @@ async function statsLegendAsync() {
   const val = (q) => q["st_" + k];
   h += pickHtml(L("Cele mai slabe cartiere", "Weakest neighbourhoods", "Самые слабые районы"), pick(val, 4, true), val, (v) => fmt(v), "bad")
     + pickHtml(L("Cele mai bune cartiere", "Best neighbourhoods", "Лучшие районы"), pick(val, 3, false), val, (v) => fmt(v), "good")
-    + how(k);
+    + how(k) + (k === "green" ? greenCfgHtml() : "");
   return h;
 }
 function statsLegend() {
@@ -274,16 +278,18 @@ function statsPanel() {
     <label class="stratio"><input type="radio" name="stat" value="__ratio" ${S.stRatio ? "checked" : ""}><b>➗ ${L("Raportează două statistici", "Ratio of two statistics", "Соотношение двух показателей")}</b></label></div>
     <div class="strat" ${S.stRatio ? "" : "hidden"}><select id="stA" aria-label="A">${opts}</select><span>÷</span><select id="stB" aria-label="B">${opts}</select><button type="button" class="btn ghost sm" id="stswap" title="${L("Inversează", "Swap", "Поменять")}">⇄</button></div>
     <span class="lab">${t("popview")}</span>
+    ${stEmptyOk() ? `<label class="check stempty"><input type="checkbox" id="stempty" ${S.stEmpty ? "checked" : ""}><span>${L("Arată și teritoriile nelocuite", "Also show uninhabited land", "Показывать и незаселённые территории")}<small>${L("Colorează și locurile unde încă nu locuiește nimeni, ca să vezi dacă un teren pentru construcție are deja acces bun. Clic pe hartă pentru valorile din acel punct.", "Also colours places where nobody lives yet, to check whether a building site already has good access. Click the map for the values at that spot.", "Окрашивает и места, где пока никто не живёт, чтобы проверить, есть ли у участка под застройку хороший доступ. Щёлкните по карте, чтобы увидеть значения в точке.")}</small></span></label>` : ""}
     <div class="seg row3">${[["units", t("pv_units")], ["heat", t("pv_heat")], ["hills", t("pv_hills")]].map(([v, l]) => `<label><input type="radio" name="stview" value="${v}" ${S.stView === v ? "checked" : ""}><b>${l}</b></label>`).join("")}</div>`;
   el.querySelector("#stA").value = S.stA; el.querySelector("#stB").value = S.stB;
 }
-function statsSave() { for (const k of ["stat", "stRatio", "stA", "stB", "stView"]) store.set(k, S[k]); }
+function statsSave() { for (const k of ["stat", "stRatio", "stA", "stB", "stView", "stEmpty"]) store.set(k, S[k]); }
 document.addEventListener("change", (e) => {
   const tg = e.target; if (!tg.closest?.("#stpanel")) return;
   if (tg.name === "stat") { if (tg.value === "__ratio") S.stRatio = true; else { S.stRatio = false; S.stat = tg.value; } }
   if (tg.name === "stview") S.stView = tg.value;
   if (tg.id === "stA") S.stA = tg.value;
   if (tg.id === "stB") S.stB = tg.value;
+  if (tg.id === "stempty") S.stEmpty = tg.checked;
   if (S.stRatio && S.stA === S.stB) { S.stB = S.stA === "pop" ? "green" : "pop"; }
   statsSave(); statsPanel(); render().then(() => document.getElementById("legend")?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
 });
@@ -293,4 +299,82 @@ document.addEventListener("click", (e) => {
   adminFC().then((a) => { const f = a.features.find((x) => String(x.properties.id) === u.dataset.stunit); if (!f) return;
     const b = new maplibregl.LngLatBounds(); (function walk(c) { typeof c[0] === "number" ? b.extend(c) : c.forEach(walk); })(f.geometry.coordinates);
     map.fitBounds(b, { padding: 80, maxZoom: 14 }); map.setFilter("admin-sel", ["==", ["get", "id"], f.properties.id]); select({ kind: "admin", props: f.properties, geom: f.geometry }); });
+});
+
+// ---------------------------------------------------------------- what the statistics are at one spot (e.g. a building site)
+async function stPointPopup(ll) {
+  await statGrid(); const G = SG, fx = Math.round((ll.lng - G.x0) / G.dx), fy = Math.round((ll.lat - G.y0) / G.dy), k = fy * G.W + fx;
+  if (!(fx >= 0 && fy >= 0 && fx < G.W && fy < G.H) || !G.inside[k]) return;
+  const cls = ST_CLN(), where = await placeName([ll.lng, ll.lat]);
+  const CUT = { transit: 1, green: 1.6, health: 3, school: 2.5 };
+  const nm = (d, s) => (d >= 9999 ? "> " + fmt(CUT[s], 1) + " km" : d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(Math.round(d / 10) * 10) + " m");
+  const rows = ["green", "transit", "air", "health", "school"].map((s) => { const v = Math.round(stSample(G.vals[s], ll.lng, ll.lat, G.inside)[0]), c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
+    return `<tr><td>${STK[s].ic} ${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]}">${v}</b> ${cls[c]}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}</small>` : ""}</td></tr>`; }).join("");
+  const pd = stSample(G.vals.pop, ll.lng, ll.lat, G.inside)[0] * popScale(), jd = stSample(G.vals.jobs, ll.lng, ll.lat, G.inside)[0];
+  popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table><small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²</small>`);
+}
+
+// ---------------------------------------------------------------- green space: weights by how landscaped it is (editable by the city hall)
+const GCAT = { a: ["Amenajat", "Landscaped", "Благоустроенный", "alei, iluminat, bănci, locuri de joacă", "paths, lighting, benches, playgrounds", "аллеи, освещение, скамейки, площадки"],
+  s: ["Semi-amenajat", "Semi-landscaped", "Частично благоустроенный", "poteci, fără dotări", "paths, no facilities", "тропинки, без оснащения"],
+  n: ["Natural / neamenajat", "Natural / unlandscaped", "Естественный / неблагоустроенный", "fără poteci", "no paths", "без тропинок"] };
+const gName = (c) => L(GCAT[c][0], GCAT[c][1], GCAT[c][2]);
+let GCFG = null;
+async function greenLoadCfg() {
+  const def = SG.g.green.coef; let c = null;
+  if (PJ.db) { try { const d = await PJ.db.collection("settings").doc("green").get(); if (d.exists) c = d.data(); } catch {} }
+  c ??= store.get("greencfg", null);
+  GCFG = { coef: { ...def, ...(c?.coef || {}) }, cat: { ...(c?.cat || {}) }, t: c?.t || null };
+  greenApply();
+}
+function greenApply() {
+  const G = SG, gg = G.g.green, n = G.n, raw = new Float32Array(n);
+  for (const c of ["a", "s", "n"]) { const r = gg.rest[c], w = GCFG.coef[c]; for (let i = 0; i < n; i++) raw[i] += w * r[i]; }
+  for (const a of gg.areas) { const w = GCFG.coef[GCFG.cat[a.id] || a.cat]; for (let t = 0; t < a.k.length; t++) raw[a.k[t]] += w * a.v[t]; }
+  const v = G.vals.green; for (let i = 0; i < n; i++) v[i] = G.inside[i] ? Math.round(100 * (1 - Math.exp(-raw[i] / gg.R))) : 0;
+  const idx = []; for (let i = 0; i < n; i++) if (G.inside[i] && G.pop[i] > 0) idx.push(i); idx.sort((a, b) => v[a] - v[b]);
+  let cc = 0; const dv = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { cc += G.pop[i]; dv[t] = v[i]; cw[t] = cc; }); G.dist.green = { v: dv, cw, tot: cc };
+  let s = 0; for (let i = 0; i < n; i++) s += v[i] * G.pop[i] * G.inside[i]; G.ref.green = s / cc;
+}
+async function greenSave() {
+  GCFG.t = new Date().toISOString();
+  const doc = { coef: GCFG.coef, cat: GCFG.cat, t: GCFG.t };
+  store.set("greencfg", doc);
+  if (PJ.db) { try { await PJ.db.collection("settings").doc("green").set(doc); } catch {} }
+  greenApply(); SG.f = {};
+  const admin = await adminFC(); admin.__stats = false;
+  for (const l of map.getStyle().layers) if (/^(stc-|sth-).*green/.test(l.id)) map.removeLayer(l.id);
+  for (const id of Object.keys(map.getStyle().sources)) if (/^(stc-|std-).*green/.test(id)) map.removeSource(id);
+  await render();
+}
+function greenCfgHtml() {
+  const gg = SG?.g?.green; if (!gg?.areas || !GCFG) return "";
+  const adm = typeof isOff === "function" && isOff(), pc = (x) => Math.round(x * 100);
+  const sum = { a: 0, s: 0, n: 0 }; for (const a of gg.areas) sum[GCFG.cat[a.id] || a.cat] += a.ha;
+  const catSel = (a) => { const c = GCFG.cat[a.id] || a.cat; return adm ? `<select data-gcat="${a.id}">${["a", "s", "n"].map((k) => `<option value="${k}" ${k === c ? "selected" : ""}>${gName(k)}</option>`).join("")}</select>` : `<span class="gtag g${c}">${gName(c)}</span>`; };
+  return `<li><details class="how gcfg" ${SH.gcfgOpen ? "open" : ""}><summary>${L("Cum se numără spațiile verzi", "How green space is counted", "Как считаются зелёные зоны")}${adm ? ` · ${L("editabil", "editable", "можно менять")}` : ""}</summary>
+    <p class="small">${L("Fiecare hectar contează după cât de amenajat e. La spațiile semi-amenajate și naturale se numără doar partea la cel mult 100 m de o potecă sau de margine (interiorul unei păduri mari nu e folosit zilnic). Categoria vine automat din OpenStreetMap (densitatea aleilor, alei iluminate, bănci, locuri de joacă, toalete); primăria o poate corecta.", "Each hectare counts by how landscaped it is. For semi-landscaped and natural areas only the part within 100 m of a path or the edge counts (the inside of a large forest is not used daily). The category comes from OpenStreetMap (path density, lit paths, benches, playgrounds, toilets); the city hall can correct it.", "Каждый гектар учитывается по степени благоустройства. Для частично благоустроенных и естественных зон считается только полоса до 100 м от тропинки или края (глубь большого леса не используется ежедневно). Категория берётся из OpenStreetMap (плотность аллей, освещённые аллеи, скамейки, площадки, туалеты); мэрия может её исправить.")}</p>
+    <div class="gcoef">${["a", "s", "n"].map((k) => `<div><span class="gtag g${k}">${gName(k)}</span><small>${L(GCAT[k][3], GCAT[k][4], GCAT[k][5])} · ${fmt(sum[k], 0)} ha ${L("în zonele cu nume", "in named areas", "в именованных зонах")}</small>${adm ? `<label><input type="number" min="0" max="100" step="5" value="${pc(GCFG.coef[k])}" data-gcoef="${k}">%</label>` : `<b>${pc(GCFG.coef[k])}%</b>`}</div>`).join("")}</div>
+    <input type="search" class="pjin" id="gfind" placeholder="${L("Caută un parc sau o pădure…", "Find a park or forest…", "Найти парк или лес…")}" value="${esc(SH.gfind || "")}">
+    <ol class="glist">${gg.areas.filter((a) => !SH.gfind || deacc(a.n).includes(deacc(SH.gfind))).slice(0, 40).map((a) => `<li><button type="button" class="glink" data-garea="${a.id}">${esc(a.n)}</button><small>${fmt(a.ha, 0)} ha · ${fmt(a.km, 1)} km ${L("alei", "paths", "аллей")}</small>${catSel(a)}</li>`).join("")}</ol>
+    ${adm ? `<div class="btnrow"><button type="button" class="btn sm" id="gsave">${L("Aplică și salvează", "Apply and save", "Применить и сохранить")}</button><button type="button" class="btn ghost sm" id="greset">${L("Revino la clasificarea automată", "Back to automatic classification", "Вернуть автоматическую классификацию")}</button></div>` : `<p class="small">${L("Doar primăria (administrator) poate schimba categoriile.", "Only the city hall (administrator) can change the categories.", "Менять категории может только мэрия (администратор).")}</p>`}
+    ${GCFG.t ? `<p class="small muted">${L("Ultima modificare", "Last changed", "Последнее изменение")}: ${new Date(GCFG.t).toLocaleString(loc())}</p>` : ""}</details></li>`;
+}
+document.addEventListener("toggle", (e) => { if (e.target.classList?.contains("gcfg")) SH.gcfgOpen = e.target.open; }, true);
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "gfind") return;
+  SH.gfind = e.target.value; clearTimeout(SH.gft);
+  SH.gft = setTimeout(() => { const ol = document.querySelector(".glist"); if (!ol) return; const tmp = document.createElement("div"); tmp.innerHTML = greenCfgHtml(); ol.replaceWith(tmp.querySelector(".glist")); }, 200);
+});
+document.addEventListener("change", (e) => {
+  const d = e.target.dataset || {};
+  if (d.gcoef) GCFG.coef[d.gcoef] = Math.max(0, Math.min(100, +e.target.value || 0)) / 100;
+  if (d.gcat) { const a = SG.g.green.areas.find((x) => x.id === d.gcat); if (a && e.target.value === a.cat) delete GCFG.cat[d.gcat]; else GCFG.cat[d.gcat] = e.target.value; }
+});
+document.addEventListener("click", (e) => {
+  if (e.target.id === "gsave") { greenSave().then(() => toast(L("Spațiile verzi au fost recalculate.", "Green space recalculated.", "Зелёные зоны пересчитаны."))); return; }
+  if (e.target.id === "greset") { GCFG.coef = { ...SG.g.green.coef }; GCFG.cat = {}; greenSave(); return; }
+  const a = e.target.closest?.("[data-garea]");
+  if (a) { const x = SG.g.green.areas.find((q) => q.id === a.dataset.garea); if (!x) return; const c = GCFG.cat[x.id] || x.cat;
+    map.flyTo({ center: x.c, zoom: 14 }); popup({ lng: x.c[0], lat: x.c[1] }, `<b>${esc(x.n)}</b><br><small>${gName(c)} · ${fmt(x.ha, 0)} ha · ${L("se numără", "counted", "учитывается")} ${fmt(x.uha, 0)} ha · ${fmt(x.km, 1)} km ${L("alei", "paths", "аллей")}</small>`); }
 });
