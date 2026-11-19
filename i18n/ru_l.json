@@ -568,5 +568,17 @@
 "\"comentariu\"": "\"комментарий\"",
 "\"comentarii\"": "\"комментариев\"",
 "\"vezi toate\"": "\"смотреть все\"",
-"\"Scrie un comentariu…\"": "\"Напишите комментарий…\""
+"\"Scrie un comentariu…\"": "\"Напишите комментарий…\"",
+"\"locuri/locuitor\"": "\"мест/жителя\"",
+"\"cartier-dormitor\"": "\"спальный район\"",
+"\"mai mulți locuitori\"": "\"больше жителей\"",
+"\"echilibru\"": "\"баланс\"",
+"\"mai multe locuri de muncă\"": "\"больше рабочих мест\"",
+"\"centru de muncă\"": "\"центр занятости\"",
+"\"Locuri de muncă la un locuitor\"": "\"Рабочих мест на жителя\"",
+"\"Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.\"": "\"Синий: люди живут здесь, а работать ездят в другие места. Красный: сюда приезжают работать люди из других районов.\"",
+"\"Densitatea locurilor de muncă (estimare)\"": "\"Плотность рабочих мест (оценка)\"",
+"\"Înălțimea arată câte locuri de muncă sunt într-o zonă.\"": "\"Высота показывает, сколько рабочих мест в районе.\"",
+"\"Locuri de muncă pe km² (estimare)\"": "\"Рабочих мест на км² (оценка)\"",
+"\"Locuri de muncă (estimare)\"": "\"Рабочие места (оценка)\""
 }

@@ -54,9 +54,9 @@ function aiTools() {
         if (parent) { const k = deacc(parent); fs = fs.filter((f) => deacc(`${f.properties.sector || ""} ${f.properties.unit || ""}`).includes(k)); }
         return fs.filter((f) => f.properties.lvl !== "ctx").slice(0, 160).map((f) => ({ name: f.properties.ro, pop: Math.round((f.properties.pop || 0) * popScale()), km2: f.properties.km2, sector: f.properties.sector, mayoralty: f.properties.unit }));
       } },
-    { name: "area_details", description: "Details of one named area (any level): population at the selected date, area, density, sector, mayoralty, source.",
+    { name: "area_details", description: "Details of one named area (any level): population at the selected date, area, density, estimated jobs and jobs per resident (commuting balance), sector, mayoralty, source.",
       inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
-      async execute({ name }) { const p = pickByName(await featsAt(null), name).properties; return { name: p.ro, level: lvlWord(p.lvl), pop: Math.round((p.pop || 0) * popScale()), km2: p.km2, density: p.dens, sector: p.sector, mayoralty: p.unit, source: p.src, date: S.date }; } },
+      async execute({ name }) { await ensureJobs(); const p = pickByName(await featsAt(null), name).properties; return { name: p.ro, level: lvlWord(p.lvl), pop: Math.round((p.pop || 0) * popScale()), km2: p.km2, density: p.dens, jobs_estimate: p.jobs, jobs_per_resident: p.jr != null ? Math.round((p.jr / popScale()) * 100) / 100 : null, sector: p.sector, mayoralty: p.unit, source: p.src, date: S.date }; } },
     { name: "search_places", description: "Search streets, stops, neighbourhoods and points of interest by text, or by category (pharmacy, stop, food, cafe, shop, park, health, bank, fuel, school). Results are sorted by distance from the user's location and include the distance in km.",
       inputSchema: { type: "object", properties: { query: { type: "string" }, category: { type: "string" } } },
       async execute({ query, category }) { const r = await runSearch(String(query || ""), category ? String(category) : null); return r.slice(0, 8).map((h) => ({ name: h.x.n, kind: h.x.k === "poi" ? h.x.cat : h.x.k, km: Math.round(h.d * 100) / 100, lon: h.x.c[0], lat: h.x.c[1] })); } },
