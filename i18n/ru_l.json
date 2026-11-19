@@ -580,5 +580,12 @@
 "\"Densitatea locurilor de muncă (estimare)\"": "\"Плотность рабочих мест (оценка)\"",
 "\"Înălțimea arată câte locuri de muncă sunt într-o zonă.\"": "\"Высота показывает, сколько рабочих мест в районе.\"",
 "\"Locuri de muncă pe km² (estimare)\"": "\"Рабочих мест на км² (оценка)\"",
-"\"Locuri de muncă (estimare)\"": "\"Рабочие места (оценка)\""
+"\"Locuri de muncă (estimare)\"": "\"Рабочие места (оценка)\"",
+"\"Locuri de muncă pe km²\"": "\"Рабочих мест на км²\"",
+"\"Locuitori pe km²\"": "\"Жителей на км²\"",
+"\"Evidențiază satele (scară cu rădăcină pătrată)\"": "\"Выделить сёла (шкала с квадратным корнем)\"",
+"\"Înălțimea crește cu rădăcina pătrată a densității: satele răsfirate se văd, dar diferențele dintre cartierele dense par mai mici.\"": "\"Высота растёт как квадратный корень плотности: видны разбросанные сёла, но разница между плотными районами кажется меньше.\"",
+"\"Înălțimea e proporțională cu densitatea: un deal de două ori mai înalt înseamnă de două ori mai mulți oameni pe km². Culoarea folosește aceeași grilă și aceeași scală fixă.\"": "\"Высота пропорциональна плотности: холм вдвое выше — вдвое больше людей на км². Цвет берётся из той же сетки по той же фиксированной шкале.\"",
+"\"Tipuri de locuri de muncă (un punct = 150 m)\"": "\"Типы рабочих мест (одна точка = 150 м)\"",
+"\"Culoarea arată tipul dominant din fiecare pătrat; mărimea, numărul de locuri de muncă din tipurile bifate. Fundalul colorează unitățile după densitatea locurilor de muncă.\"": "\"Цвет показывает основной тип в каждом квадрате; размер — число рабочих мест отмеченных типов. Фон окрашивает территории по плотности рабочих мест.\""
 }
