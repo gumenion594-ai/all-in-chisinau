@@ -124,7 +124,9 @@ function searchClick(b) {
   if (b.id === "ms-loc") { b.disabled = true; requestLoc(true).then(() => { b.disabled = false; toast(locLabel()); const q = document.getElementById("ms-q"); searchUpdate(q?.value || "", document.querySelector("[data-qcat].on")?.dataset.qcat); }); return true; }
   return false;
 }
-function tileGo(tl) { const [sec, md] = tl.dataset.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } }
+function tileGo(tl) {
+  if (tl.dataset.go === "rewards") { SH.pf = { ...(SH.pf || { show: "all", sort: "new", cat: "", q: "" }), tab: "rewards" }; shGo("projects"); return; }
+  const [sec, md] = tl.dataset.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } }
 
 // ---------------------------------------------------------------- pictures for the home tiles (simple inline drawings)
 const ART = {
@@ -134,6 +136,7 @@ const ART = {
   projects: `<svg viewBox="0 0 160 90" aria-hidden="true"><circle cx="46" cy="40" r="10" fill="#f0a868"/><path d="M28 80a18 18 0 0 1 36 0z" fill="#2f9e44"/><circle cx="80" cy="34" r="11" fill="#c98b5a"/><path d="M60 80a20 20 0 0 1 40 0z" fill="#1971c2"/><circle cx="114" cy="40" r="10" fill="#e8b48a"/><path d="M96 80a18 18 0 0 1 36 0z" fill="#e8590c"/><rect x="92" y="6" width="50" height="24" rx="8" fill="#fff" stroke="#c9d3e0" stroke-width="2"/><path d="M104 30l-4 8 10-8" fill="#fff" stroke="#c9d3e0" stroke-width="2"/><text x="117" y="23" text-anchor="middle" font-size="14">👍</text></svg>`,
   budget: `<svg viewBox="0 0 160 90" aria-hidden="true"><rect x="96" y="44" width="12" height="34" rx="2" fill="#74c0fc"/><rect x="114" y="30" width="12" height="48" rx="2" fill="#4dabf7"/><rect x="132" y="18" width="12" height="60" rx="2" fill="#1c7ed6"/><g fill="#f6c343" stroke="#c8962e" stroke-width="2"><ellipse cx="50" cy="74" rx="26" ry="7"/><ellipse cx="50" cy="64" rx="26" ry="7"/><ellipse cx="50" cy="54" rx="26" ry="7"/><ellipse cx="50" cy="44" rx="26" ry="7"/></g><text x="50" y="49" text-anchor="middle" font-size="11" font-weight="700" fill="#8a5a00">lei</text></svg>`,
   news: `<svg viewBox="0 0 160 90" aria-hidden="true"><rect x="34" y="12" width="96" height="70" rx="4" fill="#fff" stroke="#c9d3e0" stroke-width="2"/><rect x="44" y="22" width="76" height="10" rx="2" fill="#2d3748"/><rect x="44" y="38" width="34" height="26" rx="2" fill="#a5d8ff"/><g stroke="#a0aec0" stroke-width="3" stroke-linecap="round"><path d="M86 40h34M86 48h34M86 56h26M44 72h76"/></g></svg>`,
+  discount: `<svg viewBox="0 0 160 90" aria-hidden="true"><path d="M40 20h52l30 28-30 28H40a6 6 0 0 1-6-6V26a6 6 0 0 1 6-6z" fill="#e8590c"/><circle cx="96" cy="48" r="6" fill="#fff"/><text x="64" y="57" text-anchor="middle" font-size="24" font-weight="800" fill="#fff">%</text><g fill="#f6c343"><path d="M128 14l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/><path d="M140 52l2 4 4 .6-3 3 .7 4-3.7-2-3.7 2 .7-4-3-3 4-.6z"/></g></svg>`,
   docs: `<svg viewBox="0 0 160 90" aria-hidden="true"><rect x="58" y="10" width="54" height="62" rx="3" fill="#fff" stroke="#c9d3e0" stroke-width="2" transform="rotate(8 85 41)"/><rect x="50" y="12" width="54" height="62" rx="3" fill="#fff" stroke="#c9d3e0" stroke-width="2"/><g stroke="#a0aec0" stroke-width="3" stroke-linecap="round"><path d="M60 26h34M60 34h34M60 42h24"/></g><path d="M30 40h34l8 8h58v34H30z" fill="#f6c343" stroke="#c8962e" stroke-width="2"/></svg>`,
 };
 
@@ -154,8 +157,9 @@ async function shHome() {
     ${tile("transit", "blue", L("Transport public", "Public transport"), ART.transit, live ? `${live} ${L("bilete active", "active tickets")}` : L("Bilete, trasee, vehicule live", "Tickets, routes, live vehicles"))}
     ${tile("guide", "sand", L("Ghid turistic", "Tourist guide"), ART.guide, L("Planifică vizita", "Plan a visit"))}
     ${tile("projects", "green", L("Proiecte și petiții", "Projects & petitions"), ART.projects, `<b>${props.length}</b> ${L("proiecte, petiții și propuneri", "projects, petitions and proposals")}`)}
-    ${B ? tile("atlas", "gold", `${L("Bugetul municipal", "Municipal budget")} ${y}`, ART.budget, `<b>${fmt(B.exp, 1)}</b> ${L("mld lei cheltuieli", "bn lei spending")}`) : ""}
+    ${tile("rewards", "gold", L("Reduceri", "Discounts"), ART.discount, `⭐ <b>${fmt(civic().pts)}</b> ${L("puncte civice · transport, muzee, parcare", "civic points · transport, museums, parking")}`)}
     ${tile("news", "", L("Noutăți", "News"), ART.news, news ? esc(news[1]) : "")}
     ${tile("archive", "", L("Documente", "Documents"), ART.docs, `${fmt(ARCH.filter((a) => a.vis === "pub").length)} ${L("documente publice", "public documents")}`)}
+    ${B ? tile("atlas", "sand", `${L("Bugetul municipal", "Municipal budget")} ${y}`, ART.budget, `<b>${fmt(B.exp, 1)}</b> ${L("mld lei cheltuieli", "bn lei spending")}`) : ""}
   </div>`;
 }

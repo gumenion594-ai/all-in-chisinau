@@ -189,6 +189,7 @@ function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
   applyStoredTheme(); chatBind(); loginBind(); topbarBind(); searchBind();
+  aiNs();
   requestLoc(false).then(showLocOnMap);
   // the artifact's owner (or an editor) opens it as administrator
   (async () => { try { const u = window.claude?.use ? await window.claude.use("user") : null; if (u && (u.isOwner() || u.canEdit())) {

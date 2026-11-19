@@ -56,7 +56,7 @@ def calls(s):
 if __name__ == "__main__":
     D = os.path.join(os.path.dirname(__file__), "..", "web")
     allc = {}
-    for f in ["app.js", "projects.js", "nb.js", "shell.js", "shell2.js", "shell3.js", "shell4.js"]:
+    for f in ["app.js", "projects.js", "nb.js", "shell.js", "shell2.js", "shell3.js", "shell4.js", "shell5.js"]:
         for st, en, ro, e, b1 in calls(open(os.path.join(D, f)).read()):
             allc.setdefault(ro, e)
     json.dump(allc, open(sys.argv[1], "w"), ensure_ascii=False, indent=0)

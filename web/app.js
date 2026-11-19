@@ -152,6 +152,9 @@ const store = {
   set(k, v) { try { localStorage.setItem("chi-atlas2-" + k, JSON.stringify(v)); } catch {} },
 };
 const MAPS = ["admin", "pop", "zone", "age", "temp", "cmp", "transit", "roads"];
+const SECDIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
+const CMP_KEEP = ["nyc", "berlin", "bucuresti", "balti"];
+const cmpList = () => load("compare.json").then((l) => l.filter((c) => CMP_KEEP.includes(c.k)));
 const CMPCOL = { nyc: "#e8590c", manhattan: "#c2255c", berlin: "#1c7ed6", barcelona: "#2b8a3e", bucuresti: "#7048e8", iasi: "#0c8599", balti: "#5c3d2e", stuttgart: "#d6336c", heilbronn: "#f08c00" };
 const AGECOL = ["#b8b8b8", "#f2c418", "#f0782d", "#c2306f", "#5b2a9e"];
 const AGE_RO = ["Nedatat", "Imperiul Rus (până în 1918)", "Perioada românească (1918–1941)", "URSS (1941–1991)", "Independența (1991–prezent)"];
@@ -497,7 +500,7 @@ async function popGrid() {
   const cellKm2 = (dx * 111.32 * Math.cos((47.0 * Math.PI) / 180)) * (dy * 110.57);
   return (POPGRID = { W, H, dx, dy, x0, y0, a: out, cellKm2 });
 }
-const HILL_M_PER_1000 = 45;   // metres of "hill" per 1,000 people/km²
+const HILL_M_PER_1000 = 90;   // metres of "hill" per 1,000 people/km²
 maplibregl.addProtocol("popdem", async (params) => {
   const [z, x, y] = params.url.replace("popdem://", "").split("/").map(Number), G = await popGrid();
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
@@ -1013,8 +1016,7 @@ async function renderLabels() {
     el.dataset.km2 = p.km2;
     let txt = nameOf(p).replace(/^Chișinău – (sectorul )?/, "").replace(/ sector$/, "");
     if (p.lvl === 2 && p.kind === "city") txt = "Chișinău · " + txt;
-    const DIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
-    const dir = p.lvl === 1 && (m === "admin" || m === "pop") && DIR[p.sector] ? L(DIR[p.sector][0], DIR[p.sector][1]) : null;
+    const dir = p.lvl === 1 && (m === "admin" || m === "pop") && SECDIR[p.sector] ? L(SECDIR[p.sector][0], SECDIR[p.sector][1]) : null;
     el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (m === "pop" && p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "")
       + (tmap && tmap.u?.[p.id] != null ? `<b class="tval">${fmt(tmap.u[p.id], 1)} °C</b>` : "");
     labelMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lx, p.ly]).addTo(map));
@@ -1044,7 +1046,7 @@ function renderLegend() {
   const el = document.getElementById("legend"), P = pal(), m = bm(S.mode);
   let h = "";
   if (m === "admin") {
-    h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}</li>`).join("")
+    h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}${SECDIR[k] ? ` <span class="small">(${L(SECDIR[k][0], SECDIR[k][1])})</span>` : ""}</li>`).join("")
       + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
       + (S.ctx ? `<li><i class="ln dash" style="border-color:${P.line}"></i>${t("lvlname").ctx}</li>` : "");
   } else if (m === "pop" && heatLike()) {
@@ -1055,7 +1057,7 @@ function renderLegend() {
     h = `<li class="cap">${t("density")}</li>` + b.map((v, i) => `<li><i style="background:${P.pop[i]}"></i>${fmt(v)}${b[i + 1] ? "–" + fmt(b[i + 1]) : "+"}</li>`).join("");
   } else if (m === "cmp") {
     const list = DATA.__cmp;
-    if (!list) { h = `<li class="loading"><span class="spin"></span>…</li>`; load("compare.json").then((x) => { DATA.__cmp = x; renderLegend(); }); }
+    if (!list) { h = `<li class="loading"><span class="spin"></span>…</li>`; cmpList().then((x) => { DATA.__cmp = x; renderLegend(); }); }
     else {
       const mun = DATA.__zs?.[REF()];
       h = `<li class="small">${t("cmp_h")}</li>` + list.map((c) => `<li><label><input type="checkbox" data-cmp="${c.k}" ${S.cmp[c.k] ? "checked" : ""}><i style="background:${CMPCOL[c.k]}"></i><span class="zl">${esc(L(c.ro, c.en))}</span><span class="za">${fmt(c.km2, 1)} km²</span></label>${S.cmp[c.k] ? `<button type="button" class="btn ghost sm cmpc" data-cmpc="${c.k}">${t("cmp_center")}</button>` : ""}</li>`).join("")
@@ -1562,7 +1564,7 @@ function cmpGeom(c, lon0, lat0) {
   return { type: "MultiPolygon", coordinates: c.poly.map((p) => p.map(conv)) };
 }
 async function cmpUpdate() {
-  const list = await load("compare.json");
+  const list = await cmpList();
   if (!map.getSource("cmp")) {
     map.addSource("cmp", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({ id: "cmp-fill", type: "fill", source: "cmp", paint: { "fill-color": ["get", "col"], "fill-opacity": 0.32 } }, "draw-fill");

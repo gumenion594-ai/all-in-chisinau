@@ -366,14 +366,14 @@ async function answer(q) {
 }
 // floating assistant: always available
 function chatInit() {
-  SH.chat ||= [{ me: 0, h: L("Bună! Sunt asistentul aplicației (machetă, fără inteligență artificială reală). Întreabă-mă despre populație, vreme, bilete, buget sau unde se află un loc.", "Hi! I'm the app's assistant (mock-up, no real AI). Ask about population, weather, tickets, the budget or where a place is.") }];
+  SH.chat ||= [{ me: 0, h: L("Bună! Sunt asistentul aplicației. Răspund la întrebări despre oraș și pot face lucruri în locul tău: deschid hărți, caut locuri, planific călătorii, unesc sau redenumesc cartiere într-un proiect, construiesc cartiere și drumuri, trimit propuneri.", "Hi! I'm the app's assistant. I answer questions about the city and can do things for you: open maps, find places, plan trips, merge or rename areas in a project, build districts and roads, submit proposals.") }];
 }
 function chatRender() {
   chatInit();
   const box = document.getElementById("chatbox"); if (!box || box.hidden) return;
-  box.innerHTML = `<header><b>${L("Asistent", "Assistant")}</b><span class="small">${L("machetă", "mock-up")}</span><button type="button" class="closex sm" id="chatclose" aria-label="${L("Închide", "Close")}">×</button></header>
-    <ol class="chatlog">${SH.chat.map((m) => `<li class="${m.me ? "me" : "bot"}">${m.h}</li>`).join("")}</ol>
-    <div class="chips">${[L("Câți locuitori are Durlești?", "How many people live in Durlești?"), L("Ce vreme e acum?", "What's the weather now?"), L("Cât costă biletul?", "How much is a ticket?"), L("Unde e Muzeul Național de Istorie?", "Where is the National History Museum?")].map((x) => `<button type="button" class="chipck" data-ask="${esc(x)}">${esc(x)}</button>`).join("")}</div>
+  box.innerHTML = `<header><b>${L("Asistent", "Assistant")}</b><span class="small">${SH.aiOn ? "AI · Claude" : L("machetă", "mock-up")}</span>${AI_CTL ? `<button type="button" class="btn ghost sm" id="chatstop">${L("Oprește", "Stop")}</button>` : ""}<button type="button" class="closex sm" id="chatclose" aria-label="${L("Închide", "Close")}">×</button></header>
+    <ol class="chatlog">${SH.chat.map((m) => `<li class="${m.me ? "me" : m.tool ? "tool" : "bot"}">${m.h}</li>`).join("")}</ol>
+    <div class="chips">${[L("Câți locuitori are Durlești?", "How many people live in Durlești?"), L("Unește Ghidighici cu Durlești într-un proiect", "Merge Ghidighici with Durlești in a project"), L("Construiește un cartier de blocuri de 30 ha lângă Codru", "Build a 30 ha block district near Codru"), L("Unde e cea mai apropiată farmacie?", "Where is the nearest pharmacy?")].map((x) => `<button type="button" class="chipck" data-ask="${esc(x)}">${esc(x)}</button>`).join("")}</div>
     <form class="hsearch" id="chatform"><input type="text" id="chat-in" placeholder="${L("Scrie o întrebare…", "Type a question…")}" autocomplete="off"><button class="btn">${L("Trimite", "Send")}</button></form>`;
   const log = box.querySelector(".chatlog"); log.scrollTop = log.scrollHeight;
 }
@@ -385,8 +385,10 @@ function chatToggle(open) {
 async function ask(q) {
   if (!q.trim()) return;
   chatInit(); chatToggle(true);
+  if (AI_CTL) return;
   SH.chat.push({ me: 1, h: esc(q) }); chatRender();
-  SH.chat.push({ me: 0, h: await answer(q) }); chatRender(); document.getElementById("chat-in")?.focus();
+  if (!(await aiAsk(q))) { SH.chat.push({ me: 0, h: await answer(q) }); chatRender(); }
+  document.getElementById("chat-in")?.focus();
 }
 function chatBind() {
   const box = document.getElementById("chatbox");
@@ -395,6 +397,7 @@ function chatBind() {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     if (b.id === "chatclose") chatToggle(false);
+    else if (b.id === "chatstop") AI_CTL?.abort();
     else if (b.dataset.ask) ask(b.dataset.ask);
     else if (b.dataset.go) { const [sec, md] = b.dataset.go.split(":"); shGo(sec); if (md) { S.mode = md; render(); } }
     else if (b.dataset.fly) { const [x, y] = b.dataset.fly.split(",").map(Number); shGo("atlas"); map.flyTo({ center: [x, y], zoom: +b.dataset.z || 16.5 }); popup({ lng: x, lat: y }, `<b>${esc(b.textContent)}</b>`); }
