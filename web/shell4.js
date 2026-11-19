@@ -50,7 +50,7 @@ async function searchIndex() {
     for (const l of ls) s.pts.push(l[Math.floor(l.length / 2)]);
   }
   for (const s of Object.values(streets)) { s.c = s.pts[0]; out.push(s); }
-  for (const g of sg.groups) out.push({ n: g.label, k: "stop", c: g.c, pts: [g.c] });
+  for (const g of sg.groups) out.push({ n: g.label, full: g.name, k: "stop", c: g.c, pts: [g.c] });
   for (const f of pois.features) { const p = f.properties; if (p.n) out.push({ n: p.n, k: "poi", cat: p.c, kk: p.k, c: f.geometry.coordinates, pts: [f.geometry.coordinates], f }); }
   for (const x of out) x.d = deacc(x.n + " " + (x.full || ""));
   return (SIDX = out);

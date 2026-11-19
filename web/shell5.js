@@ -191,6 +191,62 @@ function aiTools() {
       } },
     { name: "clear_map", description: "Remove everything the assistant drew on the map.",
       async execute() { aiDraw([], false); return "Cleared"; } },
+    { name: "set_view", description: "Change any atlas setting exactly as the menus do. All fields optional: map (admin, pop, zone, age, temp, cmp, transit, roads), level (1-4), base (standard, simple, satellite, elevation), flat_2d (true = turn off 3D buildings, 3D terrain and population hills, camera straight down), buildings_3d, terrain_3d, labels (locality names), street_names, hide_outside (hide everything outside the municipality), region (area name or 'all'), borders ('date' or '2027'), date (YYYY-MM-DD or 'today'), population_scenario ('census' or 'nbs2019'), population_show (residents, jobs, commuting), population_display (units, heat, hills), highlight_villages, zoning_display (use, built), only_this_map, neighbour_borders, outside_places, places (list of categories to show, or [] for none), transit_modes (list of trolleybus, bus, minibus, train), transit_route (route number, or '' for all), ring_road, compare (list of nyc, berlin, bucuresti, balti), language (ro, en, ru), theme (auto, light, dark), pitch, bearing, zoom, center (place name). Returns the resulting settings.",
+      inputSchema: { type: "object", properties: {
+        map: { type: "string" }, level: { type: "integer" }, base: { type: "string" }, flat_2d: { type: "boolean" }, buildings_3d: { type: "boolean" }, terrain_3d: { type: "boolean" },
+        labels: { type: "boolean" }, street_names: { type: "boolean" }, hide_outside: { type: "boolean" }, region: { type: "string" }, borders: { type: "string" }, date: { type: "string" },
+        population_scenario: { type: "string" }, population_show: { type: "string" }, population_display: { type: "string" }, highlight_villages: { type: "boolean" }, zoning_display: { type: "string" },
+        only_this_map: { type: "boolean" }, neighbour_borders: { type: "boolean" }, outside_places: { type: "boolean" }, places: { type: "array", items: { type: "string" } },
+        transit_modes: { type: "array", items: { type: "string" } }, transit_route: { type: "string" }, ring_road: { type: "boolean" }, compare: { type: "array", items: { type: "string" } },
+        language: { type: "string" }, theme: { type: "string" }, pitch: { type: "number" }, bearing: { type: "number" }, zoom: { type: "number" }, center: { type: "string" } } },
+      async execute(o) {
+        shGo("atlas");
+        const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
+        const fire = (el) => el && el.dispatchEvent(new Event("change", { bubbles: true }));
+        const radio = (name, v) => { const el = document.querySelector(`input[name=${name}][value="${v}"]`); if (!el) throw new Error(`No option ${name}=${v}`); if (!el.checked) { el.checked = true; fire(el); } };
+        const check = (sel, on) => { const el = document.querySelector(sel); if (el && el.checked !== !!on) { el.checked = !!on; fire(el); } };
+        const checks = async (attr, want) => { await wait(300); document.querySelectorAll(`[${attr}]`).forEach((el) => { const k = el.getAttribute(attr), on = want.includes(k); if (el.checked !== on) { el.checked = on; fire(el); } }); };
+        const done = [];
+        if (o.language) { setLang(String(o.language)); done.push("language"); }
+        if (o.theme) { store.set("theme", String(o.theme)); applyStoredTheme(); done.push("theme"); }
+        if (o.map) { const tab = document.querySelector(`.tab[data-mode="${o.map}"]`); if (!tab) throw new Error("Unknown map " + o.map); if (S.mode !== o.map) tab.click(); await wait(400); done.push("map"); }
+        if (o.level) { radio("level", Math.max(1, Math.min(4, Number(o.level)))); done.push("level"); }
+        if (o.borders) { radio("reform", o.borders === "2027" ? "ref" : "auto"); done.push("borders"); }
+        if (o.date) { const d = o.date === "today" ? TODAY : String(o.date); const el = document.getElementById("date"); el.value = d; fire(el); done.push("date"); }
+        if (o.population_scenario) { radio("scen", o.population_scenario === "nbs2019" ? "est" : "census"); done.push("scenario"); }
+        if (o.population_show) { radio("popwhat", { residents: "pop", jobs: "jobs", commuting: "ratio" }[o.population_show] || o.population_show); done.push("population_show"); }
+        if (o.population_display) { radio("popview", o.population_display); done.push("population_display"); }
+        if (o.zoning_display) { radio("zoneview", o.zoning_display); done.push("zoning_display"); }
+        if (o.base) { radio("base", o.base); done.push("base"); }
+        if (o.flat_2d) { if (S.popView === "hills") radio("popview", "heat"); check("#d3", false); await wait(); check("#terrain", false); await wait(); map.easeTo({ pitch: 0, bearing: 0, duration: 700 }); done.push("2D"); }
+        if (o.buildings_3d != null) { check("#d3", o.buildings_3d); done.push("buildings_3d"); }
+        if (o.terrain_3d != null) { check("#terrain", o.terrain_3d); done.push("terrain_3d"); }
+        for (const [k, id] of [["labels", "#labels"], ["street_names", "#names"], ["hide_outside", "#hideout"], ["only_this_map", "#only"], ["neighbour_borders", "#ctx"], ["outside_places", "#outside"]]) if (o[k] != null) { check(id, o[k]); done.push(k); }
+        if (o.region) { const sel = document.getElementById("region"); let v = ""; if (o.region !== "all") { const f = pickByName(await featsAt(null), o.region); v = String(f.properties.id); } sel.value = v; fire(sel); done.push("region"); }
+        if (o.highlight_villages != null) { await wait(300); check("[data-hillsqrt]", o.highlight_villages); done.push("highlight_villages"); }
+        if (o.places) { await checks("data-cat", o.places.map(String)); done.push("places"); }
+        if (o.transit_modes || o.transit_route != null || o.ring_road != null) {
+          if (S.mode !== "transit") { document.querySelector('.tab[data-mode="transit"]').click(); await wait(500); }
+          if (o.transit_modes) { await wait(); document.querySelectorAll("#legend input[data-mode]").forEach((el) => { const on = o.transit_modes.includes(el.dataset.mode); if (el.checked !== on) { el.checked = on; fire(el); } }); done.push("transit_modes"); }
+          if (o.transit_route != null) { const rs = document.getElementById("route-sel"); const want = String(o.transit_route).toLowerCase(); const opt = [...rs.options].find((x) => !want ? x.value === "" : x.value.toLowerCase().endsWith(":" + want) || x.text.toLowerCase().startsWith(want + " ") || x.text.toLowerCase().includes(" " + want + " ")); if (!opt) throw new Error("Route not found " + o.transit_route); rs.value = opt.value; fire(rs); done.push("transit_route"); }
+          if (o.ring_road != null) { await wait(); check("#legend [data-ring]", o.ring_road); done.push("ring_road"); }
+        }
+        if (o.compare) { if (S.mode !== "cmp") { document.querySelector('.tab[data-mode="cmp"]').click(); await wait(600); } await checks("data-cmp", o.compare.map(String)); done.push("compare"); }
+        const cam = {};
+        if (o.center) cam.center = (await placePoint(o.center)).c;
+        if (o.zoom != null) cam.zoom = Number(o.zoom);
+        if (o.pitch != null) cam.pitch = Math.max(0, Math.min(75, Number(o.pitch)));
+        if (o.bearing != null) cam.bearing = Number(o.bearing);
+        if (Object.keys(cam).length) {
+          if (cam.pitch == null && (o.buildings_3d || o.terrain_3d || o.population_display === "hills")) { cam.pitch = 58; cam.bearing ??= -18; }
+          if (cam.pitch == null && o.flat_2d) { cam.pitch = 0; cam.bearing ??= 0; }
+          if (o.buildings_3d && cam.zoom == null) cam.zoom = Math.max(map.getZoom(), 15);
+          map.easeTo({ ...cam, duration: 800 }); done.push("camera");
+        }
+        await wait(400);
+        return { changed: done, now: { map: S.mode, level: S.level, base: S.base, buildings_3d: S.d3, terrain_3d: S.terrain, labels: S.labels, street_names: S.names, hide_outside: S.hideOut, date: S.date,
+          population_show: S.popWhat, population_display: S.popView, zoning_display: S.zoneView, places: S.cats, transit_modes: S.modes, language: S.lang } };
+      } },
     { name: "search_places", description: "Search streets, stops, neighbourhoods and points of interest by text, or by category (pharmacy, stop, food, cafe, shop, park, health, bank, fuel, school). Results are sorted by distance from the user's location and include the distance in km.",
       inputSchema: { type: "object", properties: { query: { type: "string" }, category: { type: "string" } } },
       async execute({ query, category }) { const r = await runSearch(String(query || ""), category ? String(category) : null); return r.slice(0, 8).map((h) => ({ name: h.x.n, kind: h.x.k === "poi" ? h.x.cat : h.x.k, km: Math.round(h.d * 100) / 100, lon: h.x.c[0], lat: h.x.c[1] })); } },
@@ -299,7 +355,7 @@ async function aiContext() {
   const l2 = (await featsAt(2)).filter((f) => f.properties.lvl === 2).map((f) => `${f.properties.ro} (${fmt(Math.round(f.properties.pop * popScale()))})`).join("; ");
   const l1 = [...new Set((await featsAt(1)).map((f) => f.properties.ro + (SECDIR[f.properties.sector] ? ` (${SECDIR[f.properties.sector][1]})` : "")))].join(", ");
   return `You are the assistant inside "All in Chișinău", a prototype city app for Chișinău municipality (Moldova): atlas with population, land use, building age, weather, transport and roads maps; planning projects (border changes, new roads, new districts with cost estimates); projects & petitions with votes; problem reports; tickets and journey planner; tourist guide; news; documents.
-Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). When the user asks to "show" or "display" something, draw it on the map with highlight / walk_catchment / show_places and also give the key numbers. After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
+Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). When the user asks to "show" or "display" something, draw it on the map with highlight / walk_catchment / show_places and also give the key numbers. Use set_view for any menu setting (map type, 2D/3D, base map, level, labels, places, transit filters, date, language…). After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
 Current state: date ${S.date}; section ${SH.sec}; user role ${RL(SH.role)}; user location ${locLabel()}; ${PJ.cur ? `open planning project "${PJ.cur.name}"` : "no planning project open"}.
 Sectors (level 1): ${l1}.
 Mayoralties and urban sectors (level 2, population): ${l2}.`;
