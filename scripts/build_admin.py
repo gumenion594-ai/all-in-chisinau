@@ -325,7 +325,7 @@ GROUPS = {
     "chisinau:Ciocana": {"Ciocana Nouă": ["ciocana", "zona industriala ciocana", "ciocana noua"], "Mircea cel Bătrân": ["cartierul 8*", "cartierul 9*"]},
     "chisinau:Rîșcani": {"Rîșcanii de Jos": ["riscanii de jos", "sipka", "tabacaria"], "Rîșcani-Visterniceni": ["riscani", "visterniceni"],
                          "Poșta Veche": ["posta veche", "petricani", "doina", "ceucari"], "Rîșcanii de Sus": ["riscanii de sus", "bucovinei", "pan-com"]},
-    "chisinau:Botanica": {"Botanica de Jos": ["botanica de jos", "muncesti"]},
+    "chisinau:Botanica": {"Botanica de Jos": ["botanica de jos", "muncesti"], "Botanica de Sus": ["botanica de sus", "nunta", "toamna de aur", "portile orasului", "valea farmecelor", "botanica"]},
 }
 def group_of(u, x):
     if u["kind"] != "city": return x.get("village") or x["ro"]
