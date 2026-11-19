@@ -66,6 +66,7 @@ nav.tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 
 .seg label:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .seg input { margin: 2px 0 0; accent-color: var(--accent); grid-row: span 2; }
 .seg b { font: 700 13px var(--display); }
+.seg.jobcol { grid-template-columns: 1fr 1fr; } .seg.jobcol label { padding: 6px 8px; align-items: center; } .seg.jobcol input { grid-row: auto; margin: 0; }
 .seg small { color: var(--muted); font-size: 11.5px; grid-column: 2; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .row2 label { padding: 7px 9px; }

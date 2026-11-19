@@ -167,7 +167,7 @@ const S = {
   ages: store.get("ages", null),
   zoneView: store.get("zoneView", "use"), region: null, hideOut: store.get("hideOut", false),
   keep: store.get("keep", {}), only: store.get("only", {}),
-  cur: store.get("cur", "lei"), date: todayISO(), popView: store.get("popView", "units"), popWhat: store.get("popWhat", "pop"), hillSqrt: store.get("hillSqrt", false), jobTypes: store.get("jobTypes", null),
+  cur: store.get("cur", "lei"), date: todayISO(), popView: store.get("popView", "units"), popWhat: store.get("popWhat", "pop"), hillSqrt: store.get("hillSqrt", false), jobCol: store.get("jobCol", "dens"), jobTypes: store.get("jobTypes", null),
   ctx: store.get("ctx", true), scen: store.get("scen", "census"), base: store.get("base", "standard"), labels: store.get("labels", true), names: store.get("names", true),
   outside: false, d3: false, terrain: false,
   modes: { trolleybus: true, bus: true, minibus: true, train: true }, route: "", ring: store.get("ring", false), cmp: {},
@@ -510,16 +510,22 @@ const RATIO_HOW = () => `<li><details class="how"><summary>${L("Cum se calculeaz
   <li>${L("Dealuri 3D: înălțimea = locuri de muncă minus locuitori pe km² (deal = vin oameni la muncă; vale = pleacă).", "3D hills: height = jobs minus residents per km² (hill = people come to work; valley = they leave).")}</li>
   <li>${L("Media municipiului e ~0,49 locuri de muncă la un locuitor (copiii, elevii, pensionarii nu lucrează), deci 1 nu e „normalul”: sub ~0,35 e zonă-dormitor, peste ~1 e centru de muncă.", "The municipal average is ~0.49 jobs per resident (children, pupils and pensioners don't work), so 1 is not the “normal”: below ~0.35 is a dormitory area, above ~1 a job centre.")}</li>
   <li>${L("Nu sunt fluxuri reale de navetă (de unde unde merge fiecare): pentru asta ar trebui date de la transport sau de la operatorii mobili. E un indicator de echilibru.", "These are not real commuting flows (who travels from where to where): that needs transport or mobile-operator data. It is a balance indicator.")}</li></ol></details></li>`;
+const JOBCOL_PICK = () => `<li class="cap">${L("Culoare", "Colour")}</li><li class="seg jobcol">${[["dens", L("Densitate", "Density")], ["type", L("Tip de activitate", "Type of activity")]].map(([v, l]) => `<label><input type="radio" name="jobcol" value="${v}" ${S.jobCol === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</li>`;
 const heatLike = () => S.popView === "heat" || S.popView === "hills";
 // ---------------------------------------------------------------- population as terrain: denser areas become higher hills
 const GRIDS = {};
-const gridFile = (w) => (w === "jobs" ? "jobgrid.geojson" : "popgrid.geojson");
+const gridFile = (w) => (w.startsWith("jobs") ? "jobgrid.geojson" : "popgrid.geojson");
+// "jobs" = all jobs; "jobs.ics" = only those types (one letter per type)
+const jobsKey = () => { const sel = jobSel(); return sel.length === Object.keys(JOBT).length ? "jobs" : "jobs." + (sel.join("") || "x"); };
+const jobTypeCol = () => S.popWhat === "jobs" && S.jobCol === "type";
 const wantJobs = () => S.popWhat === "jobs";
 async function popGrid(what = "pop") {
   if (GRIDS[what]) return GRIDS[what];
   const g = await load(gridFile(what)), dx = 0.00219, dy = 0.0015, x0 = DBOX[0], y0 = DBOX[1];
   const W = Math.ceil((DBOX[2] - x0) / dx) + 1, H = Math.ceil((DBOX[3] - y0) / dy) + 1, a = new Float32Array(W * H);
-  for (const f of g.features) { const [x, y] = f.geometry.coordinates, i = Math.round((x - x0) / dx), j = Math.round((y - y0) / dy); if (i >= 0 && j >= 0 && i < W && j < H) a[j * W + i] += f.properties.p; }
+  const keys = what.startsWith("jobs.") ? what.slice(5).split("") : null;
+  const val = keys ? (q) => keys.reduce((u, k) => u + (q[k] || 0), 0) : (q) => q.p;
+  for (const f of g.features) { const [x, y] = f.geometry.coordinates, i = Math.round((x - x0) / dx), j = Math.round((y - y0) / dy); if (i >= 0 && j >= 0 && i < W && j < H) a[j * W + i] += val(f.properties); }
   const k = [], R = 4, sg = 1.6; for (let i = -R; i <= R; i++) k.push(Math.exp(-(i * i) / (2 * sg * sg))); const ks = k.reduce((u, v) => u + v, 0);
   const tmp = new Float32Array(W * H), out = new Float32Array(W * H);
   for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { let v = 0; for (let t = -R; t <= R; t++) { const ii = Math.min(W - 1, Math.max(0, i + t)); v += a[j * W + ii] * k[t + R]; } tmp[j * W + i] = v / ks; }
@@ -548,19 +554,31 @@ function sampleGrid(G, lon, lat) {
 }
 async function gridTile(url, paint) {   // url: what/mode/z/x/y; what = pop | jobs | ratio (paint gets residents and jobs per km²)
   const [what, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number);
-  const G = await popGrid(what === "jobs" ? "jobs" : "pop"), GJ = what === "ratio" ? await popGrid("jobs") : null;
+  const isJ = what.startsWith("jobs"), G = await popGrid(isJ ? what : "pop"), GJ = what === "ratio" ? await popGrid("jobs") : null;
+  const tk = mode === "t" ? (what === "jobs" ? Object.keys(JOBT) : what.slice(5).split("")).filter((k) => JOBT[k]) : null;
+  const GT = tk ? await Promise.all(tk.map((k) => popGrid("jobs." + k))) : null, tv = tk ? new Float32Array(tk.length) : null;
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
-  const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), n = 2 ** z, s = what === "jobs" ? 1 : popScale();
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), n = 2 ** z, s = isJ ? 1 : popScale();
   for (let py = 0; py < N; py++) {
     const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + (py + 0.5) / N)) / n))) * 180) / Math.PI;
     for (let px = 0; px < N; px++) {
       const lon = ((x + (px + 0.5) / N) / n) * 360 - 180, d = (sampleGrid(G, lon, lat) * s) / G.cellKm2;
+      if (GT) { if (d > 150) for (let k = 0; k < GT.length; k++) tv[k] = sampleGrid(GT[k], lon, lat); typeCol(img.data, (py * N + px) * 4, d, tk, tv); continue; }
       paint(img.data, (py * N + px) * 4, d, mode, GJ ? sampleGrid(GJ, lon, lat) / GJ.cellKm2 : null);
     }
   }
   ctx.putImageData(img, 0, 0);
   const blob = cv.convertToBlob ? await cv.convertToBlob({ type: "image/png" }) : await new Promise((r) => cv.toBlob(r, "image/png"));
   return { data: await blob.arrayBuffer() };
+}
+// jobs coloured by the main type of activity in each spot (paler where no type dominates); opacity follows density
+const JOBRGB = Object.fromEntries(Object.entries(JOBT).map(([k, v]) => [k, [1, 3, 5].map((i) => parseInt(v[2].slice(i, i + 2), 16))]));
+function typeCol(a, o, d, tk, tv) {
+  if (d <= 150) { a[o + 3] = 0; return; }
+  let best = 0, sum = 0; for (let k = 0; k < tv.length; k++) { sum += tv[k]; if (tv[k] > tv[best]) best = k; }
+  const share = sum > 0 ? tv[best] / sum : 1, mix = Math.max(0, Math.min(0.45, (0.75 - share) * 0.9)), c = JOBRGB[tk[best]];
+  a[o] = c[0] + (255 - c[0]) * mix; a[o + 1] = c[1] + (255 - c[1]) * mix; a[o + 2] = c[2] + (255 - c[2]) * mix;
+  a[o + 3] = Math.min(225, 70 + Math.sqrt(d) * 1.6);
 }
 // commuting: height = jobs minus residents per km² (hills where people come to work, valleys where they only live)
 const netH = (j, p, sq) => { const v = j - p; return Math.sign(v) * hillH(Math.abs(v), sq); };
@@ -819,19 +837,20 @@ const ensure = {
     map.addSource("builtup", { type: "geojson", data: g });
     map.addLayer({ id: "builtup", type: "fill", source: "builtup", paint: { "fill-color": "#e03131", "fill-opacity": 0.75 } }, "water-line");
   },
-  async popcol(what) {
-    if (map.getSource(`pc-${what}`)) return;
-    map.addSource(`pc-${what}`, { type: "raster", tiles: [`popcol://${what}/c/{z}/{x}/{y}`], tileSize: 256, maxzoom: 13, bounds: DBOX });
-    map.addLayer({ id: `pcol-${what}`, type: "raster", source: `pc-${what}`, layout: { visibility: "none" }, paint: { "raster-fade-duration": 0, "raster-opacity": 0.9 } }, "admin-fill");
+  async popcol(what, cm = "c") {
+    if (map.getSource(`pc-${what}-${cm}`)) return;
+    map.addSource(`pc-${what}-${cm}`, { type: "raster", tiles: [`popcol://${what}/${cm}/{z}/{x}/{y}`], tileSize: 256, maxzoom: 13, bounds: DBOX });
+    map.addLayer({ id: `pcol-${what}-${cm}`, type: "raster", source: `pc-${what}-${cm}`, layout: { visibility: "none" }, paint: { "raster-fade-duration": 0, "raster-opacity": 0.9 } }, "admin-fill");
   },
-  async popdem(what = "pop", mode = "lin") {
+  async popdem(what = "pop", mode = "lin", cm = "c") {
     const src = `pd-${what}-${mode}`;
-    await ensure.popcol(what);
+    await ensure.popcol(what, cm);
+    if (map.getLayer(`hs-${what}-${mode}`)) map.moveLayer(`pcol-${what}-${cm}`, "admin-fill");
     if (map.getSource(src)) return;
     map.addSource(src, { type: "raster-dem", tiles: [`popdem://${what}/${mode}/{z}/{x}/{y}`], tileSize: 256, encoding: "terrarium", maxzoom: 12, bounds: DBOX });
     map.addLayer({ id: `hs-${what}-${mode}`, type: "hillshade", source: src, layout: { visibility: "none" },
       paint: { "hillshade-exaggeration": 0.3, "hillshade-shadow-color": isDark() ? "#000" : "#6d6680", "hillshade-highlight-color": "#fff", "hillshade-illumination-direction": 315 } }, "admin-fill");
-    map.moveLayer(`pcol-${what}`, "admin-fill");   // colours above the shading, so peaks keep their colour
+    map.moveLayer(`pcol-${what}-${cm}`, "admin-fill");   // colours above the shading, so peaks keep their colour
   },
   async heat() {
     if (map.getSource("popgrid")) return;
@@ -1051,11 +1070,15 @@ async function render() {
   const tempOn = has("temp");
   if (tempOn) await ensure.temp();
   if (map.getLayer("temp")) { vis("temp", tempOn); updateTempImage(); }
-  const hills = has("pop") && S.popView === "hills", hw = S.popWhat === "ratio" ? "ratio" : wantJobs() ? "jobs" : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
-  const ratioFlat = has("pop") && S.popView === "heat" && hw === "ratio";   // commuting "heat map": the same colours, flat
-  if (hills) await ensure.popdem(hw, hm); else if (ratioFlat) await ensure.popcol("ratio");
-  for (const w of ["pop", "jobs", "ratio"]) { vis(`pcol-${w}`, (hills || ratioFlat) && w === hw); for (const md of ["lin", "sqrt"]) vis(`hs-${w}-${md}`, hills && w === hw && md === hm); }
-  if (map.getLayer("heat") && hills) vis("heat", false);
+  const hills = has("pop") && S.popView === "hills", hw = S.popWhat === "ratio" ? "ratio" : wantJobs() ? jobsKey() : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
+  const cm = jobTypeCol() ? "t" : "c";
+  const ratioFlat = has("pop") && S.popView === "heat" && (hw === "ratio" || cm === "t");   // commuting / job types "heat map": the same colours, flat
+  if (hills) await ensure.popdem(hw, hm, cm); else if (ratioFlat) await ensure.popcol(hw, cm);
+  for (const l of map.getStyle().layers) {
+    if (l.id.startsWith("pcol-")) vis(l.id, (hills || ratioFlat) && l.id === `pcol-${hw}-${cm}`);
+    else if (l.id.startsWith("hs-")) vis(l.id, hills && l.id === `hs-${hw}-${hm}`);
+  }
+  if (map.getLayer("heat") && (hills || ratioFlat)) vis("heat", false);
   if (map.getLayer("heat")) map.setPaintProperty("heat", "heatmap-radius", hills ? ["interpolate", ["exponential", 2], ["zoom"], 9, 7, 12, 24, 15, 90, 17, 200] : ["interpolate", ["exponential", 2], ["zoom"], 9, 4, 12, 14, 15, 60, 17, 160]);
   const wantSrc = hills ? hsrc : S.terrain && !only ? "dem" : null;
   if ((map.getTerrain()?.source || null) !== wantSrc) {
@@ -1150,14 +1173,23 @@ function renderLegend() {
     const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
     h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
       + `<li class="small">${L("Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.", "Blue: people live here and commute elsewhere. Red: people from other areas come here to work.")}</li><li class="small">${t("jobs_note")}</li>` + RATIO_HOW();
+  } else if (m === "pop" && heatLike() && jobTypeCol()) {
+    const G = DATA.__jobtot || {};
+    if (!DATA.__jobtot) load("jobgrid.geojson").then((g) => { const o = {}; for (const f of g.features) for (const k in JOBT) o[k] = (o[k] || 0) + (f.properties[k] || 0); DATA.__jobtot = o; renderLegend(); });
+    const sel = jobSel(), tot = Object.values(G).reduce((a, b) => a + b, 0) || 1;
+    h = JOBCOL_PICK() + `<li class="cap">${L("Tipul principal de activitate", "Main type of activity")}</li>`
+      + Object.entries(JOBT).map(([k, v]) => `<li><label><input type="checkbox" data-jobtype="${k}" ${sel.includes(k) ? "checked" : ""}><i style="background:${v[2]}"></i><span class="zl">${L(v[0], v[1])}</span>${G[k] ? `<span class="za">${fmt(Math.round(G[k] / 100) * 100)} · ${fmt((G[k] / tot) * 100, 0)}%</span>` : ""}</label></li>`).join("")
+      + `<li class="small">${L("Fiecare loc are culoarea tipului de locuri de muncă cel mai numeros acolo; culorile mai palide arată zone mixte. Intensitatea crește cu numărul de locuri de muncă.", "Each spot takes the colour of the most common type of job there; paler colours mark mixed areas. Intensity grows with the number of jobs.")}${S.popView === "hills" ? " " + L("Înălțimea = locuri de muncă pe km² din tipurile bifate.", "Height = jobs per km² of the ticked types.") : ""}</li>`
+      + (S.popView === "hills" ? `<li><label class="check"><input type="checkbox" data-hillsqrt="1" ${S.hillSqrt ? "checked" : ""}> ${L("Evidențiază satele (scară cu rădăcină pătrată)", "Highlight villages (square-root scale)")}</label></li>` : "")
+      + `<li class="small">${t("jobs_note")}</li>`;
   } else if (m === "pop" && S.popView === "hills") {
     const lab = wantJobs() ? L("Locuri de muncă pe km²", "Jobs per km²") : L("Locuitori pe km²", "Residents per km²");
-    h = `<li class="cap">${lab}</li>` + HILL_STOPS.slice(1).map(([v, c], i) => `<li><i style="background:rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})"></i>${fmt(HILL_STOPS[i][0])}–${fmt(v)}${i === HILL_STOPS.length - 2 ? "+" : ""}</li>`).join("")
+    h = (wantJobs() ? JOBCOL_PICK() : "") + `<li class="cap">${lab}</li>` + HILL_STOPS.slice(1).map(([v, c], i) => `<li><i style="background:rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(2)})"></i>${fmt(HILL_STOPS[i][0])}–${fmt(v)}${i === HILL_STOPS.length - 2 ? "+" : ""}</li>`).join("")
       + `<li><label class="check"><input type="checkbox" data-hillsqrt="1" ${S.hillSqrt ? "checked" : ""}> ${L("Evidențiază satele (scară cu rădăcină pătrată)", "Highlight villages (square-root scale)")}</label></li>`
       + `<li class="small">${S.hillSqrt ? L("Înălțimea crește cu rădăcina pătrată a densității: satele răsfirate se văd, dar diferențele dintre cartierele dense par mai mici.", "Height grows with the square root of density: dispersed villages show, but differences between dense areas look smaller.") : L("Înălțimea e proporțională cu densitatea: un deal de două ori mai înalt înseamnă de două ori mai mulți oameni pe km². Culoarea folosește aceeași grilă și aceeași scală fixă.", "Height is proportional to density: a hill twice as high means twice as many people per km². Colour uses the same grid and a fixed scale.")}</li>`
       + (wantJobs() ? `<li class="small">${t("jobs_note")}</li>` : "");
   } else if (m === "pop" && heatLike() && wantJobs()) {
-    h = `<li class="cap">${L("Densitatea locurilor de muncă (estimare)", "Job density (estimate)")}</li><li><span class="ramp heatramp"></span></li><li class="rampl"><span>${t("low")}</span><span>${t("high")}</span></li>`
+    h = JOBCOL_PICK() + `<li class="cap">${L("Densitatea locurilor de muncă (estimare)", "Job density (estimate)")}</li><li><span class="ramp heatramp"></span></li><li class="rampl"><span>${t("low")}</span><span>${t("high")}</span></li>`
       + (S.popView === "hills" ? `<li class="small">${L("Înălțimea arată câte locuri de muncă sunt într-o zonă.", "Height shows how many jobs an area has.")}</li>` : "") + `<li class="small">${t("jobs_note")}</li>`;
   } else if (m === "pop" && wantJobs()) {
     const G = DATA.__jobtot || {};
@@ -1834,6 +1866,7 @@ function bindEvents() {
     }
     if (d.age !== undefined) { S.ages = [...document.querySelectorAll("[data-age]")].filter((c) => c.checked).map((c) => +c.dataset.age); store.set("ages", S.ages); render(); }
     if (d.zone) { S.zones = [...document.querySelectorAll("[data-zone]")].filter((c) => c.checked).map((c) => c.dataset.zone); render(); }
+    if (e.target.name === "jobcol") { S.jobCol = e.target.value; store.set("jobCol", S.jobCol); render(); }
     if (d.hillsqrt) { S.hillSqrt = e.target.checked; store.set("hillSqrt", S.hillSqrt); render(); }
     if (d.jobtype) { S.jobTypes = [...document.querySelectorAll("[data-jobtype]")].filter((c) => c.checked).map((c) => c.dataset.jobtype); store.set("jobTypes", S.jobTypes); render(); }
     if (d.mode) { S.modes[d.mode] = e.target.checked; render(); }
