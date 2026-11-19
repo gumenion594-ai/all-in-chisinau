@@ -538,27 +538,38 @@ function sampleGrid(G, lon, lat) {
   const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, w = fy - j, A = G.a;
   return (A[j * G.W + i] * (1 - u) + A[j * G.W + i + 1] * u) * (1 - w) + (A[(j + 1) * G.W + i] * (1 - u) + A[(j + 1) * G.W + i + 1] * u) * w;
 }
-async function gridTile(url, paint) {   // url: what/mode/z/x/y
-  const [what, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number), G = await popGrid(what);
+async function gridTile(url, paint) {   // url: what/mode/z/x/y; what = pop | jobs | ratio (paint gets residents and jobs per km²)
+  const [what, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number);
+  const G = await popGrid(what === "jobs" ? "jobs" : "pop"), GJ = what === "ratio" ? await popGrid("jobs") : null;
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
   const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), n = 2 ** z, s = what === "jobs" ? 1 : popScale();
   for (let py = 0; py < N; py++) {
     const lat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + (py + 0.5) / N)) / n))) * 180) / Math.PI;
     for (let px = 0; px < N; px++) {
       const lon = ((x + (px + 0.5) / N) / n) * 360 - 180, d = (sampleGrid(G, lon, lat) * s) / G.cellKm2;
-      paint(img.data, (py * N + px) * 4, d, mode);
+      paint(img.data, (py * N + px) * 4, d, mode, GJ ? sampleGrid(GJ, lon, lat) / GJ.cellKm2 : null);
     }
   }
   ctx.putImageData(img, 0, 0);
   const blob = cv.convertToBlob ? await cv.convertToBlob({ type: "image/png" }) : await new Promise((r) => cv.toBlob(r, "image/png"));
   return { data: await blob.arrayBuffer() };
 }
-maplibregl.addProtocol("popdem", (params) => gridTile(params.url.replace("popdem://", ""), (a, o, d, mode) => {
-  const h = hillH(d, mode === "sqrt") + 32768;
+// commuting: height = jobs minus residents per km² (hills where people come to work, valleys where they only live)
+const netH = (j, p, sq) => { const v = j - p; return Math.sign(v) * hillH(Math.abs(v), sq); };
+function ratioCol(p, j) {
+  if (p + j < 300) return [0, 0, 0, 0];
+  const r = j / Math.max(p, 1), rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  let i = RATIOBR.findIndex((b, k) => r >= b && (RATIOBR[k + 1] == null || r < RATIOBR[k + 1]));
+  if (i < 0) i = 0;
+  const c = rgb(RATIOCOL[i]), a = Math.min(200, 90 + (p + j) / 60);
+  return [...c, a];
+}
+maplibregl.addProtocol("popdem", (params) => gridTile(params.url.replace("popdem://", ""), (a, o, d, mode, j) => {
+  const h = (j != null ? netH(j, d, mode === "sqrt") : hillH(d, mode === "sqrt")) + 32768;
   a[o] = Math.floor(h / 256); a[o + 1] = Math.floor(h) % 256; a[o + 2] = Math.floor((h % 1) * 256); a[o + 3] = 255;
 }));
-maplibregl.addProtocol("popcol", (params) => gridTile(params.url.replace("popcol://", ""), (a, o, d) => {
-  const c = hillCol(d); a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; a[o + 3] = c[3];
+maplibregl.addProtocol("popcol", (params) => gridTile(params.url.replace("popcol://", ""), (a, o, d, mode, j) => {
+  const c = j != null ? ratioCol(d, j) : hillCol(d); a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2]; a[o + 3] = c[3];
 }));
 const map = new maplibregl.Map({
   container: "map",
@@ -800,12 +811,14 @@ const ensure = {
     map.addSource("builtup", { type: "geojson", data: g });
     map.addLayer({ id: "builtup", type: "fill", source: "builtup", paint: { "fill-color": "#e03131", "fill-opacity": 0.75 } }, "water-line");
   },
+  async popcol(what) {
+    if (map.getSource(`pc-${what}`)) return;
+    map.addSource(`pc-${what}`, { type: "raster", tiles: [`popcol://${what}/c/{z}/{x}/{y}`], tileSize: 256, maxzoom: 13, bounds: DBOX });
+    map.addLayer({ id: `pcol-${what}`, type: "raster", source: `pc-${what}`, layout: { visibility: "none" }, paint: { "raster-fade-duration": 0, "raster-opacity": 0.9 } }, "admin-fill");
+  },
   async popdem(what = "pop", mode = "lin") {
     const src = `pd-${what}-${mode}`;
-    if (!map.getSource(`pc-${what}`)) {
-      map.addSource(`pc-${what}`, { type: "raster", tiles: [`popcol://${what}/c/{z}/{x}/{y}`], tileSize: 256, maxzoom: 13, bounds: DBOX });
-      map.addLayer({ id: `pcol-${what}`, type: "raster", source: `pc-${what}`, layout: { visibility: "none" }, paint: { "raster-fade-duration": 0, "raster-opacity": 0.9 } }, "admin-fill");
-    }
+    await ensure.popcol(what);
     if (map.getSource(src)) return;
     map.addSource(src, { type: "raster-dem", tiles: [`popdem://${what}/${mode}/{z}/{x}/{y}`], tileSize: 256, encoding: "terrarium", maxzoom: 12, bounds: DBOX });
     map.addLayer({ id: `hs-${what}-${mode}`, type: "hillshade", source: src, layout: { visibility: "none" },
@@ -938,7 +951,7 @@ async function render() {
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, ["has", "scol"], ["get", "scol"], SECTOR_COL]);
     const k = (b === "elevation" ? 0.35 : 1) * (multi ? 0.6 : 1);
     map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.06 * k, ["==", ["get", "kind"], "city"], (onImg ? 0.2 : 0.28) * k, (onImg ? 0.12 : 0.14) * k]);
-  } else if (fillMode === "pop" && (!heatLike() || S.popWhat === "ratio")) {
+  } else if (fillMode === "pop" && !heatLike()) {
     if (S.popWhat !== "pop") await ensureJobs();
     const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000];
     let col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], P.pop[0]]; br.slice(1).forEach((v, i) => col.push(v, P.pop[i + 1]));
@@ -951,7 +964,7 @@ async function render() {
   }
   const vector = b === "standard" || b === "simple";
   const luBase = only ? 0 : b === "standard" ? ["match", ["get", "z"], "water", 1, 0.3] : b === "simple" ? ["match", ["get", "z"], "water", 1, 0] : 0;
-  const popFill = fillMode === "pop" && (!heatLike() || S.popWhat === "ratio");
+  const popFill = fillMode === "pop" && !heatLike();
   map.setPaintProperty("landuse", "fill-opacity", has("zone") ? (vector || only ? (multi ? 0.7 : 0.88) : 0.6) : popFill ? (vector && !only ? ["match", ["get", "z"], "water", 1, 0] : 0) : luBase);
   map.setFilter("landuse", has("zone") ? ["in", ["get", "z"], ["literal", S.zones ?? Object.keys(T.ro.z)]] : null);
   const builtOn = has("zone") && S.zoneView === "built";
@@ -1028,9 +1041,10 @@ async function render() {
   const tempOn = has("temp");
   if (tempOn) await ensure.temp();
   if (map.getLayer("temp")) { vis("temp", tempOn); updateTempImage(); }
-  const hills = has("pop") && S.popView === "hills" && S.popWhat !== "ratio", hw = wantJobs() ? "jobs" : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
-  if (hills) await ensure.popdem(hw, hm);
-  for (const w of ["pop", "jobs"]) { vis(`pcol-${w}`, hills && w === hw); for (const md of ["lin", "sqrt"]) vis(`hs-${w}-${md}`, hills && w === hw && md === hm); }
+  const hills = has("pop") && S.popView === "hills", hw = S.popWhat === "ratio" ? "ratio" : wantJobs() ? "jobs" : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
+  const ratioFlat = has("pop") && S.popView === "heat" && hw === "ratio";   // commuting "heat map": the same colours, flat
+  if (hills) await ensure.popdem(hw, hm); else if (ratioFlat) await ensure.popcol("ratio");
+  for (const w of ["pop", "jobs", "ratio"]) { vis(`pcol-${w}`, (hills || ratioFlat) && w === hw); for (const md of ["lin", "sqrt"]) vis(`hs-${w}-${md}`, hills && w === hw && md === hm); }
   if (map.getLayer("heat") && hills) vis("heat", false);
   if (map.getLayer("heat")) map.setPaintProperty("heat", "heatmap-radius", hills ? ["interpolate", ["exponential", 2], ["zoom"], 9, 7, 12, 24, 15, 90, 17, 200] : ["interpolate", ["exponential", 2], ["zoom"], 9, 4, 12, 14, 15, 60, 17, 160]);
   const wantSrc = hills ? hsrc : S.terrain && !only ? "dem" : null;
@@ -1117,6 +1131,11 @@ function renderLegend() {
     h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}${SECDIR[k] ? ` <span class="small">(${L(SECDIR[k][0], SECDIR[k][1])})</span>` : ""}</li>`).join("")
       + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
       + (S.ctx ? `<li><i class="ln dash" style="border-color:${P.line}"></i>${t("lvlname").ctx}</li>` : "");
+  } else if (m === "pop" && S.popWhat === "ratio" && heatLike()) {
+    const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
+    h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
+      + (S.popView === "hills" ? `<li class="small">${L("Dealurile arată unde sunt mai multe locuri de muncă decât locuitori (aici vin oamenii la muncă); văile, unde sunt mai mulți locuitori decât locuri de muncă (de aici pleacă). Înălțimea = diferența pe km².", "Hills show where there are more jobs than residents (people come here to work); valleys, more residents than jobs (people leave from here). Height = the difference per km².")}</li><li><label class="check"><input type="checkbox" data-hillsqrt="1" ${S.hillSqrt ? "checked" : ""}> ${L("Evidențiază satele (scară cu rădăcină pătrată)", "Highlight villages (square-root scale)")}</label></li>` : `<li class="small">${L("Albastru: oamenii locuiesc aici și pleacă la lucru în altă parte. Roșu: aici vin la muncă oameni din alte cartiere.", "Blue: people live here and commute elsewhere. Red: people from other areas come here to work.")}</li>`)
+      + `<li class="small">${t("jobs_note")}</li>`;
   } else if (m === "pop" && S.popWhat === "ratio") {
     const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
     h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
