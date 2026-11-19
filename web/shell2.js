@@ -259,29 +259,6 @@ function guideChange(e) {
 }
 
 // ---------------------------------------------------------------- Pagina principală
-async function shHome() {
-  const admin = await adminFC(), s = popScale();
-  const mun = admin.features.find((f) => f.properties.lvl === "mun" && [REF(), "both"].includes(f.properties.sc)).properties;
-  const nLoc = admin.features.filter((f) => f.properties.lvl === 2 && [REF(), "both"].includes(f.properties.sc)).length;
-  let temp = null; try { temp = (await load("temp.json")).maps?.now; } catch {}
-  const props = Object.values(SH.props || {}), y = +S.date.slice(0, 4), B = BUDGET[y];
-  const live = SH.tickets.filter((x) => x.until > Date.now()).length;
-  const projN = Object.keys(PJ.list || {}).length;
-  const news = shNewsItems().slice(0, 3);
-  const tile = (sec, cls, title, body, cta) => `<article class="tile ${cls}"><header><h3>${title}</h3></header><div class="tb">${body}</div>${cta ? `<button type="button" class="btn ghost sm" data-go="${sec}">${cta}</button>` : ""}</article>`;
-  return `<header class="phead home"><h2>${user() ? `${L("Bună", "Hi")}, ${esc(user().name.split(" ")[0])}!` : L("Bun venit în All in Chișinău", "Welcome to All in Chișinău")}</h2><p>${fmtDate(S.date)} · ${L("prototip", "prototype")}</p></header>
-  <div class="tiles">
-    ${tile("atlas", "big", L("Atlasul municipiului", "Municipality atlas"), `<div class="kpis"><div><b>${fmt(mun.pop * s)}</b><span>${L("locuitori", "residents")}</span></div><div><b>${fmt(mun.km2, 0)} km²</b><span>${L("suprafață", "area")}</span></div><div><b>${nLoc}</b><span>${L("localități și sectoare", "localities & sectors")}</span></div></div><div id="home-map" class="hmap"></div>`, L("Deschide atlasul", "Open the atlas"))}
-    ${tile("", "", L("Cartierul meu", "My neighbourhood"), await myAreaTile(), "")}
-    ${tile("atlas:temp", "", L("Vremea acum", "Weather now"), temp ? `<p class="big">${fmt(temp.mean, 1)} °C</p><p class="small">${L("în municipiu", "across the municipality")}: ${fmt(temp.min, 1)} … ${fmt(temp.max, 1)} °C</p>` : `<p class="small">—</p>`, L("Harta temperaturii", "Temperature map"))}
-    ${tile("transit", "", L("Transport public", "Public transport"), `<p>${L("Bilet urban", "City ticket")}: <b>6 lei</b> · ${L("abonament", "monthly pass")}: <b>300 lei</b></p><p class="small">${live ? `${live} ${L("bilete active", "active tickets")}` : L("Niciun bilet activ", "No active ticket")}</p>`, L("Bilete și trasee live", "Tickets & live tracking"))}
-    ${tile("guide", "", L("Ghid turistic", "Tourist guide"), `<p>${L("Trei întrebări și primești un plan pe zile, cu toate locurile pe hartă.", "Three questions and you get a day-by-day plan with every place on a map.")}</p>`, L("Planifică vizita", "Plan a visit"))}
-    ${tile("projects", "", L("Participă", "Take part"), `<p><b>${props.length}</b> ${L("propuneri și petiții", "proposals & petitions")} · <b>${props.filter((p) => p.status === "run").length + 3}</b> ${L("în execuție", "in progress")}</p><p class="small">${L("Susține sau contestă proiectele, semnalează probleme din cartier.", "Support or oppose projects, report problems in your area.")}</p>`, L("Vezi propunerile", "See proposals"))}
-    ${B ? tile("atlas", "", `${L("Bugetul municipal", "Municipal budget")} ${y}`, `<p>${L("Venituri", "Revenue")} <b>${fmt(B.rev, 2)} ${L("mld lei", "bn lei")}</b></p><p>${L("Cheltuieli", "Spending")} <b>${fmt(B.exp, 2)} ${L("mld lei", "bn lei")}</b></p>`, "") : ""}
-    ${tile("news", "", L("Noutăți", "News"), `<ul class="hnews">${news.map((n) => `<li><span class="small">${fmtDate(n[0])}</span>${n[1]}</li>`).join("")}</ul>`, L("Toate noutățile", "All news"))}
-    ${tile("archive", "", L("Documente", "Documents"), `<p>${fmt(ARCH.filter((a) => a.vis === "pub").length)} ${L("documente publice", "public documents")} · ${fmt(myDocs().length)} ${L("personale", "personal")}</p><p class="small">${L("Decizii, bugete, planuri urbanistice, hărți istorice.", "Decisions, budgets, urban plans, historic maps.")}</p>`, L("Deschide documentele", "Open documents"))}
-  </div>`;
-}
 async function homeMap() {
   const el = document.getElementById("home-map"); if (!el) return;
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -475,7 +452,7 @@ async function shSettings() {
       <div class="pcard"><h3>${L("Aspect", "Appearance")}</h3><div class="seg row3">${Object.entries(THEMES).map(([k, v]) => radio("s-theme", k, th, L(v[0], v[1]))).join("")}</div></div>
       <div class="pcard"><h3>${L("Pagina de pornire", "Start page")}</h3><div class="seg row2">${radio("s-start", "home", start, L("Acasă", "Home"))}${radio("s-start", "atlas", start, "Atlas")}</div></div>
       <div class="pcard"><h3>${L("Monedă pentru bugete", "Currency for budgets")}</h3><div class="seg row2">${radio("s-cur", "lei", S.cur, "lei")}${radio("s-cur", "eur", S.cur, "EUR")}</div></div>
-      <div class="pcard"><h3>${L("Cartierul meu", "My neighbourhood")}</h3>${await homeSelect("s-home")}<p class="small">${L("Folosit pentru „Lângă mine”, pagina principală și ca loc implicit în propuneri și sesizări.", "Used for “Near me”, the home page and as the default place in proposals and reports.")}</p></div>
+      <div class="pcard"><h3>${L("Locația ta", "Your location")}</h3><p>📍 <span data-locname>${esc(locLabel())}</span></p><div class="btnrow"><button type="button" class="btn ghost sm" id="s-loc">${L("Actualizează locația", "Update location")}</button></div><p class="small">${L("Folosită pentru căutare, „Lângă mine” și ca loc implicit în propuneri și sesizări. Dacă browserul nu dă acces la locație, aplicația folosește un punct din centru (machetă).", "Used for search, “Near me” and as the default place in proposals and reports. If the browser does not share your location, the app uses a point in the centre (mock-up).")}</p></div>
       <div class="pcard"><h3>${L("Hartă", "Map")}</h3>
         <label class="check"><input type="checkbox" id="s-names" ${S.names ? "checked" : ""}> ${t("names")}</label>
         <label class="check"><input type="checkbox" id="s-labels" ${S.labels ? "checked" : ""}> ${t("labels")}</label></div>
@@ -495,6 +472,7 @@ function settingsChange(e) {
 }
 function settingsClick(b) {
   if (b.id === "s-login" || b.id === "s-relog") { loginOpen(); return true; }
+  if (b.id === "s-loc") { requestLoc(true).then(() => toast(locLabel())); return true; }
   if (b.id === "s-out") { store.set("user", null); topbarRender(); shRender(); return true; }
   if (b.id === "s-wipe") { if (confirm(L("Ștergi biletele, documentele personale și preferințele din acest browser?", "Clear tickets, personal documents and preferences from this browser?"))) { for (const k of ["tickets", "mydocs", "guide2", "user", "theme", "start", "role"]) { try { localStorage.removeItem("chi-atlas2-" + k); } catch {} } location.reload(); } return true; }
   return false;

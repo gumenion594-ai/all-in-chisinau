@@ -38,7 +38,6 @@ function toast(msg) {
   el.textContent = msg; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2200);
 }
 const tr2 = (v) => L(v[0], v[1]);
-const myHome = () => store.get("home", null);
 const follows = () => store.get("follows", []);
 const nearKm = (c, km = 2) => { const h = myHome(); return !!(h && c && hav(h.c, c) <= km); };
 
@@ -67,7 +66,7 @@ async function shProjects() {
   const tabs = [["run", L("Proiecte în execuție", "Projects in progress"), live.filter((p) => p.status === "run").length], ["props", L("Proiecte propuse", "Proposed projects"), live.filter((p) => p.type !== "petition" && p.status !== "run").length],
     ["pet", L("Petiții", "Petitions"), live.filter((p) => p.type === "petition").length], ["reports", L("Sesizări", "Reports"), null], ["rewards", L("Puncte și reduceri", "Points & rewards"), null]];
   if (isMod()) tabs.push(["mod", L("Moderare", "Moderation"), flagged || null]);
-  let h = pageHead(L("Participă", "Take part"), L(`Rol curent: <b>${RL(SH.role)}</b>. Cetățenii propun, susțin sau contestă și semnalează probleme; primăria răspunde, aprobă și alege executantul; firmele fac oferte.`, `Current role: <b>${RL(SH.role)}</b>. Citizens propose, support or oppose and report problems; the city hall answers, approves and picks contractors; firms make offers.`))
+  let h = pageHead(L("Proiecte și petiții", "Projects & petitions"), L(`Rol curent: <b>${RL(SH.role)}</b>. Cetățenii propun, susțin sau contestă și semnalează probleme; primăria răspunde, aprobă și alege executantul; firmele fac oferte.`, `Current role: <b>${RL(SH.role)}</b>. Citizens propose, support or oppose and report problems; the city hall answers, approves and picks contractors; firms make offers.`))
     + `<div class="civicbar"><span>⭐ <b>${fmt(c.pts)}</b> ${L("puncte civice", "civic points")} · ${esc(tr2(lv[1]))}</span><button type="button" class="linkbtn small" data-ptab="rewards">${L("Ce pot primi?", "What can I get?")}</button></div>`
     + `<nav class="ptabs" role="tablist">${tabs.map(([k, v, n]) => `<button type="button" role="tab" data-ptab="${k}" aria-selected="${F.tab === k}">${v}${n ? ` <span class="tcount">${n}</span>` : ""}</button>`).join("")}</nav>`;
   if (F.tab === "reports") return h + (await reportsHtml());
@@ -89,7 +88,7 @@ async function shProjects() {
       <div class="frow"><input type="text" id="pf-q" class="pjin" value="${esc(F.q)}" placeholder="${L("Filtrează după cuvânt", "Filter by word")}">
       <select id="pf-cat"><option value="">${L("Toate categoriile", "All categories")}</option>${Object.entries(PCAT).map(([k, v]) => `<option value="${k}" ${F.cat === k ? "selected" : ""}>${esc(tr2(v))}</option>`).join("")}</select>
       <select id="pf-sort">${[["new", L("Cele mai noi", "Newest")], ["top", L("Cele mai susținute", "Most supported")], ["contested", L("Cele mai contestate", "Most opposed")]].map(([k, v]) => `<option value="${k}" ${F.sort === k ? "selected" : ""}>${v}</option>`).join("")}</select></div>
-      ${F.show === "near" && !myHome() ? `<p class="small warn">${L("Alege-ți cartierul (pe pagina principală sau în Setări) ca să vezi ce e lângă tine.", "Pick your neighbourhood (on Home or in Settings) to see what is near you.")}</p>` : ""}
+      ${F.show === "near" && !myHome() ? `<p class="small warn">${L("Permite accesul la locație (butonul 📍 de pe pagina principală) ca să vezi ce e lângă tine.", "Allow location access (the 📍 button on Home) to see what is near you.")}</p>` : ""}
     </div>
     <h3>${list.length} ${L("din", "of")} ${total}</h3>
     ${list.length ? `<ul class="plist">${list.map(propCard).join("")}</ul>` : `<p class="hint">${total ? L("Nimic pentru acest filtru.", "Nothing for this filter.") : F.tab === "run" ? L("Niciun proiect în execuție.", "No projects in progress.") : L("Încă nimic. Trimite prima propunere.", "Nothing yet. Submit the first one.")}</p>`}
@@ -279,33 +278,6 @@ async function sendReport(b) {
   await reportSave(r); award("report", tr2(RCAT[r.cat] || RCAT.other)); shRender();
 }
 
-// ---------------------------------------------------------------- my neighbourhood
-async function homeOptions() {
-  const admin = await adminFC();
-  return admin.features.filter((f) => f.properties.lvl === 3 && [REF(), "both"].includes(f.properties.sc))
-    .map((f) => ({ n: f.properties.ro, unit: String(f.properties.unit || "").split(" (")[0], c: [f.properties.lx, f.properties.ly], pop: f.properties.pop }))
-    .sort((a, b) => a.n.localeCompare(b.n, "ro"));
-}
-async function homeSelect(id) {
-  const h = myHome(), o = await homeOptions();
-  return `<select id="${id}" class="homesel"><option value="">${L("— alege cartierul sau satul —", "— pick your neighbourhood or village —")}</option>${o.map((x, i) => `<option value="${i}" ${h?.name === x.n ? "selected" : ""}>${esc(x.n)}${x.unit && !x.unit.includes(x.n) ? " · " + esc(x.unit.replace(/^Chișinău – /, "")) : ""}</option>`).join("")}</select>`;
-}
-async function setHome(i) {
-  if (i === "") { store.set("home", null); return; }
-  const x = (await homeOptions())[+i]; store.set("home", { name: x.n, c: x.c });
-}
-async function myAreaTile() {
-  const h = myHome();
-  if (!h) return `<p>${L("Alege-ți cartierul ca să vezi propunerile, sesizările și stațiile din jur.", "Pick your neighbourhood to see nearby proposals, reports and stops.")}</p>${await homeSelect("home-pick")}`;
-  if (!SH.reps) await reportsLoad();
-  const props = Object.values(SH.props || {}).filter((p) => nearKm(p.loc?.c)), reps = Object.values(SH.reps || {}).filter((r) => nearKm(r.loc?.c) && r.st !== "fixed");
-  const stops = (await load("stops.geojson")).features.filter((f) => f.properties.n && hav(h.c, f.geometry.coordinates) < 0.6).length;
-  const fol = Object.values(SH.props || {}).filter((p) => follows().includes(p.id));
-  return `<p class="big2">${esc(h.name)}</p>
-    <ul class="mini"><li><b>${props.length}</b> ${L("propuneri în apropiere", "proposals nearby")}</li><li><b>${reps.length}</b> ${L("sesizări nerezolvate", "open reports")}</li><li><b>${stops}</b> ${L("stații pe o rază de 600 m", "stops within 600 m")}</li>${fol.length ? `<li><b>${fol.length}</b> ${L("propuneri urmărite", "followed proposals")}${fol.some((p) => p.reply) ? ` · <span class="pill good">${L("au răspuns", "replied")}</span>` : ""}</li>` : ""}</ul>
-    <div class="btnrow"><button type="button" class="btn ghost sm" data-go2="near">${L("Ce se propune aici", "What's proposed here")}</button><button type="button" class="btn ghost sm" data-go2="report">${L("Semnalează o problemă", "Report a problem")}</button><button type="button" class="linkbtn small" data-homechange="1">${L("schimbă", "change")}</button></div>`;
-}
-
 // ---------------------------------------------------------------- events
 function participClick(b) {
   const ds = b.dataset, F = (SH.pf ||= { tab: "run", show: "all", sort: "new", cat: "", q: "" });
@@ -342,7 +314,6 @@ function participClick(b) {
   if (ds.rplus) { const r = SH.reps[ds.rplus], pl = r.plus || []; if (!pl.includes(VID)) award("plus", tr2(RCAT[r.cat] || RCAT.other)); reportSave({ ...r, plus: pl.includes(VID) ? pl.filter((x) => x !== VID) : [...pl, VID] }).then(shRender); return true; }
   if (ds.rst) { reportSave({ ...SH.reps[ds.rst], st: ds.k }).then(shRender); return true; }
   if (ds.go2) { SH.pf = { ...F, tab: ds.go2 === "report" ? "reports" : "props", show: ds.go2 === "near" ? "near" : F.show }; shGo("projects"); return true; }
-  if (ds.homechange) { store.set("home", null); shRender(); return true; }
   return false;
 }
 function participChange(e) {
@@ -350,7 +321,6 @@ function participChange(e) {
   if (id === "pf-cat") { F.cat = e.target.value; shRender(); return true; }
   if (id === "pf-sort") { F.sort = e.target.value; shRender(); return true; }
   if (id === "pf-q") { F.q = e.target.value; shRender(); return true; }
-  if (id === "home-pick" || id === "s-home") { setHome(e.target.value).then(shRender); return true; }
   return false;
 }
 function participAfter() {

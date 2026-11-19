@@ -523,5 +523,22 @@
 "\"Încă nimic. Votează sau trimite o sesizare.\"": "\"Пока ничего. Проголосуйте или отправьте сообщение о проблеме.\"",
 "\"Mulțumim, moderatorii vor verifica.\"": "\"Спасибо, модераторы проверят.\"",
 "\"Eliminat.\"": "\"Удалено.\"",
-"\"Gata! Codul e în lista ta.\"": "\"Готово! Код в вашем списке.\""
+"\"Gata! Codul e în lista ta.\"": "\"Готово! Код в вашем списке.\"",
+"\"Locația ta\"": "\"Ваше местоположение\"",
+"\"Actualizează locația\"": "\"Обновить местоположение\"",
+"\"Folosită pentru căutare, „Lângă mine” și ca loc implicit în propuneri și sesizări. Dacă browserul nu dă acces la locație, aplicația folosește un punct din centru (machetă).\"": "\"Используется для поиска, «Рядом со мной» и как место по умолчанию в предложениях и сообщениях. Если браузер не даёт доступа к местоположению, приложение использует точку в центре (прототип).\"",
+"\"Proiecte și petiții\"": "\"Проекты и петиции\"",
+"\"Permite accesul la locație (butonul 📍 de pe pagina principală) ca să vezi ce e lângă tine.\"": "\"Разрешите доступ к местоположению (кнопка 📍 на главной), чтобы видеть, что рядом с вами.\"",
+"\"Locație necunoscută\"": "\"Местоположение неизвестно\"",
+"\"locație simulată\"": "\"симулированное местоположение\"",
+"\"Ești aici\"": "\"Вы здесь\"",
+"\"Caută o stradă, un loc, o stație, un cartier…\"": "\"Найти улицу, место, остановку, район…\"",
+"\"Caută pe hartă\"": "\"Поиск по карте\"",
+"\"cele mai apropiate de tine\"": "\"ближайшие к вам\"",
+"\"Rezultate, de la cel mai apropiat\"": "\"Результаты, сначала ближайшие\"",
+"\"Nimic găsit.\"": "\"Ничего не найдено.\"",
+"\"de tine\"": "\"от вас\"",
+"\"Bilete, trasee, vehicule live\"": "\"Билеты, маршруты, транспорт онлайн\"",
+"\"proiecte, petiții și propuneri\"": "\"проектов, петиций и предложений\"",
+"\"mld lei cheltuieli\"": "\"млрд леев расходов\""
 }

@@ -188,7 +188,8 @@ function shAfter() {
 function shBind() {
   const $ = (id) => document.getElementById(id);
   document.querySelectorAll("#rail [data-sec]").forEach((b) => b.addEventListener("click", () => shGo(b.dataset.sec)));
-  applyStoredTheme(); chatBind(); loginBind(); topbarBind();
+  applyStoredTheme(); chatBind(); loginBind(); topbarBind(); searchBind();
+  requestLoc(false).then(showLocOnMap);
   // the artifact's owner (or an editor) opens it as administrator
   (async () => { try { const u = window.claude?.use ? await window.claude.use("user") : null; if (u && (u.isOwner() || u.canEdit())) {
     SH.canAdmin = true; if (!user() || user().role !== "adm") { store.set("user", { name: "Administrator", role: "adm" }); SH.role = "adm"; store.set("role", "adm"); topbarRender(); if (SH.sec !== "atlas") shRender(); } } } catch {} })();
@@ -203,8 +204,10 @@ function shBind() {
     SH.q = q; if (SH.sec !== "archive") shGo("archive"); else shRender();
   });
   $("page").addEventListener("click", async (e) => {
+    const tl = e.target.closest(".tile[data-go]"); if (tl && !e.target.closest("button,a,input")) { tileGo(tl); return; }
     const b = e.target.closest("button"); if (!b) return;
     const ds = b.dataset;
+    if (searchClick(b)) return;
     if (SH.sec === "guide" && guideBind(e)) return;
     if (SH.sec === "settings" && settingsClick(b)) return;
     if (SH.sec === "transit" && journeyClick(b)) return;

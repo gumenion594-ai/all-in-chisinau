@@ -1,5 +1,5 @@
 T.ru = {
-    title: "All in Chișinău", sec_home: "Главная", sec_archive: "Документы", sec_settings: "Настройки", sec_chat: "Помощник", sec_atlas: "Атлас", sec_projects: "Участвуй", sec_transit: "Транспорт", sec_guide: "Путеводитель", sec_news: "Новости", sec_account: "Аккаунт", admin: "Адм. деление", pop: "Население", zone: "Застройка", places: "Места",
+    title: "All in Chișinău", sec_home: "Главная", sec_archive: "Документы", sec_settings: "Настройки", sec_chat: "Помощник", sec_atlas: "Атлас", sec_projects: "Проекты и петиции", sec_transit: "Транспорт", sec_guide: "Путеводитель", sec_news: "Новости", sec_account: "Аккаунт", admin: "Адм. деление", pop: "Население", zone: "Застройка", places: "Места",
     transit: "Транспорт", roads: "Дороги", level: "Административный уровень",
     l1: "1 · Секторы", l1d: "5 секторов, включая пригороды",
     l2: "2 · Примэрии и городские секторы", l2d: "Города, коммуны и Кишинёв по секторам",
