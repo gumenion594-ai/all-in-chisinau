@@ -151,7 +151,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("chi-atlas2-" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("chi-atlas2-" + k, JSON.stringify(v)); } catch {} },
 };
-const MAPS = ["admin", "pop", "zone", "age", "temp", "cmp", "transit", "roads"];
+const MAPS = ["admin", "pop", "zone", "age", "temp", "cmp", "transit", "roads", "stats"];
 const SECDIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
 const CMP_KEEP = ["nyc", "berlin", "bucuresti", "balti"];
 const cmpList = () => load("compare.json").then((l) => l.filter((c) => CMP_KEEP.includes(c.k)));
@@ -955,7 +955,7 @@ async function render() {
   const A = new Set([m, ...MAPS.filter((k) => S.keep[k])]);
   const only = !!S.only[m];
   const has = (k) => A.has(k);
-  const adminOn = has("admin") || has("pop");
+  const adminOn = has("admin") || has("pop") || has("stats");
   const b = S.base, onImg = b === "satellite";
   vis("sat", !only && b === "satellite"); vis("relief", !only && b === "elevation");
   map.setPaintProperty("bg", "background-color", only ? (isDark() ? "#101318" : "#ffffff") : b === "simple" ? (isDark() ? "#14171c" : "#f7f6f3") : P.bg);
@@ -974,7 +974,7 @@ async function render() {
   map.setPaintProperty("admin-line", "line-width", lvl === 4 ? 0.6 : lvl === 3 ? 0.8 : lvl === 2 ? 1.3 : 2.2);
   map.setPaintProperty("admin-line", "line-opacity", adminOn ? 0.85 : 0.35);
   // fill: the current tab wins; otherwise a kept population map, then a kept administrative map
-  const fillMode = (m === "admin" || m === "pop") ? m : has("pop") ? "pop" : has("admin") ? "admin" : null;
+  const fillMode = (m === "admin" || m === "pop" || m === "stats") ? m : has("pop") ? "pop" : has("stats") ? "stats" : has("admin") ? "admin" : null;
   const multi = A.size > 1;
   if (fillMode === "admin") {
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, ["has", "scol"], ["get", "scol"], SECTOR_COL]);
@@ -988,12 +988,15 @@ async function render() {
     if (S.popWhat === "ratio") { col = ["step", ["/", ["coalesce", ["get", "jr"], 0], s], RATIOCOL[0]]; RATIOBR.slice(1).forEach((v, i) => col.push(v, RATIOCOL[i + 1])); }
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, col]);
     map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.05, S.popWhat === "jobs" ? 0.3 : multi ? 0.55 : 0.8]);
+  } else if (fillMode === "stats" && S.stView === "units") {
+    await stApplyUnits();
   } else {
     map.setPaintProperty("admin-fill", "fill-opacity", 0);
   }
   const vector = b === "standard" || b === "simple";
   const luBase = only ? 0 : b === "standard" ? ["match", ["get", "z"], "water", 1, 0.3] : b === "simple" ? ["match", ["get", "z"], "water", 1, 0] : 0;
-  const popFill = fillMode === "pop" && !heatLike();
+  const popFill = (fillMode === "pop" && !heatLike()) || (fillMode === "stats" && S.stView === "units");
+  const stOn = has("stats") && S.stView !== "units";
   map.setPaintProperty("landuse", "fill-opacity", has("zone") ? (vector || only ? (multi ? 0.7 : 0.88) : 0.6) : popFill ? (vector && !only ? ["match", ["get", "z"], "water", 1, 0] : 0) : luBase);
   map.setFilter("landuse", has("zone") ? ["in", ["get", "z"], ["literal", S.zones ?? Object.keys(T.ro.z)]] : null);
   const builtOn = has("zone") && S.zoneView === "built";
@@ -1080,10 +1083,12 @@ async function render() {
   }
   if (map.getLayer("heat") && (hills || ratioFlat)) vis("heat", false);
   if (map.getLayer("heat")) map.setPaintProperty("heat", "heatmap-radius", hills ? ["interpolate", ["exponential", 2], ["zoom"], 9, 7, 12, 24, 15, 90, 17, 200] : ["interpolate", ["exponential", 2], ["zoom"], 9, 4, 12, 14, 15, 60, 17, 160]);
-  const wantSrc = hills ? hsrc : S.terrain && !only ? "dem" : null;
+  const stDem = await statsRender(has("stats"), only);
+  if (has("stats") && S.stView !== "units") map.setPaintProperty("landuse", "fill-opacity", only ? 0 : (S.base === "standard" || S.base === "simple") ? ["match", ["get", "z"], "water", 1, 0] : 0);
+  const wantSrc = stDem && !hills ? stDem : hills ? hsrc : S.terrain && !only ? "dem" : null;
   if ((map.getTerrain()?.source || null) !== wantSrc) {
-    map.setTerrain(wantSrc ? { source: wantSrc, exaggeration: hills ? 1 : 1.8 } : null);
-    if (hills && map.getPitch() < 35) map.easeTo({ pitch: 58, bearing: -18, duration: 900 });
+    map.setTerrain(wantSrc ? { source: wantSrc, exaggeration: hills || stDem ? 1 : 1.8 } : null);
+    if ((hills || stDem) && map.getPitch() < 35) map.easeTo({ pitch: 58, bearing: -18, duration: 900 });
   }
   const er = document.getElementById("elevread");
   er.hidden = only || !(b === "elevation" || S.terrain) || !er.textContent;
@@ -1116,7 +1121,8 @@ async function renderLabels() {
   labelMarkers.forEach((m) => m.remove()); labelMarkers = [];
   if (!S.labels) return;
   const admin = await adminFC();
-  const m = bm(S.mode), adm = m === "admin" || m === "pop" || S.keep.admin || S.keep.pop, lvl = adm ? S.level : 1;
+  const m = bm(S.mode), adm = m === "admin" || m === "pop" || m === "stats" || S.keep.admin || S.keep.pop || S.keep.stats, lvl = adm ? S.level : 1;
+  const stLbl = m === "stats" && S.stView === "units" && !S.stRatio && STK[S.stat]?.q > 0 ? "st_" + S.stat : m === "stats" && S.stView === "units" && S.stRatio ? "st_r" : null;
   if (S.only[m] && !adm && m !== "temp") return;
   // weather map: level-2 names with their temperature, switching to level 3 when zoomed in
   const tmap = m === "temp" ? (DATA.__temp ?? await load("temp.json"))?.maps?.[tempKey()] : null;
@@ -1132,7 +1138,7 @@ async function renderLabels() {
     let txt = nameOf(p).replace(/^Chișinău – (sectorul )?/, "").replace(/ sector$/, "");
     if (p.lvl === 2 && p.kind === "city") txt = "Chișinău · " + txt;
     const dir = p.lvl === 1 && (m === "admin" || m === "pop") && SECDIR[p.sector] ? L(SECDIR[p.sector][0], SECDIR[p.sector][1]) : null;
-    el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (m === "pop" ? (S.popWhat === "jobs" && p.jobs != null ? `<small>${fmt(p.jobs)} ${L("locuri de muncă", "jobs")}</small>` : S.popWhat === "ratio" && p.jr != null ? `<small>${fmt(p.jr / popScale(), 2)} ${L("locuri/locuitor", "jobs/resident")}</small>` : p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "") : "")
+    el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (stLbl && p[stLbl] != null ? `<small>${stLbl === "st_r" ? stRatioFmt(S.stA, S.stB, p[stLbl]) : fmt(p[stLbl]) + "/100"}</small>` : "") + (m === "pop" ? (S.popWhat === "jobs" && p.jobs != null ? `<small>${fmt(p.jobs)} ${L("locuri de muncă", "jobs")}</small>` : S.popWhat === "ratio" && p.jr != null ? `<small>${fmt(p.jr / popScale(), 2)} ${L("locuri/locuitor", "jobs/resident")}</small>` : p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "") : "")
       + (tmap && tmap.u?.[p.id] != null ? `<b class="tval">${fmt(tmap.u[p.id], 1)} °C</b>` : "");
     labelMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lx, p.ly]).addTo(map));
   }
@@ -1160,7 +1166,9 @@ map.on("zoomend", updateLabelVis);
 function renderLegend() {
   const el = document.getElementById("legend"), P = pal(), m = bm(S.mode);
   let h = "";
-  if (m === "admin") {
+  if (m === "stats") {
+    h = statsLegend();
+  } else if (m === "admin") {
     h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}${SECDIR[k] ? ` <span class="small">(${L(SECDIR[k][0], SECDIR[k][1])})</span>` : ""}</li>`).join("")
       + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
       + (S.ctx ? `<li><i class="ln dash" style="border-color:${P.line}"></i>${t("lvlname").ctx}</li>` : "");
@@ -1407,7 +1415,7 @@ async function quickPop(sel) {
   for (const e of D.extra) if (pg.has(e[0], e[1])) pop += e[2];
   if (S.selected === sel) { sel.quick = { pop, bld }; renderInfo(); }
 }
-function infoVis() { const m = bm(S.mode); document.getElementById("info").hidden = !(m === "admin" || m === "pop" || S.selected?.kind === "admin"); }
+function infoVis() { const m = bm(S.mode); document.getElementById("info").hidden = !(m === "admin" || m === "pop" || m === "stats" || S.selected?.kind === "admin"); }
 async function renderInfo() {
   infoVis();
   const sel = S.selected, s = popScale();
@@ -1437,7 +1445,7 @@ async function renderInfo() {
       <dt>${t("popl")}</dt><dd>${p.pop ? `<b>${fmt(p.pop * s)}</b>` : t("none")}</dd>
       <dt>${t("area")}</dt><dd>${fmt(p.km2, 2)} km²</dd><dt>${t("perim")}</dt><dd>${fmt(geomPerim(sel.geom), 1)} km</dd>
       <dt>${t("dens")}</dt><dd>${p.dens ? fmt(p.dens * s) + " / km²" : t("none")}</dd>
-      ${p.jobs != null ? `<dt>${L("Locuri de muncă (estimare)", "Jobs (estimate)")}</dt><dd>${fmt(p.jobs)}</dd><dt>${L("Locuri de muncă la un locuitor", "Jobs per resident")}</dt><dd>${fmt(p.jr / s, 2)}</dd>` : ""}</dl>`;
+      ${p.jobs != null ? `<dt>${L("Locuri de muncă (estimare)", "Jobs (estimate)")}</dt><dd>${fmt(p.jobs)}</dd><dt>${L("Locuri de muncă la un locuitor", "Jobs per resident")}</dt><dd>${fmt(p.jr / s, 2)}</dd>` : ""}${statsInfoRows(p)}</dl>`;
     if (p.note) h += `<p class="note">${esc(p.note)}</p>`;
   } else if (sel.kind === "line") {
     h += `<h3>${t("length")}: ${fmt(sel.len, sel.len < 10 ? 2 : 1)} km</h3><p class="small">${sel.n} ${L("puncte", "points")}</p>`;
@@ -1903,7 +1911,7 @@ function bindEvents() {
     }
   });
   map.on("click", "admin-fill", async (e) => {
-    if (S.tool || !(bm(S.mode) === "admin" || S.mode === "pop")) return;
+    if (S.tool || !(bm(S.mode) === "admin" || S.mode === "pop" || S.mode === "stats")) return;
     if (REGION_PG && !REGION_PG.has(e.lngLat.lng, e.lngLat.lat)) return;   // hidden area: nothing to select
     const top = ["pois", "tstops"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") !== "none");
     if (top.length && map.queryRenderedFeatures(e.point, { layers: top }).length) return;
@@ -1916,7 +1924,7 @@ function bindEvents() {
     select({ kind: "admin", props: full.properties, geom: full.geometry });
   });
   map.on("mousemove", "admin-fill", (e) => {
-    if (S.tool || !(bm(S.mode) === "admin" || S.mode === "pop")) return;
+    if (S.tool || !(bm(S.mode) === "admin" || S.mode === "pop" || S.mode === "stats")) return;
     map.getCanvas().style.cursor = REGION_PG && !REGION_PG.has(e.lngLat.lng, e.lngLat.lat) ? "" : "pointer";
   });
   map.on("mouseleave", "admin-fill", () => { if (!S.tool) map.getCanvas().style.cursor = ""; });

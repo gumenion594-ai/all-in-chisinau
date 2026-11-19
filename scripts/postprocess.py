@@ -78,14 +78,14 @@ def add_ru(src):
     ins = [(b1, RU_L[ro]) for st, en, ro, e, b1 in _calls(src) if ro in RU_L]
     for pos, ru in sorted(ins, reverse=True): src = src[:pos] + ", " + ru + src[pos:]
     return src
-parts = [add_ru(open(os.path.join(ROOT, "web", n)).read()) for n in ("projects.js", "nb.js", "shell.js", "shell2.js", "shell3.js", "shell4.js", "shell5.js")]
+parts = [add_ru(open(os.path.join(ROOT, "web", n)).read()) for n in ("projects.js", "nb.js", "shell.js", "shell2.js", "shell3.js", "shell4.js", "shell5.js", "stats.js")]
 parts.insert(1, open(os.path.join(I18N, "t_ru.js")).read() + "\nObject.assign(RUX, " + json.dumps(RU_P, ensure_ascii=False) + ");")
 js = add_ru(open(os.path.join(ROOT, "web", "app.js")).read()).replace("/*__PROJECTS_JS__*/", "\n".join(parts))
 html = tpl.replace("/*__MAPLIBRE_CSS__*/", css).replace("/*__APP_JS__*/", js).replace("__DATE__", datetime.date.today().isoformat())
 open(os.path.join(DIST, "index.html"), "w").write(html)
 for n in ["admin.geojson", "landuse.geojson", "base.geojson", "roads.geojson", "rail.geojson", "train.geojson", "bike.geojson",
           "projects.geojson", "transit_lines.geojson", "stops.geojson", "routes.json", "buildings_a.geojson", "buildings_b.geojson",
-          "pois.geojson", "photos.json", "pts.json", "ring.geojson", "popgrid.geojson", "jobgrid.geojson", "zone_stats.json", "builtup.geojson", "temp.json", "agegrid.geojson", "compare.json", "sat_a.bin", "sat_b.bin", "dem.bin", "relief.bin", "elev.bin"]:
+          "pois.geojson", "photos.json", "pts.json", "ring.geojson", "popgrid.geojson", "jobgrid.geojson", "statgrid.json", "zone_stats.json", "builtup.geojson", "temp.json", "agegrid.geojson", "compare.json", "sat_a.bin", "sat_b.bin", "dem.bin", "relief.bin", "elev.bin"]:
     src = os.path.join(D, n)
     if os.path.exists(src):
         shutil.copy(src, os.path.join(DIST, "data", n))

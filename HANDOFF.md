@@ -40,3 +40,13 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 
 ## Next
 - Real AI assistant (`sample` capability), mobile pass on the new pages.
+
+## Done: Statistics map (Statistici)
+- `scripts/build_stats.py` → `web/data/statgrid.json`: on the 150 m population grid, access scores 0–100 for green space,
+  public transport, healthcare, schools, computed from walking distance on the OSM street/path network (scipy Dijkstra)
+  to ALL facilities around with exponential distance decay (gravity), saturating score 100·(1−e^(−raw/R)).
+  Public green only (parks, public gardens, recreation grounds, forests ≥ 0.3/1 ha, no private access).
+  Air quality = estimated exposure index (road class × lanes, industrial land); no measurements available.
+- `web/stats.js`: Statistics tab with units / heat map / 3D hills; "Ratio of two statistics" (percentile gap, or a real
+  ratio for residents vs jobs); legend with share of residents per class, median walking distance, weakest/best
+  neighbourhoods (clickable); unit info shows all scores; assistant set_view/area_details know the statistics.
