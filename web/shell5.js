@@ -45,6 +45,70 @@ async function ensureProject(name) {
 }
 const aiNote = (txt) => { const i = SH.chat.findIndex((m) => m.live), m = { me: 0, tool: 1, h: "🔧 " + esc(txt) }; i >= 0 ? SH.chat.splice(i, 0, m) : SH.chat.push(m); chatRender(); };
 
+// ---------------------------------------------------------------- drawing on the atlas (highlights, catchments, markers)
+function aiLayers() {
+  if (map.getSource("aihl")) return;
+  map.addSource("aihl", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addLayer({ id: "aihl-mask", type: "fill", source: "aihl", filter: ["==", ["get", "k"], "mask"], paint: { "fill-color": isDark() ? "#0b0e13" : "#f4f2ee", "fill-opacity": 0.62 } });
+  map.addLayer({ id: "aihl-fill", type: "fill", source: "aihl", filter: ["in", ["get", "k"], ["literal", ["catch", "area"]]], paint: { "fill-color": "#e8590c", "fill-opacity": ["match", ["get", "k"], "catch", 0.06, 0.12] } });
+  map.addLayer({ id: "aihl-edge", type: "line", source: "aihl", filter: ["in", ["get", "k"], ["literal", ["catch", "area"]]], paint: { "line-color": "#e8590c", "line-width": 2.5, "line-dasharray": [2, 1] } });
+  map.addLayer({ id: "aihl-line", type: "line", source: "aihl", filter: ["in", ["get", "k"], ["literal", ["street", "route"]]], layout: { "line-cap": "round", "line-join": "round" },
+    paint: { "line-color": ["match", ["get", "k"], "route", "#7048e8", "#e8590c"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 8], "line-opacity": 0.9 } });
+  map.addLayer({ id: "aihl-pt", type: "circle", source: "aihl", filter: ["in", ["get", "k"], ["literal", ["stop", "pt"]]],
+    paint: { "circle-radius": ["match", ["get", "k"], "stop", 5, 6], "circle-color": ["match", ["get", "k"], "stop", "#fff", "#e8590c"], "circle-stroke-color": ["match", ["get", "k"], "stop", "#7048e8", "#fff"], "circle-stroke-width": 2.5 } });
+  for (const id of ["aihl-line", "aihl-pt", "aihl-fill"]) map.on("click", id, (e) => { const n = e.features[0].properties.n; if (n) popup(e.lngLat, `<b>${esc(n)}</b>`); });
+}
+function aiDraw(feats, append) {
+  aiLayers();
+  SH.aihl = append ? [...(SH.aihl || []).filter((f) => f.properties.k !== "mask"), ...feats, ...(SH.aihl || []).filter((f) => f.properties.k === "mask")] : feats;
+  map.getSource("aihl").setData({ type: "FeatureCollection", features: SH.aihl });
+  for (const id of ["aihl-mask", "aihl-fill", "aihl-edge", "aihl-line", "aihl-pt"]) map.moveLayer(id);
+}
+function aiFit(feats) {
+  const b = new maplibregl.LngLatBounds(); let n = 0;
+  const walk = (c) => { if (typeof c[0] === "number") { b.extend(c); n++; } else c.forEach(walk); };
+  feats.forEach((f) => walk(f.geometry.coordinates));
+  if (n) map.fitBounds(b, { padding: 70, maxZoom: 16, duration: 800 });
+}
+function aiMask(g) {
+  const holes = (g.type === "Polygon" ? [g.coordinates] : g.coordinates).map((p) => p[0]);
+  return { type: "Feature", properties: { k: "mask" }, geometry: { type: "Polygon", coordinates: [[[27.5, 46.3], [30.5, 46.3], [30.5, 47.8], [27.5, 47.8], [27.5, 46.3]], ...holes] } };
+}
+// find the geometry of a street / route / area / place by name
+async function aiGeom(kind, name, mode) {
+  shGo("atlas");
+  if (kind === "street") {
+    const k = deacc(name).replace(/^(strada|str\.?|bulevardul|bd\.?|soseaua|sos\.?|calea|cal\.?)\s+/, "");
+    const fs = (await load("roads.geojson")).features.filter((f) => f.properties.n && deacc(f.properties.n).includes(k));
+    if (!fs.length) throw new Error(`Street "${name}" not found`);
+    const names = [...new Set(fs.map((f) => f.properties.n))];
+    const best = names.find((n) => deacc(n).endsWith(" " + k) || deacc(n) === k) || names[0];
+    const sel = fs.filter((f) => f.properties.n === best), lines = sel.flatMap((f) => (f.geometry.type === "LineString" ? [f.geometry.coordinates] : f.geometry.coordinates));
+    const km = lines.reduce((a, c) => a + lineLen(c), 0);
+    return { label: best, geom: { type: "MultiLineString", coordinates: lines }, draw: sel.map((f) => ({ type: "Feature", properties: { k: "street", n: best }, geometry: f.geometry })),
+      info: { street: best, km: Math.round(km * 100) / 100, segments: sel.length, other_matches: names.filter((n) => n !== best).slice(0, 5) } };
+  }
+  if (kind === "route") {
+    const num = String(name).replace(/^\D*(?=\d|[A-Z]$)/i, "").trim();
+    const lines = await load("transit_lines.geojson"), keys = new Set(lines.features.flatMap((f) => f.properties.r));
+    let want = [...keys].filter((k) => k.split(":").slice(1).join(":").toLowerCase() === num.toLowerCase() && (!mode || k.startsWith(String(mode))));
+    if (!want.length) throw new Error(`Route ${name} not found` + (mode ? ` for ${mode}` : ""));
+    const segs = lines.features.filter((f) => f.properties.r.some((r) => want.includes(r)));
+    const stops = (await load("stops.geojson")).features.filter((f) => (f.properties.r || []).some((r) => want.includes(r)));
+    const km = segs.reduce((a, f) => a + (f.geometry.type === "LineString" ? lineLen(f.geometry.coordinates) : f.geometry.coordinates.reduce((x, c) => x + lineLen(c), 0)), 0);
+    return { label: want.map((k) => `${t(k.split(":")[0])} ${k.split(":")[1]}`).join(" + "), stops: stops.map((f) => f.geometry.coordinates), geom: null,
+      draw: [...segs.map((f) => ({ type: "Feature", properties: { k: "route", n: want.join(", ") }, geometry: f.geometry })), ...stops.map((f) => ({ type: "Feature", properties: { k: "stop", n: f.properties.n || "" }, geometry: f.geometry }))],
+      info: { routes: want, km_of_line_drawn: Math.round(km * 10) / 10, stops: stops.length, first_stops: [...new Set(stops.map((f) => f.properties.n).filter(Boolean))].slice(0, 12) } };
+  }
+  if (kind === "area") {
+    const f = pickByName(await featsAt(null), name), p = f.properties;
+    return { label: p.ro, geom: f.geometry, draw: [{ type: "Feature", properties: { k: "area", n: p.ro }, geometry: f.geometry }],
+      info: { area: p.ro, level: lvlWord(p.lvl), residents: Math.round((p.pop || 0) * popScale()), km2: p.km2 } };
+  }
+  const pt = await placePoint(name);
+  return { label: pt.n, geom: { type: "Point", coordinates: pt.c }, draw: [{ type: "Feature", properties: { k: "pt", n: pt.n }, geometry: { type: "Point", coordinates: pt.c } }], info: { place: pt.n } };
+}
+
 // ---------------------------------------------------------------- tools
 function aiTools() {
   return [
@@ -83,6 +147,50 @@ function aiTools() {
           note: "OpenStreetMap data (17 Nov 2026); lanes are estimated where OSM has no lane count; jobs are an estimate",
         };
       } },
+    { name: "highlight", description: "Draw something on the atlas map and zoom to it: a street (name), a public transport route (number, e.g. 22, optional mode trolleybus/bus/minibus/train) with its stops, or an administrative area (name). append=true keeps earlier highlights. Returns length / stops / population.",
+      inputSchema: { type: "object", properties: { kind: { type: "string", enum: ["street", "route", "area"] }, name: { type: "string" }, mode: { type: "string" }, append: { type: "boolean" } }, required: ["kind", "name"] },
+      async execute({ kind, name, mode, append }) {
+        const f = await aiGeom(String(kind), String(name), mode);
+        aiDraw(f.draw, !!append); aiFit(f.draw);
+        return f.info;
+      } },
+    { name: "walk_catchment", description: "Area within N minutes' walk of a route's stops, a street, a place or an area (default 15 min; straight-line radius ≈ 58 m per minute, i.e. 4.5 km/h with a 1.3 detour factor). Draws it, dims the rest of the map, optionally switches the atlas to the population / jobs / commuting map, and returns residents, jobs, buildings, schools, kindergartens, clinics, stops and area inside.",
+      inputSchema: { type: "object", properties: { kind: { type: "string", enum: ["route", "street", "place", "area"] }, name: { type: "string" }, mode: { type: "string" }, minutes: { type: "number" }, show: { type: "string", enum: ["population", "jobs", "commuting", "none"] } }, required: ["kind", "name"] },
+      async execute({ kind, name, mode, minutes = 15, show = "population" }) {
+        const T = await loadTurf(), min = Math.max(1, Math.min(60, Number(minutes) || 15)), r = (min * 58) / 1000;
+        const f = await aiGeom(kind === "place" ? "place" : String(kind), String(name), mode);
+        aiNote(`${L("Zonă de acces", "Walking catchment")}: ${min} min · ${f.label}`);
+        let g;
+        if (f.stops?.length) g = T.union(T.featureCollection(f.stops.map((c) => T.circle(c, r, { steps: 32, units: "kilometers" }))))?.geometry;
+        else g = T.buffer({ type: "Feature", geometry: f.geom }, r, { units: "kilometers", steps: 16 })?.geometry;
+        if (!g) throw new Error("Could not build the catchment");
+        const st = await computeStats(g), pg = prepGeom(g);
+        let jobs = 0; for (const x of (await load("jobgrid.geojson")).features) { const c = x.geometry.coordinates; if (pg.has(c[0], c[1])) jobs += x.properties.p; }
+        const mun = (await adminFC()).features.find((x) => x.properties.lvl === "mun" && [REF(), "both"].includes(x.properties.sc)).properties;
+        const pop = Math.round(st.pop * popScale());
+        aiDraw([...f.draw, { type: "Feature", properties: { k: "catch", n: `${min} min · ${f.label}` }, geometry: g }, aiMask(g)], false);
+        if (show && show !== "none") { shGo("atlas"); S.mode = "pop"; S.popWhat = { population: "pop", jobs: "jobs", commuting: "ratio" }[show]; if (S.popView === "units") S.popView = "heat"; await render(); }
+        aiFit([{ geometry: g }]);
+        return { catchment: `${min} min walk around ${f.label}`, radius_m: Math.round(r * 1000), km2: Math.round((geomArea(g) / 1e6) * 100) / 100, residents: pop, share_of_municipality: `${fmt((pop / (mun.pop * popScale())) * 100, 1)}%`,
+          jobs_estimate: Math.round(jobs), buildings: st.bld, schools: st.cats.school, kindergartens: st.cats.kindergarten, clinics_hospitals: st.cats.health, pharmacies: st.cats.pharmacy, transit_stops: st.stops,
+          note: "straight-line radius; real walking distance follows streets. Residents from the 2024 census spread over residential buildings; jobs estimated." };
+      } },
+    { name: "show_places", description: "Put markers on the map for places of one category (shop, mall, food, cafe, business, health, pharmacy, gov, school, kindergarten, college, university, religion, museum, monument, hotel, park, stop) inside an area name, or inside the last drawn catchment (within='catchment'), or the whole municipality. Returns the count and the first names.",
+      inputSchema: { type: "object", properties: { category: { type: "string" }, within: { type: "string" } }, required: ["category"] },
+      async execute({ category, within }) {
+        const cat = String(category);
+        let g = null;
+        if (within === "catchment") g = (SH.aihl || []).find((f) => f.properties.k === "catch")?.geometry;
+        else if (within) g = pickByName(await featsAt(null), within).geometry;
+        const pg = g ? prepGeom(g) : null, pts = [];
+        if (cat === "stop") for (const f of (await load("stops.geojson")).features) { const c = f.geometry.coordinates; if (f.properties.n && (!pg || pg.has(c[0], c[1]))) pts.push({ n: f.properties.n, c }); }
+        else for (const f of (await load("pois.geojson")).features) { const c = f.geometry.coordinates, p = f.properties; if (p.c === cat && (pg ? pg.has(c[0], c[1]) : p.i & 1)) pts.push({ n: p.n || t("cat")[cat], c }); }
+        aiDraw(pts.slice(0, 1500).map((x) => ({ type: "Feature", properties: { k: "pt", n: x.n }, geometry: { type: "Point", coordinates: x.c } })), true);
+        shGo("atlas");
+        return { category: cat, count: pts.length, first: pts.slice(0, 15).map((x) => x.n) };
+      } },
+    { name: "clear_map", description: "Remove everything the assistant drew on the map.",
+      async execute() { aiDraw([], false); return "Cleared"; } },
     { name: "search_places", description: "Search streets, stops, neighbourhoods and points of interest by text, or by category (pharmacy, stop, food, cafe, shop, park, health, bank, fuel, school). Results are sorted by distance from the user's location and include the distance in km.",
       inputSchema: { type: "object", properties: { query: { type: "string" }, category: { type: "string" } } },
       async execute({ query, category }) { const r = await runSearch(String(query || ""), category ? String(category) : null); return r.slice(0, 8).map((h) => ({ name: h.x.n, kind: h.x.k === "poi" ? h.x.cat : h.x.k, km: Math.round(h.d * 100) / 100, lon: h.x.c[0], lat: h.x.c[1] })); } },
@@ -191,7 +299,7 @@ async function aiContext() {
   const l2 = (await featsAt(2)).filter((f) => f.properties.lvl === 2).map((f) => `${f.properties.ro} (${fmt(Math.round(f.properties.pop * popScale()))})`).join("; ");
   const l1 = [...new Set((await featsAt(1)).map((f) => f.properties.ro + (SECDIR[f.properties.sector] ? ` (${SECDIR[f.properties.sector][1]})` : "")))].join(", ");
   return `You are the assistant inside "All in Chișinău", a prototype city app for Chișinău municipality (Moldova): atlas with population, land use, building age, weather, transport and roads maps; planning projects (border changes, new roads, new districts with cost estimates); projects & petitions with votes; problem reports; tickets and journey planner; tourist guide; news; documents.
-Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
+Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). When the user asks to "show" or "display" something, draw it on the map with highlight / walk_catchment / show_places and also give the key numbers. After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
 Current state: date ${S.date}; section ${SH.sec}; user role ${RL(SH.role)}; user location ${locLabel()}; ${PJ.cur ? `open planning project "${PJ.cur.name}"` : "no planning project open"}.
 Sectors (level 1): ${l1}.
 Mayoralties and urban sectors (level 2, population): ${l2}.`;

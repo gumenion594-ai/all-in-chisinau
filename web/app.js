@@ -909,6 +909,8 @@ async function render() {
     b.title = k ? t("kept_tip_on") : t("kept_tip_off");
   });
   document.querySelectorAll("[data-panel]").forEach((p) => { const ps = p.dataset.panel.split(" "); p.hidden = !(ps.includes(S.mode) || (ps.includes(m) && !ps.includes("!" + S.mode))); });
+  // general population / area / budget box only on the Admin and Population maps (or when an area is selected)
+  infoVis();
   if (typeof PJ !== "undefined" && PJ.cur) {
     document.querySelectorAll("input[name=blevel]").forEach((r) => (r.checked = +r.value === S.level));
     pjEnsureRoadLayers(); pjRoadsData(); pjStatus();
@@ -1373,7 +1375,9 @@ async function quickPop(sel) {
   for (const e of D.extra) if (pg.has(e[0], e[1])) pop += e[2];
   if (S.selected === sel) { sel.quick = { pop, bld }; renderInfo(); }
 }
+function infoVis() { const m = bm(S.mode); document.getElementById("info").hidden = !(m === "admin" || m === "pop" || S.selected?.kind === "admin"); }
 async function renderInfo() {
+  infoVis();
   const sel = S.selected, s = popScale();
   const mi = document.getElementById("measureinfo");
   const drawn = !!sel && sel.kind !== "admin";
