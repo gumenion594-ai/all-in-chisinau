@@ -1577,6 +1577,7 @@ async function showPoi(f, ll) {
   const web = p.w ? (p.w.startsWith("http") ? p.w : "https://" + p.w) : null;
   const html = (img) => `<div class="poipop">${img || ""}<b>${esc(p.n || t("cat")[p.c])}</b><div class="k">${esc(t("cat")[p.c])}${kind ? " · " + esc(kind) : ""}${p.b && p.b !== p.n ? " · " + esc(p.b) : ""}</div>
     ${p.rel ? `<div>${L("Cult", "Faith")}: ${esc([p.rel, p.den].filter(Boolean).map((x) => (REL_RO[x] ? L(REL_RO[x], x.replace(/_/g, " ")) : x.replace(/_/g, " "))).join(", "))}</div>` : ""}
+    ${p.c === "school" && p.cap && p.gen !== 0 ? `<div>${L("Capacitate estimată", "Estimated capacity", "Оценочная вместимость")}: ~${fmt(p.cap)} ${L("elevi", "pupils", "учеников")}${p.cap_src === "def" ? ` <small>(${L("valoare tipică", "typical value", "типичное значение")})</small>` : ` <small>(${L("după suprafața clădirilor", "from building floor area", "по площади зданий")})</small>`}</div>` : ""}
     ${p.sd ? `<div>${L("Construit", "Built")}: ${esc(p.sd)}</div>` : ""}${p.st ? `<div>${L("Stele", "Stars")}: ${"★".repeat(Math.min(5, parseInt(p.st) || 0))}</div>` : ""}
     ${p.her ? `<div class="k">${L("Monument ocrotit de stat", "Listed heritage")}${/^\d+$/.test(p.her) ? "" : " · " + esc(p.her)}</div>` : ""}
     ${p.a ? `<div>${t("addr")}: ${esc(p.a)}</div>` : ""}${p.h ? `<div>${t("hours")}: ${esc(p.h)}</div>` : ""}

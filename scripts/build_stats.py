@@ -185,9 +185,10 @@ HW = {"hospital": 4, "clinic": 2, "doctors": 1.5, "dentist": 0.5, "laboratory": 
 hp = [f for f in pois if f["properties"]["c"] == "health" and f["properties"].get("k") in HW]
 C, near = counts([f["geometry"]["coordinates"][0] for f in hp], [f["geometry"]["coordinates"][1] for f in hp], [HW[f["properties"]["k"]] for f in hp], "health")
 res["health"], NORM["health"] = score(value(C, unit=2.0)); aux["health_near"] = near; aux["health_cum"] = C[1000]
-sp = [f for f in pois if f["properties"]["c"] == "school"]
-C, near = counts([f["geometry"]["coordinates"][0] for f in sp], [f["geometry"]["coordinates"][1] for f in sp], [1] * len(sp), "school")
-res["school"], NORM["school"] = score(value(C)); aux["school_near"] = near; aux["school_cum"] = np.round(C[1000])
+# general-education schools only, weighted by estimated places (build_school_cap.py): 500 places = 1
+sp = [f for f in pois if f["properties"]["c"] == "school" and f["properties"].get("gen", 1)]
+C, near = counts([f["geometry"]["coordinates"][0] for f in sp], [f["geometry"]["coordinates"][1] for f in sp], [f["properties"].get("cap", 500) / 500 for f in sp], "school")
+res["school"], NORM["school"] = score(value(C)); aux["school_near"] = near; aux["school_cum"] = np.round(C[1000] * 500 / 10) * 10   # places within 1 km
 
 # ---------------------------------------------------------------- public green space, weighted by how usable it is
 # Each public green area gets a category from what OpenStreetMap shows inside it, and a weight (editable in the app):
