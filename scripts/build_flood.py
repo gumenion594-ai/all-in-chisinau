@@ -2,7 +2,8 @@
 
 Method: HAND — Height Above Nearest Drainage. On the ~52 m elevation grid, water is routed downhill (hollows filled,
 steepest descent) and every point gets the height above the watercourse its water reaches (OSM rivers, streams, canals; culverted parts and ditches excluded) and the distance to it.
-Low ground right next to a river floods first. Small streams carry less water, so their HAND is counted triple
+Low ground right next to a river floods first; within 1 km of a river the height above the river's
+water level also counts (backwater up side valleys, e.g. Sculeanca, where the Durlești stream meets the Bîc). Small streams carry less water, so their HAND is counted triple
 (the same flood depth covers less ground). Safety score (100 = least exposed):
     HAND 0–0.7 m → 0–20 · 0.7–1.5 m → 20–40 · 1.5–3 m → 40–60 · 3–6 m → 60–80 · 6–12 m+ → 80–100
 plus closed hollows (pits more than 2.5 m below their surroundings, where rain water collects) count as exposed.
@@ -68,6 +69,11 @@ for k in order:
     else: lvl[k] = Z[k]; kind[k] = 0
 HANDr = np.maximum(0, Z - lvl).reshape(nr, nc); KIND = kind.reshape(nr, nc)
 H = np.where(KIND == 1, HANDr, np.where(KIND == 2, HANDr * 3, 99.0))   # small streams: the same depth reaches a third as high
+# Backwater from the rivers: where a stream flows into the Bîc (often through culverts, as in Sculeanca), a river flood
+# also rises up the side valley. So the height above the NEAREST RIVER water level within 1 km counts as well.
+dr, (ri, rj) = distance_transform_edt(~river, return_indices=True)
+Hr = np.where(dr * PIX <= 1000, np.maximum(0, Es - Es[ri, rj]), 99.0)
+H = np.minimum(H, Hr)
 dist = distance_transform_edt(~drain) * PIX
 # closed hollows where rain water collects: filled depth > 2.5 m
 pit = (F.reshape(nr, nc) - Es) > 2.5
