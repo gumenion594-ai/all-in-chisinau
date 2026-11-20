@@ -12,6 +12,16 @@ const STK = {
     d: ["Spitale, policlinici, centre medicale și cabinete accesibile pe jos.", "Hospitals, polyclinics, health centres and practices within walking reach.", "Больницы, поликлиники, медцентры и кабинеты в пешей доступности."] },
   school:  { ro: "Acces la școli", en: "Access to schools", ru: "Доступ к школам", q: 1,
     d: ["Școli și licee accesibile pe jos.", "Schools and lyceums within walking reach.", "Школы и лицеи в пешей доступности."] },
+  slope:   { ro: "Panta terenului", en: "Terrain slope", ru: "Уклон местности", q: 1,
+    d: ["Cât de abrupt e terenul: unde se poate construi ușor (plat) și unde e nevoie de terasări, ziduri de sprijin sau e risc de alunecări.", "How steep the ground is: where building is easy (flat) and where terracing, retaining walls are needed or landslides are a risk.", "Насколько крутой рельеф: где строить легко (ровно), а где нужны террасы, подпорные стены или есть риск оползней."],
+    cls: [["Foarte abrupt", "Very steep", "Очень крутой"], ["Abrupt", "Steep", "Крутой"], ["Moderat", "Moderate", "Умеренный"], ["Ușor înclinat", "Gentle", "Пологий"], ["Plat", "Flat", "Ровный"]],
+    sub: ["> 25%", "15–25%", "10–15%", "5–10%", "< 5%"], poor: ["dintre locuitori stau pe pante de peste 15%", "of residents live on slopes over 15%", "жителей живут на склонах круче 15%"] },
+  flood:   { ro: "Risc de inundații (estimare)", en: "Flood risk (estimate)", ru: "Риск наводнений (оценка)", q: 1,
+    d: ["Cât de expus e terenul la inundații de la râuri și pâraie, după cât de sus e față de apa în care se scurge. 100 = risc foarte mic.", "How exposed the ground is to river and stream floods, by how high it lies above the water it drains into. 100 = very low risk.", "Насколько участок подвержен наводнениям от рек и ручьёв — по высоте над водотоком, куда стекает вода. 100 = очень низкий риск."],
+    cls: [["Risc foarte mare", "Very high risk", "Очень высокий риск"], ["Risc mare", "High risk", "Высокий риск"], ["Risc moderat", "Moderate risk", "Умеренный риск"], ["Risc mic", "Low risk", "Низкий риск"], ["Risc foarte mic", "Very low risk", "Очень низкий риск"]],
+    sub: ["< 0,7 m deasupra apei", "0,7–1,5 m", "1,5–3 m", "3–6 m", "> 6 m"], poor: ["dintre locuitori stau în zone cu risc mare sau foarte mare", "of residents live in high or very high risk areas", "жителей живут в зонах высокого или очень высокого риска"] },
+  height:  { ro: "Înălțimea clădirilor", en: "Building height", ru: "Высота зданий", q: -1,
+    d: ["Înălțimea medie a clădirilor (ponderată cu suprafața lor) în fiecare zonă de 150 m.", "Average building height (weighted by footprint) in each 150 m square.", "Средняя высота зданий (взвешенная по площади) в каждом квадрате 150 м."] },
   pop:     { ro: "Populație", en: "Population", ru: "Население", q: -1,
     d: ["Locuitori pe km² (recensământul 2024).", "Residents per km² (2024 census).", "Жителей на км² (перепись 2024)."] },
   jobs:    { ro: "Locuri de muncă", en: "Jobs", ru: "Рабочие места", q: -1,
@@ -26,6 +36,11 @@ const ST_HOW = {
   school: ["Școli primare, gimnazii și licee (fără școli sportive, de arte, de limbi străine sau grădinițe), fiecare după capacitatea estimată: 500 de locuri = 1, 1.000 de locuri = 2. Capacitatea e estimată din suprafața clădirilor din curtea școlii (aria × etaje ÷ ~10 m² pe elev), pentru că nu există date publice pe școli. Se numără câte obiective sunt la 500 m, 1 km, 2 km, 5 km și 10 km pe jos. Pentru fiecare rază, numărul trece printr-un logaritm (primul obiectiv contează mult, al 100-lea foarte puțin), iar razele au ponderi 1 · 0,5 · 0,25 · 0,1 · 0,04. Un obiectiv apropiat intră în toate razele, deci valorează cel mai mult; sute de obiective la 5–10 km nu pot întrece unul aflat la 500 m.", "Primary schools, gymnasiums and lyceums (not sports, art or language schools, nor kindergartens), each by estimated capacity: 500 places = 1, 1,000 places = 2. Capacity is estimated from the floor area of the buildings on the school grounds (area × floors ÷ ~10 m² per pupil), as there is no public per-school data. It counts how many facilities are within 500 m, 1 km, 2 km, 5 km and 10 km on foot. For each radius the count goes through a logarithm (the first facility counts a lot, the 100th very little) and the radii are weighted 1 · 0.5 · 0.25 · 0.1 · 0.04. A facility close by falls in every radius, so it weighs most; hundreds of facilities 5–10 km away cannot outweigh one within 500 m.", "Начальные школы, гимназии и лицеи (без спортивных, художественных, языковых школ и детсадов), каждая по оценочной вместимости: 500 мест = 1, 1000 мест = 2. Вместимость оценена по площади зданий на территории школы (площадь × этажи ÷ ~10 м² на ученика), так как публичных данных по школам нет. Считается, сколько объектов в пределах 500 м, 1, 2, 5 и 10 км пешком. Для каждого радиуса число проходит через логарифм (первый объект весит много, сотый — очень мало), радиусы имеют веса 1 · 0,5 · 0,25 · 0,1 · 0,04. Близкий объект попадает во все радиусы и весит больше всего; сотни объектов в 5–10 км не перевесят один в 500 м."],
   air: ["Nu există măsurători ale aerului pe cartiere, deci indicele e un model: traficul estimat al fiecărui drum (categoria drumului × benzi) scade cu distanța (la 120 m ~37%), plus zonele industriale (la 400 m ~37%). E o comparație relativă între zone, nu o valoare în µg/m³; vântul și încălzirea caselor nu sunt incluse.", "There are no air measurements by neighbourhood, so this is a model: each road's estimated traffic (road class × lanes) fades with distance (~37% at 120 m), plus industrial land (~37% at 400 m). It compares areas; it is not a µg/m³ value; wind and home heating are not included.", "Измерений воздуха по районам нет, поэтому это модель: оценочный трафик каждой дороги (категория × полосы) убывает с расстоянием (~37% на 120 м), плюс промзоны (~37% на 400 м). Это сравнение районов, а не значение в мкг/м³; ветер и отопление домов не учтены."],
 };
+Object.assign(ST_HOW, {
+  slope: ["Panta e calculată din altitudinea terenului (model digital al reliefului, ~50 m, SRTM / Terrain Tiles), apoi mediată pe fiecare pătrat de 150 m. Pragurile urmează practica obișnuită în urbanism: sub 5% se construiește fără probleme, 5–10% cu mici adaptări, 10–15% cu costuri mai mari, 15–25% cere terasări și ziduri de sprijin, peste 25% e nepotrivit și poate avea risc de alunecări. Relieful are rezoluție de ~50 m: un taluz mic sau o râpă îngustă nu se văd.", "Slope comes from the terrain elevation model (~50 m, SRTM / Terrain Tiles), averaged over each 150 m square. Thresholds follow common planning practice: under 5% building is easy, 5–10% needs small adaptations, 10–15% costs more, 15–25% needs terracing and retaining walls, over 25% is unsuitable and may be landslide-prone. The terrain model is ~50 m: a small embankment or a narrow ravine does not show.", "Уклон рассчитан по цифровой модели рельефа (~50 м, SRTM / Terrain Tiles) и усреднён по квадратам 150 м. Пороги — обычная градостроительная практика: до 5% строить легко, 5–10% — небольшие доработки, 10–15% — дороже, 15–25% — террасы и подпорные стены, свыше 25% — непригодно и возможны оползни. Разрешение ~50 м: небольшой откос или узкий овраг не видны."],
+  flood: ["Nu există o hartă oficială a zonelor inundabile accesibilă aici, deci riscul e estimat cu metoda HAND (înălțimea deasupra rețelei de drenaj): pe relieful de ~50 m, apa e urmărită la vale pe panta cea mai mare până ajunge într-un râu sau pârâu (OpenStreetMap), iar fiecare loc primește înălțimea sa deasupra acelui curs de apă. Pâraiele mici duc mai puțină apă, deci la ele aceeași înălțime contează de 3 ori mai puțin. Gropile închise unde se adună apa de ploaie (mai adânci de 2,5 m) sunt marcate cel puțin cu risc moderat. Nu sunt incluse digurile, canalizarea pluvială sau inundațiile istorice; e o estimare pentru planificare, nu o hartă oficială de risc.", "No official flood-zone map is reachable here, so the risk is estimated with HAND (Height Above Nearest Drainage): on the ~50 m terrain, water is followed downhill along the steepest slope until it reaches a river or stream (OpenStreetMap), and every place gets its height above that watercourse. Small streams carry less water, so there the same height counts three times less. Closed hollows where rain water collects (deeper than 2.5 m) are marked at least moderate. Dykes, storm drains and past floods are not included; it is a planning estimate, not an official risk map.", "Официальной карты зон затопления здесь нет, поэтому риск оценён методом HAND (высота над ближайшим водотоком): по рельефу ~50 м вода прослеживается вниз по наибольшему уклону до реки или ручья (OpenStreetMap), и каждое место получает высоту над этим водотоком. Малые ручьи несут меньше воды, поэтому у них та же высота весит втрое меньше. Замкнутые понижения, где собирается дождевая вода (глубже 2,5 м), отмечены как минимум умеренным риском. Дамбы, ливнёвка и прошлые наводнения не учтены; это оценка для планирования, не официальная карта риска."],
+  height: ["Unde OpenStreetMap are înălțimea sau numărul de etaje, se folosește valoarea exactă. Pentru restul clădirilor, înălțimea e estimată de un model învățat pe clădirile din Chișinău cu înălțime cunoscută: folosește înălțimea medie măsurată din satelit (GHSL Built-Height 2018, Comisia Europeană, pătrate de ~90 m), înălțimile clădirilor vecine cunoscute, suprafața și forma clădirii, tipul ei și distanța față de centru.", "Where OpenStreetMap has the height or number of floors, that exact value is used. For the other buildings the height is estimated by a model trained on Chișinău buildings of known height: it uses the satellite-measured average height (GHSL Built-Height 2018, European Commission, ~90 m squares), the known heights of neighbouring buildings, the footprint size and shape, the building type and the distance from the centre.", "Где в OpenStreetMap указана высота или этажность, используется точное значение. Для остальных зданий высота оценена моделью, обученной на кишинёвских зданиях с известной высотой: средняя высота со спутника (GHSL Built-Height 2018, Еврокомиссия, квадраты ~90 м), известные высоты соседних зданий, площадь и форма здания, его тип и расстояние до центра."],
+});
 const ST_COMMON = () => L("Până la 2 km distanța se măsoară pe străzi, trotuare și poteci (OpenStreetMap), nu în linie dreaptă: un obiectiv de peste calea ferată sau un râu poate fi departe chiar dacă pare aproape. La 5 și 10 km, unde contează puțin, se folosește linia dreaptă × 1,3 (ocolișul obișnuit). Scorul 0–100 nu are plafon artificial: 100 = nivelul celor mai bine serviți 1% dintre locuitori, iar restul e proporțional. Media pe unități e ponderată cu numărul de locuitori.",
   "Up to 2 km, distance is measured along streets, sidewalks and paths (OpenStreetMap), not in a straight line: a facility across a railway or a river can be far even if it looks close. At 5 and 10 km, where it matters little, the straight line × 1.3 (usual detour) is used. The 0–100 score has no artificial ceiling: 100 = the level of the best-served 1% of residents, the rest is proportional. Unit averages are weighted by residents.",
   "До 2 км расстояние считается по улицам, тротуарам и дорожкам (OpenStreetMap), а не по прямой: объект за железной дорогой или рекой может быть далеко, даже если кажется близким. На 5 и 10 км, где вклад мал, берётся прямая × 1,3 (обычный крюк). Балл 0–100 без искусственного потолка: 100 = уровень лучше всего обеспеченного 1% жителей, остальное пропорционально. Средние по единицам взвешены по жителям.");
@@ -37,6 +52,9 @@ const ST_STOPS = [[0, [110, 0, 30]], [15, [185, 20, 40]], [30, [240, 100, 45]], 
 const lerpStops = (st, v) => { if (v <= st[0][0]) return st[0][1]; for (let i = 1; i < st.length; i++) if (v <= st[i][0]) { const [a, p] = st[i - 1], [b, c] = st[i], t = (v - a) / (b - a); return p.map((x, k) => x + (c[k] - x) * t); } return st.at(-1)[1]; };
 const RT_GOOD = [[-2, [110, 0, 30]], [-1, [240, 100, 45]], [0, [253, 240, 180]], [1, [120, 195, 90]], [2, [0, 85, 40]]];
 const RT_NEU = [[-2, [94, 60, 153]], [-1, [178, 171, 210]], [0, [247, 247, 247]], [1, [253, 184, 99]], [2, [230, 97, 1]]];
+const HT_STOPS = [[0, [255, 255, 255, 0]], [2, [255, 243, 176, 150]], [6, [253, 211, 106, 190]], [10, [249, 160, 63, 205]], [16, [231, 111, 81, 215]], [25, [181, 23, 158, 225]], [40, [106, 13, 173, 235]], [60, [45, 0, 96, 240]]];
+const htCol = (v) => lerpStops(HT_STOPS, v);
+const HT_BR = [0, 6, 12, 20, 30, 1000];
 const rgbHex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
 Object.assign(S, { stat: store.get("stat", "green"), stRatio: store.get("stRatio", false), stA: store.get("stA", "green"), stB: store.get("stB", "pop"), stView: store.get("stView", "heat"), stEmpty: store.get("stEmpty", false) });
 
@@ -53,6 +71,7 @@ async function statGrid() {
   const mask = Float32Array.from(inside, (v, k) => v * (act[k] >= 1.5 ? 1 : 0));   // where people live or work
   const vals = {};
   for (const k in g.s) vals[k] = Float32Array.from(g.s[k], (v) => (v < 0 ? 0 : v));
+  if (vals.height) for (let i = 0; i < n; i++) vals.height[i] /= 10;
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
   vals.jobs = Float32Array.from(box(jobs), (v, k) => (v / cellKm2) * inside[k]);
   // municipal reference for the ratio: resident-weighted average for scores, average density where people live or work
@@ -61,7 +80,7 @@ async function statGrid() {
   // resident-weighted distribution of every statistic → percentile (position in the city's ranking)
   const dist = {};
   for (const k in vals) { const idx = []; for (let i = 0; i < n; i++) if (inside[i] && pop[i] > 0) idx.push(i); idx.sort((a, b) => vals[k][a] - vals[k][b]); let c = 0; const v = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { c += pop[i]; v[t] = vals[k][i]; cw[t] = c; }); dist[k] = { v, cw, tot: c }; }
-  SG = { g, box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
+  SG = { slopep: g.slope_pct, hand: g.hand, wdist: g.wdist, hmax: g.hmax, hsrc: g.hsrc, g, box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
   if (g.green?.areas) await greenLoadCfg();
   return SG;
 }
@@ -93,11 +112,13 @@ function stSample(F, lon, lat, M = SG.mask) {   // normalized bilinear sampling 
 }
 function stColour(key, v) {
   if (key.startsWith("r~")) { const [, A, B] = key.split("~"), p = stPol(A, B); return lerpStops(p === 0 ? RT_NEU : RT_GOOD, p < 0 ? -v : v); }
+  if (key === "height") return htCol(v);
   if (STK[key].q < 0) return hillCol(v);
   return lerpStops(ST_STOPS, v);
 }
 function stHeight(key, v, sq) {
   if (key.startsWith("r~")) return v * 260;
+  if (key === "height") return v * 22;
   if (STK[key].q < 0) return hillH(v, sq);
   return sq ? Math.sqrt(v / 100) * 1200 : v * 12;
 }
@@ -140,12 +161,12 @@ async function ensureStats() {
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = j * G.W + i; if (!G.inside[k] || !pg.has(G.x0 + i * G.dx, G.y0 + j * G.dy)) continue;
       const w = G.pop[k] > 0 ? G.pop[k] : 0; wp += w; wa += 1; if (w > 0) mine.push(k);
-      for (const s of ["green", "transit", "air", "health", "school"]) { acc[s] ??= [0, 0]; acc[s][0] += G.vals[s][k] * w; acc[s][1] += G.vals[s][k]; }
+      for (const s of ["green", "transit", "air", "health", "school", "slope", "flood", "height"]) { if (!G.vals[s]) continue; acc[s] ??= [0, 0]; acc[s][0] += G.vals[s][k] * w; acc[s][1] += G.vals[s][k]; }
       for (const s in G.near) { near[s] ??= 0; near[s] += Math.min(3000, G.near[s][k]) * w; }
     }
     if (!wa) continue;
     ST_CELLS.set(p.id, Int32Array.from(mine));
-    for (const s in acc) p["st_" + s] = Math.round(wp > 0 ? acc[s][0] / wp : acc[s][1] / wa);
+    for (const s in acc) p["st_" + s] = s === "height" ? Math.round((wp > 0 ? acc[s][0] / wp : acc[s][1] / wa) * 10) / 10 : Math.round(wp > 0 ? acc[s][0] / wp : acc[s][1] / wa);
     if (wp > 0) for (const s in near) p["sn_" + s] = Math.round(near[s] / wp / 10) * 10;
   }
   admin.__stats = true;
@@ -160,13 +181,14 @@ async function stApplyUnits() {
   const admin = await ensureStats(), A = S.stA, B = S.stB, key = stKey();
   if (S.stRatio) stUnitRatios(admin);
   map.getSource("admin")?.setData(admin);
-  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" ? null : "st_" + S.stat;
+  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" || S.stat === "height" ? null : "st_" + S.stat;
   let col;
   if (prop) {
     const stops = S.stRatio ? (stPol(A, B) === 0 ? RT_NEU : RT_GOOD) : ST_STOPS, flip = S.stRatio && stPol(A, B) < 0;
     col = ["interpolate", ["linear"], ["*", flip ? -1 : 1, ["to-number", ["get", prop]]], ...stops.flatMap(([v, c]) => [v, rgbHex(c)])];
     col = ["case", ["has", prop], ["case", ["==", ["get", prop], null], "#cccccc", col], "#cccccc"];
   } else if (S.stat === "pop") { const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000]; col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], pal().pop[0]]; br.slice(1).forEach((v, i) => col.push(v, pal().pop[i + 1])); }
+  else if (S.stat === "height") col = ["interpolate", ["linear"], ["coalesce", ["get", "st_height"], 0], ...HT_STOPS.slice(1).flatMap(([v, c]) => [v, rgbHex(c.slice(0, 3))])];
   else { col = ["step", ["coalesce", ["get", "jdens"], 0], JOBCOL[0]]; JOBBR.slice(1).forEach((v, i) => col.push(v, JOBCOL[i + 1])); }
   map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], pal().line, col]);
   map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.05, 0.78]);
@@ -234,6 +256,15 @@ async function statsLegendAsync() {
   }
   const k = S.stat, st = STK[k];
   h += `<li class="cap">${esc(STN(k))}</li><li class="small">${L(...st.d)}</li>`;
+  if (k === "height") {
+    const rows = HT_BR.slice(0, -1).map((lo, i) => { const hi = HT_BR[i + 1]; return [rgbHex(htCol(Math.min(lo + 4, 50)).slice(0, 3)), hi < 1000 ? `${lo}–${hi} m` : `> ${lo} m`, share(lo, hi), hi < 1000 ? `~${Math.max(1, Math.round(lo / 3))}–${Math.round(hi / 3)} ${L("etaje", "floors", "этажей")}` : `${L("peste", "over", "более")} ${Math.round(lo / 3)} ${L("etaje", "floors", "этажей")}`]; });
+    const hs = G.hsrc || {}, val = (q) => q.st_height;
+    h += `<li class="cap">${L("Locuitori după înălțimea clădirilor din zona lor", "Residents by the height of buildings around them", "Жители по высоте зданий вокруг")}</li>` + stBars(rows)
+      + `<li class="small">${L(`Surse: <b>${fmt(hs.osm || 0)}</b> clădiri cu înălțime exactă din OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> estimate cu modelul. Testat pe ${fmt(hs.test_n || 0)} clădiri cu înălțime cunoscută (nefolosite la antrenare): eroare medie <b>${fmt(hs.mae || 0, 1)} m</b>, ±3 m în ${hs.within3 || 0}% din cazuri (ghicirea după tipul clădirii: ${fmt(hs.mae_default || 0, 1)} m). Cel mai puțin precis la clădirile foarte înalte.`, `Sources: <b>${fmt(hs.osm || 0)}</b> buildings with exact height from OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> estimated by the model. Tested on ${fmt(hs.test_n || 0)} buildings of known height (not used for training): mean error <b>${fmt(hs.mae || 0, 1)} m</b>, within ±3 m in ${hs.within3 || 0}% of cases (guessing by building type: ${fmt(hs.mae_default || 0, 1)} m). Least precise for very tall buildings.`, `Источники: <b>${fmt(hs.osm || 0)}</b> зданий с точной высотой из OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> оценены моделью. Проверка на ${fmt(hs.test_n || 0)} зданиях с известной высотой (не использованных при обучении): средняя ошибка <b>${fmt(hs.mae || 0, 1)} м</b>, ±3 м в ${hs.within3 || 0}% случаев (оценка по типу здания: ${fmt(hs.mae_default || 0, 1)} м). Менее точно для очень высоких зданий.`)}</li>`
+      + pickHtml(L("Cartierele cu clădirile cele mai înalte", "Neighbourhoods with the tallest buildings", "Районы с самыми высокими зданиями"), pick(val, 4, false), val, (v) => fmt(v, 1) + " m", "")
+      + how(k);
+    return h;
+  }
   if (st.q < 0) {
     const br = k === "pop" ? [0, 1500, 4000, 8000, 15000, 1e9] : [0, 500, 1500, 4000, 10000, 1e9];
     const rows = br.slice(0, -1).map((lo, i) => [rgbHex(hillCol(Math.max(lo, 200) + (Math.min(br[i + 1], 30000) - lo) / 2).slice(0, 3)), `${fmt(lo)}${br[i + 1] < 1e9 ? "–" + fmt(br[i + 1]) : "+"} / km²`, share(lo, br[i + 1])]);
@@ -242,9 +273,9 @@ async function statsLegendAsync() {
     return h;
   }
   let avg = 0; for (let i = 0; i < G.n; i++) avg += G.vals[k][i] * G.pop[i] * G.inside[i]; avg /= tot;
-  const cls = ST_CLN(), rows = ST_CLS.map(([lo, hi, c], i) => [c, cls[i], share(lo, hi), `${lo}–${Math.min(hi, 100)}`]).reverse();
+  const cls = st.cls ? st.cls.map((x) => L(...x)) : ST_CLN(), rows = ST_CLS.map(([lo, hi, c], i) => [c, cls[i], share(lo, hi), st.sub ? st.sub[i] : `${lo}–${Math.min(hi, 100)}`]).reverse();
   const poor = share(0, 40);
-  h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#9b0d23" : poor > 0.1 ? "#e8590c" : "#0b6b2e"}">${fmt(poor * 100, 0)}%</b><span>${L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
+  h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#9b0d23" : poor > 0.1 ? "#e8590c" : "#0b6b2e"}">${fmt(poor * 100, 0)}%</b><span>${st.poor ? L(...st.poor) : L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
     + `<li class="cap">${L("Câți locuitori au fiecare nivel", "Residents at each level", "Сколько жителей на каждом уровне")}</li>` + stBars(rows);
   if (G.near[k]) {   // median walking distance to the nearest facility, for residents
     const arr = []; for (let i = 0; i < G.n; i++) if (G.inside[i] && G.pop[i] > 0) arr.push([G.near[k][i], G.pop[i]]);
@@ -268,8 +299,10 @@ function statsInfoRows(p) {
   if (p.st_green == null) return "";
   const nm = (d) => (d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(d) + " m");
   const cls = ST_CLN();
-  return ["green", "transit", "air", "health", "school"].map((k) => { const v = p["st_" + k], c = ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi);
-    return `<dt>${esc(STN(k))}</dt><dd><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${cls[c]}${p["sn_" + k] != null ? `<small class="muted"> · ${L("cel mai aproape", "nearest", "ближайшее")} ~${nm(p["sn_" + k])}</small>` : ""}</dd>`; }).join("");
+  const clsOf = (k, c) => (STK[k].cls ? L(...STK[k].cls[c]) : cls[c]);
+  return ["green", "transit", "air", "health", "school", "slope", "flood"].filter((k) => p["st_" + k] != null).map((k) => { const v = p["st_" + k], c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
+    return `<dt>${esc(STN(k))}</dt><dd><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${clsOf(k, c)}${p["sn_" + k] != null ? `<small class="muted"> · ${L("cel mai aproape", "nearest", "ближайшее")} ~${nm(p["sn_" + k])}</small>` : ""}</dd>`; }).join("")
+    + (p.st_height ? `<dt>${esc(STN("height"))}</dt><dd>~${fmt(p.st_height, 1)} m <small class="muted">(~${Math.max(1, Math.round(p.st_height / 3))} ${L("etaje în medie", "floors on average", "этажей в среднем")})</small></dd>` : "");
 }
 // panel controls
 function statsPanel() {
@@ -310,10 +343,13 @@ async function stPointPopup(ll) {
   const cls = ST_CLN(), where = await placeName([ll.lng, ll.lat]);
   const CUT = { transit: 10, green: 2, health: 10, school: 10 };
   const nm = (d, s) => (d >= 99999 ? "> " + fmt(CUT[s], 1) + " km" : d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(Math.round(d / 10) * 10) + " m");
-  const rows = ["green", "transit", "air", "health", "school"].map((s) => { const v = Math.round(stSample(G.vals[s], ll.lng, ll.lat, G.inside)[0]), c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
-    return `<tr><td>${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${cls[c]}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}${s === "transit" ? ` · ${G.cum.transit[k]} ${L("linii la ≤ 500 m", "lines within 500 m", "линий в пределах 500 м")}` : s === "school" ? ` · ~${fmt(G.cum.school[k])} ${L("locuri în școli la ≤ 1 km", "school places within 1 km", "мест в школах в пределах 1 км")}` : ""}</small>` : ""}</td></tr>`; }).join("");
+  const clsOf = (s, c) => (STK[s].cls ? L(...STK[s].cls[c]) : cls[c]);
+  const extra = (s) => s === "slope" && G.slopep ? `<br><small class="muted">${L("panta medie", "average slope", "средний уклон")} ~${fmt(G.slopep[k] / 10, 1)}%</small>`
+    : s === "flood" && G.hand ? `<br><small class="muted">${G.hand[k] >= 990 ? L("departe de râuri și pâraie", "far from rivers and streams", "далеко от рек и ручьёв") : `~${fmt(G.hand[k] / 10, 1)} m ${L("deasupra cursului de apă", "above the watercourse", "над водотоком")} · ${fmt(G.wdist[k])} m ${L("până la apă", "to the water", "до воды")}`}</small>` : "";
+  const rows = ["green", "transit", "air", "health", "school", "slope", "flood"].filter((s) => G.vals[s]).map((s) => { const v = Math.round(stSample(G.vals[s], ll.lng, ll.lat, G.inside)[0]), c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
+    return `<tr><td>${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${clsOf(s, c)}${extra(s)}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}${s === "transit" ? ` · ${G.cum.transit[k]} ${L("linii la ≤ 500 m", "lines within 500 m", "линий в пределах 500 м")}` : s === "school" ? ` · ~${fmt(G.cum.school[k])} ${L("locuri în școli la ≤ 1 km", "school places within 1 km", "мест в школах в пределах 1 км")}` : ""}</small>` : ""}</td></tr>`; }).join("");
   const pd = stSample(G.vals.pop, ll.lng, ll.lat, G.inside)[0] * popScale(), jd = stSample(G.vals.jobs, ll.lng, ll.lat, G.inside)[0];
-  popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table><small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²</small>`);
+  popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table>${G.vals.height ? (() => { const hv = stSample(G.vals.height, ll.lng, ll.lat, G.inside)[0]; return hv > 1 ? `<small>${esc(STN("height"))}: ~${fmt(hv, 1)} m ${L("în medie", "on average", "в среднем")}${G.hmax?.[k] ? ` · ${L("cea mai înaltă", "tallest", "самое высокое")} ~${fmt(G.hmax[k])} m` : ""}</small><br>` : ""; })() : ""}<small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²</small>`);
 }
 
 // ---------------------------------------------------------------- green space: weights by how landscaped it is (editable by the city hall)

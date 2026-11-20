@@ -362,6 +362,10 @@ async function answer(q) {
   const term = k.replace(/[?!.,;:„”"']/g, " ").replace(/\b(unde|este|e|gasesc|caut|un|o|cel mai apropiat|cea mai apropiata|where|is|find|the|a)\b/g, " ").trim();
   const r = term.length > 2 ? await searchAll(term) : null;
   if (r && (r.pois.length || r.docs.length)) return L("Am găsit:", "I found:") + `<ul class="rlist">${r.pois.slice(0, 5).map((f) => `<li>${fly(f.geometry.coordinates, f.properties.n)}<span class="small"> · ${esc(t("cat")[f.properties.c] || "")}</span></li>`).join("")}${r.docs.slice(0, 3).map((d) => `<li>${esc(d.t ? L(d.t[0], d.t[1]) : d.title)} <span class="small">· ${L("document", "document")}</span></li>`).join("")}</ul>`;
+  try {   // facts from the Wikipedia knowledge base
+    const kb = typeof kbSearch === "function" ? await kbSearch(q, 2) : [];
+    if (kb.length && kb[0].score > 6) return kb.map((x) => `<p>${esc(x.text.length > 420 ? x.text.slice(0, 420).replace(/\s\S*$/, "") + "…" : x.text)}</p><p class="small">${L("Sursa", "Source", "Источник")}: <a href="${esc(x.url)}" target="_blank" rel="noopener">Wikipedia · ${esc(x.title)}${x.section ? " · " + esc(x.section) : ""}</a> (CC BY-SA)</p>`).join("");
+  } catch {}
   return L("Nu știu încă să răspund la asta. Pot spune populația sau suprafața unei localități, vremea, prețul biletelor, bugetul, sau pot căuta un loc („unde e Muzeul de Istorie?”).", "I can't answer that yet. I can tell you a place's population or area, the weather, ticket prices, the budget, or look up a place (“where is the History Museum?”).");
 }
 // floating assistant: always available

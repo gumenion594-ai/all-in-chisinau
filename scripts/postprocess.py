@@ -85,7 +85,7 @@ html = tpl.replace("/*__MAPLIBRE_CSS__*/", css).replace("/*__APP_JS__*/", js).re
 open(os.path.join(DIST, "index.html"), "w").write(html)
 for n in ["admin.geojson", "landuse.geojson", "base.geojson", "roads.geojson", "rail.geojson", "train.geojson", "bike.geojson",
           "projects.geojson", "transit_lines.geojson", "stops.geojson", "routes.json", "buildings_a.geojson", "buildings_b.geojson",
-          "pois.geojson", "photos.json", "pts.json", "ring.geojson", "popgrid.geojson", "jobgrid.geojson", "statgrid.json", "zone_stats.json", "builtup.geojson", "temp.json", "agegrid.geojson", "compare.json", "sat_a.bin", "sat_b.bin", "dem.bin", "relief.bin", "elev.bin"]:
+          "pois.geojson", "photos.json", "pts.json", "ring.geojson", "popgrid.geojson", "jobgrid.geojson", "statgrid.json", "kb.json", "zone_stats.json", "builtup.geojson", "temp.json", "agegrid.geojson", "compare.json", "sat_a.bin", "sat_b.bin", "dem.bin", "relief.bin", "elev.bin"]:
     src = os.path.join(D, n)
     if os.path.exists(src):
         shutil.copy(src, os.path.join(DIST, "data", n))

@@ -109,6 +109,35 @@ async function aiGeom(kind, name, mode) {
   return { label: pt.n, geom: { type: "Point", coordinates: pt.c }, draw: [{ type: "Feature", properties: { k: "pt", n: pt.n }, geometry: { type: "Point", coordinates: pt.c } }], info: { place: pt.n } };
 }
 
+
+// ---------------------------------------------------------------- city knowledge base (Wikipedia, CC BY-SA): offline search for facts and history
+let KB = null;
+const KB_STOP = new Set("si sau de la in pe cu din care ce a al ale ai lui un o este sunt fost cum cand unde cine cat the of and in on at to is was are for by with from as it this that what who when where how which и в на с по из что как когда где кто это был была были для от до".split(" "));
+const kbTok = (t) => deacc(t).replace(/[^a-z0-9а-яё]+/g, " ").split(" ").filter((w) => w.length > 1 && !KB_STOP.has(w)).map((w) => (w.length > 5 ? w.slice(0, w.length - 2) : w));   // crude stem: works for ro/en/ru endings
+async function kbLoad() {
+  if (KB) return KB;
+  const d = await load("kb.json"), N = d.p.length, df = new Map(), docs = [];
+  let tot = 0;
+  for (const [si, h, txt] of d.p) {
+    const tf = new Map(), toks = kbTok(`${d.src[si][1]} ${h} ${txt}`); tot += toks.length;
+    for (const w of toks) tf.set(w, (tf.get(w) || 0) + 1);
+    for (const w of tf.keys()) df.set(w, (df.get(w) || 0) + 1);
+    docs.push({ tf, len: toks.length, title: kbTok(d.src[si][1] + " " + h) });
+  }
+  return (KB = { d, N, df, docs, avg: tot / N });
+}
+async function kbSearch(q, n = 6) {
+  const K = await kbLoad(), qt = [...new Set(kbTok(q))]; if (!qt.length) return [];
+  const sc = K.docs.map((doc, i) => {
+    let s = 0;
+    for (const w of qt) { const f = doc.tf.get(w); if (!f) continue; const idf = Math.log(1 + (K.N - K.df.get(w) + 0.5) / (K.df.get(w) + 0.5)); s += (idf * f * 2.2) / (f + 1.2 * (0.25 + 0.75 * doc.len / K.avg)) + (doc.title.includes(w) ? idf * 0.8 : 0); }
+    const lang = K.d.src[K.d.p[i][0]][0]; if (s && lang === S.lang) s *= 1.15;
+    return [s, i];
+  }).filter((x) => x[0] > 0).sort((a, b) => b[0] - a[0]);
+  const out = [], per = {};
+  for (const [s, i] of sc) { const [si, h, txt] = K.d.p[i]; if ((per[si] = (per[si] || 0) + 1) > 3) continue; const [lang, title, url] = K.d.src[si]; out.push({ title, section: h || undefined, lang, url, text: txt, score: Math.round(s * 10) / 10 }); if (out.length >= n) break; }
+  return out;
+}
 // ---------------------------------------------------------------- tools
 function aiTools() {
   return [
@@ -121,7 +150,7 @@ function aiTools() {
       } },
     { name: "area_details", description: "Details of one named area (any level): population at the selected date, area, density, estimated jobs and jobs per resident (commuting balance), access scores 0–100 (green space, public transport, healthcare, schools; estimated air quality; resident-weighted, walking distance on the street network) and typical walking distance to the nearest stop/park/clinic/school, sector, mayoralty, source.",
       inputSchema: { type: "object", properties: { name: { type: "string" } }, required: ["name"] },
-      async execute({ name }) { await ensureJobs(); await ensureStats().catch(() => null); const p = pickByName(await featsAt(null), name).properties; return { access_scores_0_100: p.st_green != null ? { green: p.st_green, transit: p.st_transit, air_estimate: p.st_air, health: p.st_health, school: p.st_school } : undefined, nearest_walk_m: p.sn_transit != null ? { stop: p.sn_transit, green: p.sn_green, health: p.sn_health, school: p.sn_school } : undefined, name: p.ro, level: lvlWord(p.lvl), pop: Math.round((p.pop || 0) * popScale()), km2: p.km2, density: p.dens, jobs_estimate: p.jobs, jobs_per_resident: p.jr != null ? Math.round((p.jr / popScale()) * 100) / 100 : null, sector: p.sector, mayoralty: p.unit, source: p.src, date: S.date }; } },
+      async execute({ name }) { await ensureJobs(); await ensureStats().catch(() => null); const p = pickByName(await featsAt(null), name).properties; return { access_scores_0_100: p.st_green != null ? { green: p.st_green, transit: p.st_transit, air_estimate: p.st_air, health: p.st_health, school: p.st_school, flat_ground: p.st_slope, flood_safety: p.st_flood } : undefined, avg_building_height_m: p.st_height, nearest_walk_m: p.sn_transit != null ? { stop: p.sn_transit, green: p.sn_green, health: p.sn_health, school: p.sn_school } : undefined, name: p.ro, level: lvlWord(p.lvl), pop: Math.round((p.pop || 0) * popScale()), km2: p.km2, density: p.dens, jobs_estimate: p.jobs, jobs_per_resident: p.jr != null ? Math.round((p.jr / popScale()) * 100) / 100 : null, sector: p.sector, mayoralty: p.unit, source: p.src, date: S.date }; } },
     { name: "infrastructure_stats", description: "Measured totals for the whole municipality or one named area (any level): road km by class and traffic-lane km, bike tracks and bike lanes km, pedestrian streets km, railway km, public transport stops and lines, road projects under construction / proposed (km), buildings, estimated residents and jobs, and counts of places (shops, schools, hospitals, parks…). From OpenStreetMap as of 17 Nov 2026.",
       inputSchema: { type: "object", properties: { area: { type: "string", description: "area name; omit for the whole municipality" } } },
       async execute({ area }) {
@@ -191,11 +220,11 @@ function aiTools() {
       } },
     { name: "clear_map", description: "Remove everything the assistant drew on the map.",
       async execute() { aiDraw([], false); return "Cleared"; } },
-    { name: "set_view", description: "Change any atlas setting exactly as the menus do. All fields optional: map (admin, pop, zone, age, temp, cmp, transit, roads, stats), statistic (for the Statistics map: green, transit, air, health, school, pop, jobs), ratio (two statistics [A, B] to compare A against B on the Statistics map, e.g. ['green','pop'] shows where many people live with little green space), stats_display (units, heat, hills), level (1-4), base (standard, simple, satellite, elevation), flat_2d (true = turn off 3D buildings, 3D terrain and population hills, camera straight down), buildings_3d, terrain_3d, labels (locality names), street_names, hide_outside (hide everything outside the municipality), region (area name or 'all'), borders ('date' or '2027'), date (YYYY-MM-DD or 'today'), population_scenario ('census' or 'nbs2019'), population_show (residents, jobs, commuting), population_display (units, heat, hills), jobs_colour (density | type: colour the jobs heat map / hills by main type of activity), highlight_villages, zoning_display (use, built), only_this_map, neighbour_borders, outside_places, places (list of categories to show, or [] for none), transit_modes (list of trolleybus, bus, minibus, train), transit_route (route number, or '' for all), ring_road, compare (list of nyc, berlin, bucuresti, balti), language (ro, en, ru), theme (auto, light, dark), pitch, bearing, zoom, center (place name). Returns the resulting settings.",
+    { name: "set_view", description: "Change any atlas setting exactly as the menus do. All fields optional: map (admin, pop, zone, age, temp, cmp, transit, roads, stats), statistic (for the Statistics map: green, transit, air, health, school, slope = terrain slope / buildability, flood = estimated flood risk, height = building height, pop, jobs), ratio (two statistics [A, B] to compare A against B on the Statistics map, e.g. ['green','pop'] shows where many people live with little green space), stats_display (units, heat, hills), level (1-4), base (standard, simple, satellite, elevation), flat_2d (true = turn off 3D buildings, 3D terrain and population hills, camera straight down), buildings_3d, terrain_3d, labels (locality names), street_names, hide_outside (hide everything outside the municipality), region (area name or 'all'), borders ('date' or '2027'), date (YYYY-MM-DD or 'today'), population_scenario ('census' or 'nbs2019'), population_show (residents, jobs, commuting), population_display (units, heat, hills), jobs_colour (density | type: colour the jobs heat map / hills by main type of activity), highlight_villages, zoning_display (use, built), only_this_map, neighbour_borders, outside_places, places (list of categories to show, or [] for none), transit_modes (list of trolleybus, bus, minibus, train), transit_route (route number, or '' for all), ring_road, compare (list of nyc, berlin, bucuresti, balti), language (ro, en, ru), theme (auto, light, dark), pitch, bearing, zoom, center (place name). Returns the resulting settings.",
       inputSchema: { type: "object", properties: {
         map: { type: "string" }, level: { type: "integer" }, base: { type: "string" }, flat_2d: { type: "boolean" }, buildings_3d: { type: "boolean" }, terrain_3d: { type: "boolean" },
         labels: { type: "boolean" }, street_names: { type: "boolean" }, hide_outside: { type: "boolean" }, region: { type: "string" }, borders: { type: "string" }, date: { type: "string" },
-        population_scenario: { type: "string" }, population_show: { type: "string" }, population_display: { type: "string" }, jobs_colour: { type: "string", enum: ["density", "type"] }, statistic: { type: "string", enum: ["green", "transit", "air", "health", "school", "pop", "jobs"] }, ratio: { type: "array", items: { type: "string" } }, stats_display: { type: "string", enum: ["units", "heat", "hills"] }, highlight_villages: { type: "boolean" }, zoning_display: { type: "string" },
+        population_scenario: { type: "string" }, population_show: { type: "string" }, population_display: { type: "string" }, jobs_colour: { type: "string", enum: ["density", "type"] }, statistic: { type: "string", enum: ["green", "transit", "air", "health", "school", "slope", "flood", "height", "pop", "jobs"] }, ratio: { type: "array", items: { type: "string" } }, stats_display: { type: "string", enum: ["units", "heat", "hills"] }, highlight_villages: { type: "boolean" }, zoning_display: { type: "string" },
         only_this_map: { type: "boolean" }, neighbour_borders: { type: "boolean" }, outside_places: { type: "boolean" }, places: { type: "array", items: { type: "string" } },
         transit_modes: { type: "array", items: { type: "string" } }, transit_route: { type: "string" }, ring_road: { type: "boolean" }, compare: { type: "array", items: { type: "string" } },
         language: { type: "string" }, theme: { type: "string" }, pitch: { type: "number" }, bearing: { type: "number" }, zoom: { type: "number" }, center: { type: "string" } } },
@@ -267,6 +296,9 @@ function aiTools() {
         if (place) { const p = await placePoint(place); map.flyTo({ center: p.c, zoom: Number(zoom) || 14 }); return `Showing ${p.n}`; }
         return `Opened ${sec}${layer ? " / " + layer : ""}`;
       } },
+    { name: "city_knowledge", description: "Search the offline knowledge base of Wikipedia articles (Romanian, English, Russian) about Chișinău: history and timeline, mayors, districts and villages, sights, churches, museums, theatres, parks, monuments, transport history, institutions, notable events, economy, climate. Use it for any factual or historical question that the app's live data does not cover, then answer from the passages and cite them as (Wikipedia: <title>). If nothing relevant comes back, say you don't know rather than guessing.",
+      inputSchema: { type: "object", properties: { query: { type: "string", description: "keywords, in any language (e.g. 'fondarea orasului 1436', 'Arcul de Triumf construit', 'primari Chisinau')" }, n: { type: "integer" } }, required: ["query"] },
+      async execute({ query, n }) { const r = await kbSearch(String(query), Math.min(10, Number(n) || 6)); return r.length ? r : "No passages found."; } },
     { name: "city_info", description: "Facts the app holds: topic budget (municipal budget for the selected year), weather (current temperatures), tickets (fares), news (latest items), proposals (citizen proposals, petitions and projects in progress with votes), reports (citizen problem reports), location (the user's location).",
       inputSchema: { type: "object", properties: { topic: { type: "string", enum: ["budget", "weather", "tickets", "news", "proposals", "reports", "location"] } }, required: ["topic"] },
       async execute({ topic }) {
@@ -364,7 +396,7 @@ async function aiContext() {
   const l2 = (await featsAt(2)).filter((f) => f.properties.lvl === 2).map((f) => `${f.properties.ro} (${fmt(Math.round(f.properties.pop * popScale()))})`).join("; ");
   const l1 = [...new Set((await featsAt(1)).map((f) => f.properties.ro + (SECDIR[f.properties.sector] ? ` (${SECDIR[f.properties.sector][1]})` : "")))].join(", ");
   return `You are the assistant inside "All in Chișinău", a prototype city app for Chișinău municipality (Moldova): atlas with population, land use, building age, weather, transport and roads maps; planning projects (border changes, new roads, new districts with cost estimates); projects & petitions with votes; problem reports; tickets and journey planner; tourist guide; news; documents.
-Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). When the user asks to "show" or "display" something, draw it on the map with highlight / walk_catchment / show_places and also give the key numbers. Use set_view for any menu setting (map type, 2D/3D, base map, level, labels, places, transit filters, date, language…). After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
+Reply in ${{ ro: "Romanian", en: "English", ru: "Russian" }[S.lang]}, briefly and concretely. Use the tools to read real data before giving numbers, and to act when the user asks (navigate, build, merge, rename…). When the user asks to "show" or "display" something, draw it on the map with highlight / walk_catchment / show_places and also give the key numbers. For history, sights and other facts about the city use city_knowledge (Wikipedia) and cite "(Wikipedia: title)"; do not invent facts. Use set_view for any menu setting (map type, 2D/3D, base map, level, labels, places, transit filters, date, language…). After an action, say what changed and that it can be undone in the construction menu. If something cannot be done, say so plainly. This is a prototype: never claim real-world effects.
 Current state: date ${S.date}; section ${SH.sec}; user role ${RL(SH.role)}; user location ${locLabel()}; ${PJ.cur ? `open planning project "${PJ.cur.name}"` : "no planning project open"}.
 Sectors (level 1): ${l1}.
 Mayoralties and urban sectors (level 2, population): ${l2}.`;

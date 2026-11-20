@@ -328,6 +328,31 @@ res["air"] = np.round(100 * np.exp(-E / (2.2 * ref))).astype(int)
 aux["air_traffic"] = traffic; aux["air_indus"] = indus
 log("air median exposure", round(ref, 2))
 
+# ---------------------------------------------------------------- terrain slope (how suitable the ground is for building)
+# elev.bin: ~52 m grid (web-mercator, z12 pixels halved) from build_tiles.py. Slope per pixel from the elevation
+# gradient (lightly smoothed, elevations are whole metres), then averaged over each 150 m cell.
+# Score: <5 % → 80–100 · 5–10 % → 60–80 · 10–15 % → 40–60 · 15–25 % → 20–40 · >25 % → 0–20 (40 % and more = 0).
+import struct
+eb = open(os.path.join(OUT, "elev.bin"), "rb").read()
+ew_, eh_, ex0, ey0 = struct.unpack("<IIII", eb[:16]); E = np.frombuffer(eb[16:], "<u2").reshape(eh_, ew_).astype(float)
+from scipy.ndimage import uniform_filter
+Es = uniform_filter(E, 3)
+WORLD = 2 ** 12 * 128
+pix = 40075016.7 * math.cos(math.radians(47)) / WORLD           # metres per pixel at Chișinău's latitude
+gy, gx = np.gradient(Es, pix)
+SL = np.hypot(gx, gy) * 100                                        # percent
+merc_y = lambda lat: (1 - math.log(math.tan(math.radians(lat)) + 1 / math.cos(math.radians(lat))) / math.pi) / 2 * WORLD
+slope = np.zeros(NC)
+for n_, (j, i) in enumerate(cells):
+    lo0, lo1 = (kx0 + i) * CX, (kx0 + i + 1) * CX; la0, la1 = (ky0 + j) * CY, (ky0 + j + 1) * CY
+    px0, px1 = int((lo0 + 180) / 360 * WORLD - ex0), int((lo1 + 180) / 360 * WORLD - ex0) + 1
+    py0, py1 = int(merc_y(la1) - ey0), int(merc_y(la0) - ey0) + 1
+    blk = SL[max(0, py0):min(eh_, py1), max(0, px0):min(ew_, px1)]
+    slope[n_] = float(blk.mean()) if blk.size else 0
+res["slope"] = np.round(np.interp(slope, [0, 5, 10, 15, 25, 40], [100, 80, 60, 40, 20, 0])).astype(int)
+aux["slope_pct"] = slope
+log("slope % residents median", round(float(np.median(slope[POPC > 0])), 1), "share of land > 15 %", round(float((slope > 15).mean()) * 100, 1))
+
 # ---------------------------------------------------------------- write
 def full(v, nod=-1, dec=0):
     a = np.full((H, W), nod, float); a[cells[:, 0], cells[:, 1]] = v
@@ -337,6 +362,7 @@ out = {"kx0": kx0, "ky0": ky0, "W": W, "H": H, "dx": CX, "dy": CY,
        "s": {k: full(v) for k, v in res.items()},
        "near": {k: full(np.minimum(np.round(aux[k + "_near"]), 99999)) for k in ("transit", "health", "school", "green")},
        "norm": NORM,
+       "slope_pct": full(np.round(aux["slope_pct"] * 10), 0),   # slope in tenths of a percent
        "cum": {"transit": full(aux["transit_cum"]), "green": full(aux["green_cum"], dec=1), "health": full(aux["health_cum"], dec=1), "school": full(aux["school_cum"])},   # transit: lines within 500 m; others: weight within 1 km
        "green": {**GREEN_OUT, "rest": {k: {str(r): full(v[r], 0, 2) for r, _ in GR_RADII} for k, v in rest.items()}},
        "pop": [round(float(x), 1) for x in POP.ravel()], "jobs": [round(float(x), 1) for x in JOBS.ravel()]}

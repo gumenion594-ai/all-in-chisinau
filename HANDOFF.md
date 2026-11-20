@@ -50,3 +50,11 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - `web/stats.js`: Statistics tab with units / heat map / 3D hills; "Ratio of two statistics" (percentile gap, or a real
   ratio for residents vs jobs); legend with share of residents per class, median walking distance, weakest/best
   neighbourhoods (clickable); unit info shows all scores; assistant set_view/area_details know the statistics.
+
+## Done: more statistics, heights, knowledge base
+- Pipeline order for web/data/statgrid.json: build_stats.py → build_heights.py → build_flood.py (the last two patch the file).
+- Terrain slope (elev.bin, ~50 m), flood exposure (HAND with D8 flow routing on elev.bin + OSM rivers/streams),
+  building height (OSM height/levels exact; others by a gradient-boosting model on GHSL Built-Height 2018 + neighbour
+  heights + footprint/type; hold-out MAE 3.3 m vs 6.6 m type defaults). Heights also feed the 3D buildings (bld*.json).
+- Schools weighted by capacity estimated from building floor area (build_school_cap.py, general schools only).
+- build_kb.py → web/data/kb.json: Wikipedia (ro/en/ru) passages about Chișinău; assistant tool city_knowledge (BM25).
