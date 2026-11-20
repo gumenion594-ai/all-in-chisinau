@@ -25,6 +25,7 @@ const IND_G = {
   print: [["M7 9V3h10v6", "M4.5 9h15v8h-15z", "M7 14h10v7H7z"]],
   energy: [["M13 2L5 14h6l-1 8 8-12h-6z"], 1],
   other: [["M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17z"], 1],
+  anon: [["M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17z"]],
 };
 const HI_URL = {};
 function hiImage(col, paths, fill, size = 26) {
@@ -160,14 +161,14 @@ function indLegend() {
   if (!d) { load("industry.json").then((x) => { DATA.__ind = x; renderLegend(); }); return `<li class="loading"><span class="spin"></span>…</li>`; }
   const F = d.points.features, sel = new Set(S.indB ?? d.br.map((b) => b[0]));
   const n = (k) => F.filter((f) => f.properties.b === k).length;
-  const big = F.filter((f) => sel.has(f.properties.b) && f.properties.a && !/^(Carier|Parc fotovoltaic|Întreprindere$)/.test(f.properties.n)).sort((a, b) => b.properties.a - a.properties.a).slice(0, 10);
+  const big = F.filter((f) => sel.has(f.properties.b) && f.properties.a && !/^(Carier|Parc fotovoltaic|Întreprindere$|Teren industrial fără nume|Clădire industrială fără nume|Fermă$|Sere$|Stână$)/.test(f.properties.n)).sort((a, b) => b.properties.a - a.properties.a).slice(0, 10);
   return `<li class="cap">${L("Ramura de producție", "Branch of production", "Отрасль")}</li>`
     + d.br.filter(([k]) => n(k)).map(([k, c, ro, en]) => `<li><label><input type="checkbox" data-indb="${k}" ${sel.has(k) ? "checked" : ""}>${hiImg("ind-" + k)}<span class="zl">${esc(L(ro, en))}</span><span class="za">${fmt(n(k))}</span></label></li>`).join("")
     + `<li class="zrow2"><b class="zl">Total</b><b class="za">${fmt(F.length)}</b></li>`
     + `<li><label class="check"><input type="checkbox" data-indz="1" ${S.indZ ? "checked" : ""}> <i style="background:#8e7cc3;opacity:.6;width:12px;height:12px;display:inline-block;border-radius:2px"></i> ${L("Zone industriale și cariere (suprafețe)", "Industrial zones and quarries (areas)", "Промзоны и карьеры")}</label></li>`
     + (big.length ? `<li class="cap">${L("Cele mai mari după suprafața terenului", "Largest by site area", "Крупнейшие по площади")}</li><li class="lglist">${big.map((f) => `<button type="button" data-herfly="${f.geometry.coordinates.join(",")}">${hiImg("ind-" + f.properties.b)}<span class="zl">${esc(f.properties.n)}</span><span class="za">${fmt(f.properties.a, 0)} ha</span></button>`).join("")}</li>` : "")
-    + `<li class="small">${L("Întreprinderile sunt clasificate după etichetele și numele din OpenStreetMap și Wikidata; „Alte întreprinderi” sunt cele al căror profil nu reiese din date. Iconițele transparente sunt întreprinderi închise sau abandonate. Harta include și localitățile din jur.",
-        "Enterprises are classified from their OpenStreetMap and Wikidata tags and names; \"Other enterprises\" are those whose activity the data does not state. Faded icons are closed or abandoned sites. The map also covers the surrounding localities.")}</li>`;
+    + `<li class="small">${L("Întreprinderile sunt clasificate după etichetele și numele din OpenStreetMap și Wikidata; „Alte întreprinderi” au nume, dar profilul lor nu reiese din date; terenurile și clădirile industriale fără nume sunt cartografiate în OpenStreetMap, dar nu se știe ce firmă e acolo. Fermele și serele fără nume apar doar de la 0,5 ha. Iconițele transparente sunt întreprinderi închise sau abandonate. Harta include și localitățile din jur.",
+        "Enterprises are classified from their OpenStreetMap and Wikidata tags and names; \"Other enterprises\" have a name but no stated activity; unnamed industrial sites and buildings are mapped in OpenStreetMap without the company name. Unnamed farms and greenhouses are shown from 0.5 ha. Faded icons are closed or abandoned sites. The map also covers the surrounding localities.")}</li>`;
 }
 
 // ---------------------------------------------------------------- legend controls

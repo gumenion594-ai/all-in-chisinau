@@ -70,4 +70,6 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
   - Data: OSM works / industrial / producing crafts / power plants / named industrial landuse, plus Wikidata factories and wineries.
   - Branches are assigned from tags plus ro/ru name keywords. Non-producing sites are dropped (depots, pumping, transport, telecom).
   - Industrial zones and quarries are kept as areas.
-  - OSM input subset: `data/raw/osm_her_ind.json`, cut from area/extra_e/extra_n.
+  - OSM input subset: `data/raw/osm_her_ind.json`, made by `scripts/extract_osm_her_ind.py` from area/extra_e/extra_n.
+  - Also included: farms and greenhouses (named ones, or unnamed ones of at least 0.5 ha).
+  - Unnamed industrial sites (at least 0.3 ha, with no named enterprise on them) and unnamed industrial buildings (at least 600 m², outside zones) form the grey "anon" branch.

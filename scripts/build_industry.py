@@ -15,7 +15,7 @@ S = OSMStore(json.load(open(os.path.join(RAW, "osm_her_ind.json")))["elements"])
 SERV = {"electronics_repair", "shoemaker", "glaziery", "roofer", "photographic_laboratory", "window_construction", "photographer", "cleaning", "plumber", "hvac", "key_cutter",
         "painter", "locksmith", "electrician", "optician", "tiler", "construction", "gardener", "yes", "agricultural_engines", "hairdresser", "car_repair"}
 NOTPROD = {"warehouse", "depot", "vehicle_depot", "transport", "railway", "telecommunication", "pumping_station", "gas", "oil_depot", "logistics", "storage", "port"}
-SKIP_NAME = re.compile(r"pompare|rezervor|distribu(ț|ti)e a gaz|bază de transport|baza de transport|radiofar|^blocul|turn de răcire|irigare|depozit|garaj|parcare|secția de alimentare|"
+SKIP_NAME = re.compile(r"pompare|pomapre|ocol silvic|rezervor|distribu(ț|ti)e a gaz|bază de transport|baza de transport|radiofar|^blocul|turn de răcire|irigare|depozit|garaj|parcare|secția de alimentare|"
                        r"transformator|antena|petrol|carburant|stație de alimentare|autobaz|parc auto|vamă|terminal|склад|насос|zona antreprenoriatului|zona economic|subzona|zona de protecț|troleibuze|autobuze|combinatul auto|depoul|întreținere|intretinere|transport auto|\\bîta|autosalubritate|radiocomunica|radio|telecom|telefonic|vamal|poligonul auto|transport special|distribuție a gazelor|parcul de|centrul tehnic comercial|comerț|comert|aproviz|service\\b|servicii locative|baza nr|biergarten|recycling|rezerve materiale", re.I)
 BR = [  # branch, colour, ro, en, keyword regex (name / tags)
  ("wine", "#9c2b54", "Vinuri și băuturi", "Wine and drinks", r"winery|vin[aă]r|vinuri|\bvin\b|vin-|-vin|wine|cricova|mileștii|milestii|divin|coniac|cognac|коньяк|вин|distiller|brewery|bere\b|beer|пиво|bottling|drinks|băuturi|apă minerală|suc(uri)?\b|alcool|spirt|lion gri|carlevana|dionysos|aroma\\b|vinuri"),
@@ -52,19 +52,39 @@ def centre(e, g):
     c = S.way_coords(e["id"]) if e["type"] == "way" else None
     return (sum(x for x, _ in c) / len(c), sum(y for _, y in c) / len(c)) if c else None
 
-pts, zones = [], []
+pts, zones, farms, anon, anonb = [], [], [], [], []
 for e in list(S.nodes.values()) + list(S.ways.values()) + list(S.rels.values()):
     t = e.get("tags") or {}
     if not t: continue
     lu = t.get("landuse"); ind = t.get("industrial"); cr = t.get("craft"); mm = t.get("man_made"); pw = t.get("power")
     is_zone = lu in ("industrial", "quarry")
+    farm = lu in ("farmyard", "greenhouse_horticulture") or (t.get("building") in ("greenhouse", "cowshed", "sty", "barn", "farm_auxiliary") and t.get("name"))
     prod = mm == "works" or (ind and ind not in NOTPROD) or (cr and cr not in SERV) or is_zone or t.get("building") in ("industrial", "manufacture", "factory") or pw == "plant" or "product" in t \
-           or mm == "water_works"
+           or mm == "water_works" or farm
     if not prod: continue
     g = geom(e) if e["type"] != "node" else None
     if is_zone and g is not None and not g.is_empty and g.geom_type in ("Polygon", "MultiPolygon"):
         zones.append({"type": "Feature", "geometry": mapping(g.simplify(0.00005)), "properties": {"k": "q" if lu == "quarry" else "i"}})
     nm = t.get("name:ro") or t.get("name") or t.get("operator")
+    area = g.area * 111320 * math.cos(math.radians(47)) * 110570 if g is not None and not g.is_empty else 0
+    if farm:   # farms, sheepfolds, greenhouses: named ones, and unnamed ones of at least half a hectare
+        if not nm and area < 5000: continue
+        if nm and SKIP_NAME.search(nm): continue
+        c = centre(e, g)
+        if not c: continue
+        p = {"n": nm or ("Sere" if "greenhouse" in (lu or "") + (t.get("building") or "") else "Fermă"), "b": "agri", "a": round(area / 1e4, 2) if area else None, "src": "OSM", "k": lu or t.get("building")}
+        if t.get("produce") or t.get("product"): p["pr"] = t.get("produce") or t.get("product")
+        if t.get("operator") and t.get("operator") != nm: p["op"] = t["operator"]
+        farms.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {k: v for k, v in p.items() if v is not None}})
+        continue
+    if not nm and lu == "industrial" and area >= 3000 and g is not None:   # unnamed industrial site: kept, marked as such
+        c = centre(e, g)
+        if c: anon.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Teren industrial fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "industrial"}}, g))
+        continue
+    if not nm and t.get("building") in ("industrial", "manufacture", "factory") and area >= 600 and g is not None:
+        c = centre(e, g)
+        if c: anonb.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Clădire industrială fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "building"}}, g))
+        continue
     key = ind or cr or ("power_plant" if pw == "plant" else None) or ("quarry" if lu == "quarry" else None) or mm
     if not nm and not (key in TAGMAP or key in ("power_plant", "quarry")): continue
     if lu == "quarry" and not nm: continue
@@ -74,7 +94,6 @@ for e in list(S.nodes.values()) + list(S.ways.values()) + list(S.rels.values()):
     text = " ".join(filter(None, [nm, t.get("name:ru"), t.get("product"), t.get("description"), ind, cr, key]))
     br = TAGMAP.get(ind) or TAGMAP.get(cr) or ("energy" if pw == "plant" or mm == "water_works" else "build" if lu == "quarry" else None)
     if not br: br = next((k for k, rx in BRC if rx.search(text)), "other")
-    area = g.area * 111320 * math.cos(math.radians(47)) * 110570 if g is not None and not g.is_empty else 0
     p = {"n": nm or LBL.get(key, "Întreprindere"), "b": br, "a": round(area / 1e4, 2) if area else None}
     if t.get("name:ru") and t.get("name:ru") != nm: p["ru"] = t["name:ru"]
     if t.get("product"): p["pr"] = t["product"]
@@ -100,6 +119,26 @@ for r in csv.DictReader(open(os.path.join(RAW, "heritage", "wd_ind.csv"))):
     if "former" in r["itemDescription"] or "fost" in r["itemDescription"]: p["x"] = 1
     pts.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(lon, 6), round(lat, 6)]}, "properties": {k: v for k, v in p.items() if v}})
 
+# unnamed industrial sites: only where no named enterprise already stands on them; unnamed industrial buildings only
+# outside every industrial zone; farms only where no named enterprise sits within 100 m
+from shapely.strtree import STRtree
+from shapely.geometry import Point as _P
+named = [_P(f["geometry"]["coordinates"]) for f in pts]
+tree = STRtree(named)
+for f, g in anon:
+    if not len(tree.query(g, predicate="intersects")): pts.append(f)
+
+
+zall = []
+for z in zones:
+    from shapely.geometry import shape as _shape
+    zall.append(_shape(z["geometry"]))
+zt = STRtree(zall)
+for f, g in anonb:
+    if not len(zt.query(g.representative_point(), predicate="intersects")): pts.append(f)
+for f in farms:
+    q = _P(f["geometry"]["coordinates"])
+    if not any(n.distance(q) < 0.0012 for n in [named[i] for i in tree.query(q.buffer(0.0012))]): pts.append(f)
 # de-duplicate: same normalised name within 400 m -> keep the one with the largest area
 norm = lambda s: re.sub(r"[^a-zăâîșțа-я0-9]", "", s.lower().replace("ş", "ș").replace("ţ", "ț"))
 pts.sort(key=lambda f: -(f["properties"].get("a") or 0))
@@ -107,12 +146,12 @@ keep = []
 for f in pts:
     x, y = f["geometry"]["coordinates"]; n = norm(f["properties"]["n"])
     generic = f["properties"]["n"] in LBL.values() or f["properties"]["n"] == "Întreprindere"
-    if any(norm(g["properties"]["n"]) == n and abs(g["geometry"]["coordinates"][0] - x) < 0.0055 and abs(g["geometry"]["coordinates"][1] - y) < 0.0036 for g in keep): continue
+    if f["properties"]["b"] != "anon" and f["properties"]["n"] not in ("Fermă", "Sere", "Stână") and any(norm(g["properties"]["n"]) == n and abs(g["geometry"]["coordinates"][0] - x) < 0.0055 and abs(g["geometry"]["coordinates"][1] - y) < 0.0036 for g in keep): continue
     keep.append(f)
 from collections import Counter
 print("enterprises", len(keep), Counter(f["properties"]["b"] for f in keep), "zones", len(zones))
 print([f["properties"]["n"] for f in keep if f["properties"]["b"] == "other"][:80])
 json.dump({"points": {"type": "FeatureCollection", "features": keep}, "zones": {"type": "FeatureCollection", "features": zones},
-           "br": [[k, c, ro, en] for k, c, ro, en, _ in BR] + [["other", "#495057", "Alte întreprinderi", "Other enterprises"]]},
+           "br": [[k, c, ro, en] for k, c, ro, en, _ in BR] + [["other", "#495057", "Alte întreprinderi (profil necunoscut)", "Other enterprises (activity unknown)"], ["anon", "#adb5bd", "Terenuri și clădiri industriale fără nume", "Unnamed industrial sites and buildings"]]},
           open(os.path.join(D, "industry.json"), "w"), ensure_ascii=False, separators=(",", ":"))
 print("MB", round(os.path.getsize(os.path.join(D, "industry.json")) / 1e6, 2))
