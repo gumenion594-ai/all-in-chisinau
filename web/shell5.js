@@ -264,12 +264,13 @@ function aiTools() {
         if (o.region) { const sel = document.getElementById("region"); let v = ""; if (o.region !== "all") { const f = pickByName(await featsAt(null), o.region); v = String(f.properties.id); } sel.value = v; fire(sel); done.push("region"); }
         if (o.highlight_villages != null) { await wait(300); check("[data-hillsqrt]", o.highlight_villages); done.push("highlight_villages"); }
         if (o.places) { await checks("data-cat", o.places.map(String)); done.push("places"); }
-        if (o.transit_modes || o.transit_route != null || o.ring_road != null) {
+        if (o.transit_modes || o.transit_route != null) {
           if (S.mode !== "transit") { document.querySelector('.tab[data-mode="transit"]').click(); await wait(500); }
           if (o.transit_modes) { await wait(); document.querySelectorAll("#legend input[data-mode]").forEach((el) => { const on = o.transit_modes.includes(el.dataset.mode); if (el.checked !== on) { el.checked = on; fire(el); } }); done.push("transit_modes"); }
           if (o.transit_route != null) { const rs = document.getElementById("route-sel"); const want = String(o.transit_route).toLowerCase(); const opt = [...rs.options].find((x) => !want ? x.value === "" : x.value.toLowerCase().endsWith(":" + want) || x.text.toLowerCase().startsWith(want + " ") || x.text.toLowerCase().includes(" " + want + " ")); if (!opt) throw new Error("Route not found " + o.transit_route); rs.value = opt.value; fire(rs); done.push("transit_route"); }
-          if (o.ring_road != null) { await wait(); check("#legend [data-ring]", o.ring_road); done.push("ring_road"); }
+
         }
+        if (o.ring_road != null) { if (S.mode !== "roads") { document.querySelector('.tab[data-mode="roads"]').click(); await wait(500); } await wait(); check("#legend [data-ring]", o.ring_road); done.push("ring_road"); }
         if (o.compare) { if (S.mode !== "cmp") { document.querySelector('.tab[data-mode="cmp"]').click(); await wait(600); } await checks("data-cmp", o.compare.map(String)); done.push("compare"); }
         const cam = {};
         if (o.center) cam.center = (await placePoint(o.center)).c;

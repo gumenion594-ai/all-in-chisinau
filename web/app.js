@@ -1057,8 +1057,8 @@ async function render() {
       map.setPaintProperty("jobdots", "circle-radius", ["interpolate", ["linear"], ["zoom"], 10, ["*", 0.12, ["sqrt", jobSum()]], 13, ["*", 0.35, ["sqrt", jobSum()]], 16, ["*", 1.1, ["sqrt", jobSum()]]]);
     }
   }
-  if (has("transit") && S.ring) await ensure.ring();
-  ["ring", "ring-casing", "ring-plan"].forEach((id) => vis(id, has("transit") && S.ring));
+  if (has("roads") && S.ring) await ensure.ring();
+  ["ring", "ring-casing", "ring-plan"].forEach((id) => vis(id, has("roads") && S.ring));
   // building age: its own map, now shown from Statistics (2D map, or 3D buildings with "3D hills")
   const ageOn = has("age") || (has("stats") && statAge());
   const d3 = S.d3 || (ageOn && has("stats") && statAge() && S.stView === "hills");
@@ -1270,8 +1270,6 @@ function renderLegend() {
   } else if (m === "transit") {
     h = ["trolleybus", "bus", "minibus", "train"].map((k) => `<li><label><input type="checkbox" data-mode="${k}" ${S.modes[k] ? "checked" : ""}><i class="ln thick" style="border-color:${P.mode[k]}"></i>${t(k)}</label></li>`).join("")
       + `<li class="cap">${L("Fiecare linie are culoarea ei (pe segmentele comune se vede linia principală); grosimea = numărul de rute. Apasă pe o linie pentru rute.", "Each line has its own colour (shared segments show the main line); width = number of routes. Tap a line for its routes.")}</li>`
-      + `<li><label><input type="checkbox" data-ring="1" ${S.ring ? "checked" : ""}><i class="ln thick" style="border-color:#0b7285"></i>${t("ring")}</label></li>`
-      + (S.ring ? `<li><i class="ln thick" style="border-color:#0b7285"></i>${t("ring_ex")}</li><li><i class="ln thick dash" style="border-color:#7048e8"></i>${t("ring_pr")}</li><li><i class="ln thick dash" style="border-color:#e8590c"></i>${t("ring_ap")}</li>` : "");
   } else if (m === "roads") {
     h = `<li class="cap">${t("lanes")}</li>`
       + [1, 2, 4, 6].map((n) => `<li><i class="ln" style="border-top-width:${Math.max(1, n * 1.6)}px;border-color:${P.road.primary}"></i>${n} ${n === 1 ? L("bandă", "lane") : L("benzi", "lanes")}</li>`).join("")
@@ -1280,7 +1278,9 @@ function renderLegend() {
       + `<li><i class="ln" style="border-color:${P.road.other};opacity:.55"></i>${t("lanes_est")}</li>`
       + `<li><i class="ln" style="border-color:#e8590c;border-top-width:4px"></i>${t("ped")}</li>`
       + `<li class="cap">${t("bike")}</li><li><i class="ln" style="border-color:#13a36b"></i>${t("track")}</li><li><i class="ln dash" style="border-color:#13a36b"></i>${t("lane")}</li>`
-      + `<li class="cap">${t("projects")}</li><li><i class="ln dot" style="border-color:#d6336c"></i>${t("construction")}</li><li><i class="ln dot" style="border-color:#7048e8"></i>${t("proposed")}</li>`;
+      + `<li class="cap">${t("projects")}</li><li><i class="ln dot" style="border-color:#d6336c"></i>${t("construction")}</li><li><i class="ln dot" style="border-color:#7048e8"></i>${t("proposed")}</li>`
+      + `<li class="cap">${L("Centura orașului", "Ring road", "Кольцевая дорога")}</li><li><label><input type="checkbox" data-ring="1" ${S.ring ? "checked" : ""}><i class="ln thick" style="border-color:#0b7285"></i>${t("ring")}</label></li>`
+      + (S.ring ? `<li><i class="ln thick" style="border-color:#0b7285"></i>${t("ring_ex")}</li><li><i class="ln thick dash" style="border-color:#7048e8"></i>${t("ring_pr")}</li><li><i class="ln thick dash" style="border-color:#e8590c"></i>${t("ring_ap")}</li>` : "");
   }
   el.innerHTML = h;
   document.getElementById("poilist").innerHTML = CATS.map((k) => `<li><label><input type="checkbox" data-cat="${k}" ${S.cats.includes(k) ? "checked" : ""}><img src="${ICON_URL[k] || ""}" alt="">${t("cat")[k]}</label></li>`).join("");
