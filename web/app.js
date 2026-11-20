@@ -918,6 +918,12 @@ const adminFC = () => (typeof PJ !== "undefined" && PJ.cur && PJ.admin ? Promise
 const BASEMODE = { padmin: "admin", proads: "roads", pnb: "zone" };
 const bm = (x) => BASEMODE[x] || x;
 
+// sector / neighbourhood borders and names: only on the Admin map (current tab or kept with a double click),
+// or where the units are the map itself (Population / Statistics "by unit")
+function admShown() {
+  const m = bm(S.mode), on = (k) => m === k || S.keep[k];
+  return on("admin") || (on("pop") && !heatLike()) || (on("stats") && S.stView === "units");
+}
 async function render() {
   const m = bm(S.mode), P = pal();
   document.documentElement.lang = S.lang;
@@ -969,7 +975,7 @@ async function render() {
   map.setFilter("admin-mun", ["all", sc, ["==", ["get", "lvl"], "mun"]]);
   map.setFilter("admin-ctx", ["all", sc, ["==", ["get", "lvl"], "ctx"]]);
   vis("admin-ctx", S.ctx && !only);
-  vis("admin-line", !only || adminOn); vis("admin-mun", !only || adminOn);
+  vis("admin-line", admShown()); vis("admin-mun", !only || adminOn);
   map.setPaintProperty("admin-line", "line-color", onImg && !only ? "#ffffff" : P.ink);
   map.setPaintProperty("admin-ctx", "line-color", onImg && !only ? "#e9ecef" : P.line);
   map.setPaintProperty("admin-line", "line-width", lvl === 4 ? 0.6 : lvl === 3 ? 0.8 : lvl === 2 ? 1.3 : 2.2);
@@ -1122,9 +1128,9 @@ async function renderLabels() {
   labelMarkers.forEach((m) => m.remove()); labelMarkers = [];
   if (!S.labels) return;
   const admin = await adminFC();
-  const m = bm(S.mode), adm = m === "admin" || m === "pop" || m === "stats" || S.keep.admin || S.keep.pop || S.keep.stats, lvl = adm ? S.level : 1;
+  const m = bm(S.mode), adm = admShown(), lvl = adm ? S.level : 1;
   const stLbl = m === "stats" && S.stView === "units" && !S.stRatio && STK[S.stat]?.q > 0 ? "st_" + S.stat : m === "stats" && S.stView === "units" && S.stRatio ? "st_r" : null;
-  if (S.only[m] && !adm && m !== "temp") return;
+  if (!adm && m !== "temp") return;   // names of sectors / neighbourhoods only with their borders (the weather map has its own)
   // weather map: level-2 names with their temperature, switching to level 3 when zoomed in
   const tmap = m === "temp" ? (DATA.__temp ?? await load("temp.json"))?.maps?.[tempKey()] : null;
   const tlv = m === "temp" ? [1, 2, 3] : null;
