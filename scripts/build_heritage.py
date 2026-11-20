@@ -94,18 +94,28 @@ for e in list(S.nodes.values()) + list(S.ways.values()) + list(S.rels.values()):
                           "arch": {t["architect"]} if t.get("architect") else set(), "wiki": None, "tp": tp})
 print("OSM heritage objects without Wikidata", len(osm_extra))
 
+# ---- completely destroyed objects that are no longer in the register (curated list with sources: data/raw/heritage/lost.json)
+LOST = json.load(open(os.path.join(CACHE, "lost.json"))) if os.path.exists(os.path.join(CACHE, "lost.json")) else []
+for L_ in LOST:
+    if L_["q"] in items:
+        it = items[L_["q"]]; it["dem"] = it["dem"] or L_["dem"]; it["lost_note"] = L_["note"]; it["img"] = it["img"] or L_.get("img"); continue
+    items[L_["q"]] = {"q": L_["q"], "n": L_["n"], "d": None, "ll": L_["ll"], "her": set(), "img": L_.get("img"), "st": {"demolat sau distrus"}, "inc": None, "dem": L_["dem"], "addr": None,
+                      "arch": set(), "wiki": None, "tp": L_["t"], "lost_note": L_["note"], "lost_src": L_["src"], "approx": L_.get("approx")}
+print("destroyed objects added", len(LOST))
+
 # ---- photos (Commons thumbnails, 240 px)
 P = {}
 for q, it in items.items():
     if not it["img"]: continue
     path = os.path.join(CACHE, q + ".jpg")
-    if not os.path.exists(path):
+    if not os.path.exists(path) and not os.path.exists(path + ".fail"):   # a ".fail" marker: do not retry a photo Commons keeps refusing
         url = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(it["img"].replace(" ", "_")) + "?width=240"
         for a in range(4):
             try:
                 b = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60).read(); open(path, "wb").write(b); time.sleep(1.2); break
             except Exception as ex:
                 print("photo retry", q, str(ex)[:60]); time.sleep(30 * (a + 1))
+        else: open(path + ".fail", "w").write("")
     if os.path.exists(path):
         b = open(path, "rb").read()
         if len(b) < 90000: P[q] = ("image/png" if b[:4] == b"\x89PNG" else "image/jpeg", b)
@@ -120,6 +130,12 @@ for it in list(items.values()) + osm_extra:
     removed = tp != "arh" and ((it["d"] or "").startswith("fost ") or any(h.startswith("fost ") for h in it["her"]))
     imp = "nat" if re.search(r"importanță națională|national importance", it["d"] or "") else "loc" if re.search(r"importanță locală|local importance", it["d"] or "") else None
     p = {"n": it["n"], "t": tp, "h": sorted(it["her"]), "s": st}
+    gone = any(re.search(r"demol|distrus|destroyed", x) and not re.search(r"parțial|partial", x) for x in st)
+    if gone:
+        p["z"] = 1
+        if it["dem"]: p["dz"] = it["dem"]   # completely destroyed: a separate layer that can be switched on and off
+    if it.get("lost_note"): p["ln"] = it["lost_note"]
+    if it.get("approx"): p["ap"] = 1
     for k, v in (("q", it["q"]), ("d", it["d"]), ("y", it["inc"]), ("a", it["addr"]), ("ar", sorted(it["arch"])[:3] or None), ("w", it["wiki"]), ("imp", imp), ("x", 1 if removed else None), ("f", it["img"])):
         if v: p[k] = v
     if it["q"] in P:

@@ -86,3 +86,8 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
   - `web/demo.js` colours the units. Level 1 = sum of its level-2 units. City neighbourhoods inherit their sector (paler); villages have their own figures.
   - Indicators: % children, % working age, % above working age, dependency ratio, ageing index, women per 100 men.
 - **Statistici** tab: `lifeExtraHtml()` in demo.js adds Eurostat-style indicators (census housing and households, services per 10k, green/forest m² per resident, built-up share, transit, cycle km).
+- Heritage, **completely destroyed objects**:
+  - Sources: register items whose state is demolished/destroyed, plus a curated list `data/raw/heritage/lost.json` (copy in repo `data/heritage/lost.json`, each entry with its source).
+  - They get `z=1` (and `dz` = demolition year) and use a separate dark icon. The legend checkbox `data-herz` (S.herZ) shows or hides them.
+  - Not added yet, because coordinates are needed: the Lutheran church (1960), the Diocesan house (1947), the Alexander II monument (1918), the 1923 Mateevici–Murafa–Hodorogea monument. WDQS was down.
+- Photo download writes `<q>.jpg.fail` after 4 refusals, so reruns are fast.

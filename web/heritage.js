@@ -52,7 +52,7 @@ function nameLayer(id, src) {
 }
 
 // ---------------------------------------------------------------- heritage
-S.herT = store.get("herT", null); S.herX = store.get("herX", false);
+S.herT = store.get("herT", null); S.herX = store.get("herX", false); S.herZ = store.get("herZ", true);   // herZ: completely destroyed objects
 const herTypes = () => S.herT ?? Object.keys(HER_T);
 const HER_BAD = /demol|distrus|destroyed|ruin|abandon|damaged|deterior|proast|partially/i, HER_OK = /restaur|bună|good/i;
 function herStateCol(s) { return HER_BAD.test(s) ? "#c92a2a" : HER_OK.test(s) ? "#2b8a3e" : "#e67700"; }
@@ -66,17 +66,18 @@ async function herRender(on) {
   if (!map.getSource("her")) {
     const fc = await load("heritage.json");
     for (const [k, v] of Object.entries(HER_T)) hiAdd("her-" + k, v[3], v[4], k === "alt");
+    hiAdd("her-z", "#343a40", ["M5 20h14", "M7 20v-6l3-2 2 3 2-4 3 2v7", "M4 4l16 16"], false);   // destroyed: a ruin, crossed out
     if (map.getSource("her")) return;
     map.addSource("her", { type: "geojson", data: fc });
     map.addLayer({ id: "her-pts", type: "symbol", source: "her",
-      layout: { "icon-image": ["concat", "her-", ["get", "t"]], "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-size": HSIZE,
+      layout: { "icon-image": ["case", ["has", "z"], "her-z", ["concat", "her-", ["get", "t"]]], "icon-allow-overlap": true, "icon-ignore-placement": true, "icon-size": HSIZE,
         "symbol-sort-key": ["match", ["get", "imp"], "nat", 0, 1] },
-      paint: { "icon-opacity": ["case", ["has", "x"], 0.5, 1] } }, "draw-fill");
+      paint: { "icon-opacity": ["case", ["has", "z"], 0.85, ["has", "x"], 0.5, 1] } }, "draw-fill");
     nameLayer("her-names", "her");
     map.on("click", "her-pts", (e) => { if (S.tool) return; herPopup(e.features[0].properties, e.features[0].geometry.coordinates).catch((x) => console.error("herPopup", x)); });
     pointer("her-pts");
   }
-  const f = ["all", ["in", ["get", "t"], ["literal", herTypes()]], S.herX ? true : ["!", ["has", "x"]]];
+  const f = ["all", ["in", ["get", "t"], ["literal", herTypes()]], S.herX ? true : ["any", ["!", ["has", "x"]], ["has", "z"]], S.herZ ? true : ["!", ["has", "z"]]];
   map.setFilter("her-pts", f); map.setFilter("her-names", f);
   vis("her-pts", on); vis("her-names", on);
 }
@@ -88,7 +89,8 @@ async function herPopup(p, ll) {
     : `<span class="small">${L("nu există date publice", "no public data", "нет открытых данных")}</span>`;
   const html = (img) => `<div class="poipop">${img || ""}<b>${esc(p.n)}</b>
     <div class="k" style="color:${tp[3]}">${esc(L(tp[0], tp[1], tp[2]))}${p.imp ? " · " + (p.imp === "nat" ? L("importanță națională", "national importance", "национального значения") : L("importanță locală", "local importance", "местного значения")) : ""}</div>
-    ${p.x ? `<div class="k">${L("Scos din registru / fost monument", "Removed from the register", "Исключён из реестра")}</div>` : ""}
+    ${p.z ? `<div><span class="herst" style="background:#343a40">${L("Distrus complet", "Completely destroyed", "Полностью утрачен")}</span>${p.dz ? ` ${L("în", "in", "в")} ${esc(p.dz)}` : ""}${p.ap ? ` <small>(${L("localizare aproximativă", "approximate location", "местоположение приблизительное")})</small>` : ""}</div>${p.ln ? `<div class="desc">${esc(p.ln)}</div>` : ""}` : ""}
+    ${p.x && !p.z ? `<div class="k">${L("Scos din registru / fost monument", "Removed from the register", "Исключён из реестра")}</div>` : ""}
     <div>${L("Stare de conservare", "State of conservation", "Состояние")}: ${state}</div>
     ${p.y ? `<div>${L("Anul", "Year", "Год")}: ${esc(p.y)}</div>` : ""}${p.a ? `<div>${t("addr")}: ${esc(p.a)}</div>` : ""}
     ${ar.length ? `<div>${L("Arhitect", "Architect", "Архитектор")}: ${esc(ar.join(", "))}</div>` : ""}
@@ -105,12 +107,14 @@ async function herPopup(p, ll) {
 function herLegend() {
   const fc = DATA.__her;
   if (!fc) { load("heritage.json").then((x) => { DATA.__her = x; renderLegend(); }); return `<li class="loading"><span class="spin"></span>…</li>`; }
-  const F = fc.features.filter((f) => S.herX || !f.properties.x), on = new Set(herTypes());
+  const F = fc.features.filter((f) => (S.herX || !f.properties.x) && !f.properties.z), on = new Set(herTypes()), Z = fc.features.filter((f) => f.properties.z);
   const n = (k) => F.filter((f) => f.properties.t === k).length;
   const st = F.filter((f) => arr(f.properties.s).length), bad = st.filter((f) => arr(f.properties.s).some((s) => HER_BAD.test(s)));
   return `<li class="cap">${L("Tipul monumentului", "Type of monument", "Тип памятника")}</li>`
     + Object.entries(HER_T).filter(([k]) => n(k)).map(([k, v]) => `<li><label><input type="checkbox" data-hert="${k}" ${on.has(k) ? "checked" : ""}>${hiImg("her-" + k)}<span class="zl">${esc(L(v[0], v[1], v[2]))}</span><span class="za">${fmt(n(k))}</span></label></li>`).join("")
     + `<li class="zrow2"><b class="zl">Total</b><b class="za">${fmt(F.length)}</b></li>`
+    + `<li><label><input type="checkbox" data-herz="1" ${S.herZ ? "checked" : ""}>${hiImg("her-z")}<span class="zl">${L("Obiective distruse complet", "Completely destroyed", "Полностью утраченные")}</span><span class="za">${fmt(Z.length)}</span></label></li>`
+    + (S.herZ && Z.length ? `<li class="lglist">${Z.sort((a, b) => (+b.properties.dz || 0) - (+a.properties.dz || 0)).map((f) => `<button type="button" data-herfly="${f.geometry.coordinates.join(",")}">${hiImg("her-z")}<span class="zl">${esc(f.properties.n)}</span><span class="za">${esc(f.properties.dz || "")}</span></button>`).join("")}</li>` : "")
     + `<li><label class="check"><input type="checkbox" data-herx="1" ${S.herX ? "checked" : ""}> ${L("Arată și obiectele scoase din registru", "Also show objects removed from the register", "Показывать и исключённые из реестра")}</label></li>`
     + `<li class="cap">${L("Stare de conservare cunoscută", "Known state of conservation", "Известное состояние")} (${fmt(st.length)})</li>`
     + (bad.length ? `<li class="lglist">${bad.slice(0, 12).map((f) => `<button type="button" data-herfly="${f.geometry.coordinates.join(",")}"><i style="background:#c92a2a;width:9px;height:9px;border-radius:50%"></i><span class="zl">${esc(f.properties.n)}</span><span class="za">${esc(herStateTxt(arr(f.properties.s)[0]))}</span></button>`).join("")}</li>` : "")
@@ -176,6 +180,7 @@ document.getElementById("legend").addEventListener("change", (e) => {
   const d = e.target.dataset;
   if (d.hert) { S.herT = [...document.querySelectorAll("[data-hert]")].filter((c) => c.checked).map((c) => c.dataset.hert); store.set("herT", S.herT); render(); }
   if (d.herx) { S.herX = e.target.checked; store.set("herX", S.herX); render(); }
+  if (d.herz) { S.herZ = e.target.checked; store.set("herZ", S.herZ); render(); }
   if (d.indb) { S.indB = [...document.querySelectorAll("[data-indb]")].filter((c) => c.checked).map((c) => c.dataset.indb); store.set("indB", S.indB); render(); }
   if (d.indz) { S.indZ = e.target.checked; store.set("indZ", S.indZ); render(); }
 });
