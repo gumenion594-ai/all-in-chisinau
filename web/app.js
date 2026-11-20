@@ -151,7 +151,8 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("chi-atlas2-" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("chi-atlas2-" + k, JSON.stringify(v)); } catch {} },
 };
-const MAPS = ["admin", "pop", "zone", "age", "temp", "cmp", "transit", "roads", "stats"];
+const MAPS = ["admin", "pop", "zone", "age", "temp", "her", "ind", "transit", "roads", "stats"];
+const CMP_MODES = ["admin", "stats", "zone"];   // the comparison with other cities sits under the municipality area
 const SECDIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
 const CMP_KEEP = ["nyc", "berlin", "bucuresti", "balti"];
 const cmpList = () => load("compare.json").then((l) => l.filter((c) => CMP_KEEP.includes(c.k)));
@@ -1068,7 +1069,7 @@ async function render() {
   const ageF = ["in", ["get", "a"], ["literal", S.ages ?? AGE_ORDER]];
   if (map.getLayer("agegrid")) map.setFilter("agegrid", ageF);
   if (map.getLayer("bld-age")) map.setFilter("bld-age", ageF);
-  if (has("cmp") || Object.keys(S.cmp).length) await cmpUpdate();
+  if (Object.keys(S.cmp).length || map.getSource("cmp")) await cmpUpdate();
   if (d3 || ageOn) { if (!map.getSource("bld")) { document.getElementById("legend").insertAdjacentHTML("afterbegin", `<li class="loading"><span class="spin"></span>${t("age_load")}</li>`); } await ensure.buildings(); }
   vis("bld", d3 && !only);
   vis("bld-age", ageOn && !d3);
@@ -1093,6 +1094,7 @@ async function render() {
   }
   if (map.getLayer("heat") && (hills || ratioFlat)) vis("heat", false);
   if (map.getLayer("heat")) map.setPaintProperty("heat", "heatmap-radius", hills ? ["interpolate", ["exponential", 2], ["zoom"], 9, 7, 12, 24, 15, 90, 17, 200] : ["interpolate", ["exponential", 2], ["zoom"], 9, 4, 12, 14, 15, 60, 17, 160]);
+  await herRender(has("her"), only); await indRender(has("ind"), only);
   const stDem = await statsRender(has("stats"), only);
   if (has("stats") && S.stView !== "units") map.setPaintProperty("landuse", "fill-opacity", only ? 0 : (S.base === "standard" || S.base === "simple") ? ["match", ["get", "z"], "water", 1, 0] : 0);
   const wantSrc = stDem && !hills ? stDem : hills ? hsrc : S.terrain && !only ? "dem" : null;
@@ -1178,6 +1180,10 @@ function renderLegend() {
   let h = "";
   if (m === "stats") {
     h = statsLegend();
+  } else if (m === "her") {
+    h = herLegend();
+  } else if (m === "ind") {
+    h = indLegend();
   } else if (m === "admin") {
     h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}${SECDIR[k] ? ` <span class="small">(${L(SECDIR[k][0], SECDIR[k][1])})</span>` : ""}</li>`).join("")
       + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
@@ -1222,16 +1228,6 @@ function renderLegend() {
   } else if (m === "pop") {
     const b = [0, 100, 500, 1500, 4000, 8000];
     h = `<li class="cap">${t("density")}</li>` + b.map((v, i) => `<li><i style="background:${P.pop[i]}"></i>${fmt(v)}${b[i + 1] ? "–" + fmt(b[i + 1]) : "+"}</li>`).join("");
-  } else if (m === "cmp") {
-    const list = DATA.__cmp;
-    if (!list) { h = `<li class="loading"><span class="spin"></span>…</li>`; cmpList().then((x) => { DATA.__cmp = x; renderLegend(); }); }
-    else {
-      const mun = DATA.__zs?.[REF()];
-      h = `<li class="small">${t("cmp_h")}</li>` + list.map((c) => `<li><label><input type="checkbox" data-cmp="${c.k}" ${S.cmp[c.k] ? "checked" : ""}><i style="background:${CMPCOL[c.k]}"></i><span class="zl">${esc(L(c.ro, c.en))}</span><span class="za">${fmt(c.km2, 1)} km²</span></label>${S.cmp[c.k] ? `<button type="button" class="btn ghost sm cmpc" data-cmpc="${c.k}">${t("cmp_center")}</button>` : ""}</li>`).join("")
-        + `<li class="cap">${t("cmp_ref")}</li><li class="zrow2"><i style="background:var(--accent)"></i><span class="zl">${L("Municipiul Chișinău", "Chișinău Municipality")}</span><b class="za">${fmt(mun?.total ?? 575.5, 1)} km²</b></li>`
-        + `<li class="small">${t("cmp_note")}</li>`;
-      if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
-    }
   } else if (m === "age") {
     const ZS = DATA.__zs?.[REF()], names = AGE_RO.map((r, i) => L(r, AGE_EN[i]));
     const on = new Set(S.ages ?? AGE_ORDER);
@@ -1425,7 +1421,7 @@ async function quickPop(sel) {
   for (const e of D.extra) if (pg.has(e[0], e[1])) pop += e[2];
   if (S.selected === sel) { sel.quick = { pop, bld }; renderInfo(); }
 }
-function infoVis() { const m = bm(S.mode); document.getElementById("info").hidden = !(m === "admin" || m === "pop" || m === "stats" || S.selected?.kind === "admin"); }
+function infoVis() { const m = bm(S.mode); document.getElementById("info").hidden = !(m === "admin" || m === "pop" || m === "stats" || m === "zone" || S.selected?.kind === "admin"); }
 async function renderInfo() {
   infoVis();
   const sel = S.selected, s = popScale();
@@ -1442,9 +1438,10 @@ async function renderInfo() {
     const el = document.getElementById("info");
     const admin = await adminFC();
     const mun = admin.features.find((f) => f.properties.lvl === "mun" && [REF(), "both"].includes(f.properties.sc)).properties;
-    el.innerHTML = `<div class="kpi"><span>${t("pop_total")} · ${S.scen === "est" ? t("est") : t("census_d")}${REF() === "ref" ? " · 2027" : ""}</span><b>${fmt(mun.pop * s)}</b><span>${fmtDate(S.date)}</span></div>`
-      + `<div class="kpi kpi2"><span>${t("area_mun")}${REF() === "ref" ? " · 2027" : ""}</span><b>${fmt(mun.km2, 1)} km²</b></div>`
-      + budgetHtml(mun.pop * s) + `<p class="hint">${t("clickhint")}</p>` + (S.date !== TODAY ? `<p class="note">${t("snap")}</p>` : "");
+    const m = bm(S.mode), showPop = m !== "zone", showArea = CMP_MODES.includes(m);
+    el.innerHTML = (showPop ? `<div class="kpi"><span>${t("pop_total")} · ${S.scen === "est" ? t("est") : t("census_d")}${REF() === "ref" ? " · 2027" : ""}</span><b>${fmt(mun.pop * s)}</b><span>${fmtDate(S.date)}</span></div>` : "")
+      + (showArea ? `<div class="kpi kpi2${showPop ? "" : " kpi1"}"><span>${t("area_mun")}${REF() === "ref" ? " · 2027" : ""}</span><div class="kparea"><b>${fmt(mun.km2, 1)} km²</b><button type="button" class="btn ghost sm cmpbtn" data-cmpbtn="1" aria-expanded="${!!S.cmpOpen}">${t("cmp")} ${S.cmpOpen ? "▴" : "▾"}${Object.keys(S.cmp).length ? ` <span class="cmpn">${Object.keys(S.cmp).length}</span>` : ""}</button></div></div>` + cmpBox() : "")
+      + (m === "zone" ? "" : budgetHtml(mun.pop * s) + `<p class="hint">${t("clickhint")}</p>` + (S.date !== TODAY ? `<p class="note">${t("snap")}</p>` : ""));
     el.querySelectorAll("[data-cur]").forEach((b) => b.addEventListener("click", () => { S.cur = b.dataset.cur; store.set("cur", S.cur); renderInfo(); }));
     if (!sel) return;
   }
@@ -1730,6 +1727,13 @@ function tempChart(T0) {
 }
 // ---------------------------------------------------------------- city size comparison
 const CMP_MARK = {};
+function cmpBox() {
+  if (!S.cmpOpen) return "";
+  const list = DATA.__cmp;
+  if (!list) { cmpList().then((x) => { DATA.__cmp = x; renderInfo(); }); return `<div class="loading"><span class="spin"></span>…</div>`; }
+  return `<ul class="cmpbox"><li class="small">${t("cmp_h")}</li>` + list.map((c) => `<li><label><input type="checkbox" data-cmp="${c.k}" ${S.cmp[c.k] ? "checked" : ""}><i style="background:${CMPCOL[c.k]}"></i><span class="zl">${esc(L(c.ro, c.en))}</span><span class="za">${fmt(c.km2, 1)} km²</span></label>${S.cmp[c.k] ? `<button type="button" class="btn ghost sm cmpc" data-cmpc="${c.k}">${t("cmp_center")}</button>` : ""}</li>`).join("")
+    + `<li class="small">${t("cmp_note")}</li></ul>`;
+}
 function cmpGeom(c, lon0, lat0) {
   const conv = (ring) => ring.map(([x, y]) => { const lat = lat0 + y / 111320; return [lon0 + x / (111320 * Math.cos(lat * Math.PI / 180)), lat]; });
   return { type: "MultiPolygon", coordinates: c.poly.map((p) => p.map(conv)) };
@@ -1775,7 +1779,7 @@ async function cmpUpdate() {
     } else CMP_MARK[c.k].setLngLat(pos);
   }
   map.getSource("cmp").setData({ type: "FeatureCollection", features: feats });
-  const on = S.mode === "cmp" || S.keep.cmp;
+  const on = CMP_MODES.includes(bm(S.mode));
   vis("cmp-fill", on); vis("cmp-line", on);
   Object.values(CMP_MARK).forEach((m) => (m.getElement().hidden = !on));
 }
@@ -1865,24 +1869,29 @@ function bindEvents() {
       if (!b.isEmpty()) map.fitBounds(b, { padding: 60 });
     });
   });
-  $("legend").addEventListener("click", (e) => {
+  $("info").addEventListener("click", (e) => {
+    if (e.target.closest?.("[data-cmpbtn]")) { S.cmpOpen = !S.cmpOpen; renderInfo(); return; }
     const k = e.target.closest?.("[data-cmpc]")?.dataset.cmpc;
-    if (k) { const c = map.getCenter(); S.cmp = { ...S.cmp, [k]: [c.lng, c.lat] }; cmpUpdate(); return; }
+    if (k) { const c = map.getCenter(); S.cmp = { ...S.cmp, [k]: [c.lng, c.lat] }; cmpUpdate(); }
+  });
+  $("info").addEventListener("change", (e) => {
+    const d = e.target.dataset;
+    if (!d.cmp) return;
+    if (e.target.checked) {
+      const c = map.getCenter(), p = map.project(c);
+      let q = p, n = 0;
+      while (n < 8 && Object.values(S.cmp).some((v) => { const r = map.project(v); return Math.abs(r.x - q.x) < 150 && Math.abs(r.y - q.y) < 28; })) { n++; q = { x: p.x, y: p.y + 32 * n }; }
+      const ll = map.unproject([q.x, q.y]); S.cmp = { ...S.cmp, [d.cmp]: [ll.lng, ll.lat] };
+    }
+    else { const n = { ...S.cmp }; delete n[d.cmp]; S.cmp = n; }
+    cmpUpdate(); renderInfo();
+  });
+  $("legend").addEventListener("click", (e) => {
     const d = e.target.closest?.("[data-day]")?.dataset.day;
     if (d) { S.date = d; render(); }
   });
   $("legend").addEventListener("change", (e) => {
     const d = e.target.dataset;
-    if (d.cmp) {
-      if (e.target.checked) {
-        const c = map.getCenter(), p = map.project(c);
-        let q = p, n = 0;
-        while (n < 8 && Object.values(S.cmp).some((v) => { const r = map.project(v); return Math.abs(r.x - q.x) < 150 && Math.abs(r.y - q.y) < 28; })) { n++; q = { x: p.x, y: p.y + 32 * n }; }
-        const ll = map.unproject([q.x, q.y]); S.cmp = { ...S.cmp, [d.cmp]: [ll.lng, ll.lat] };
-      }
-      else { const n = { ...S.cmp }; delete n[d.cmp]; S.cmp = n; }
-      cmpUpdate(); renderLegend(); return;
-    }
     if (d.age !== undefined) { S.ages = [...document.querySelectorAll("[data-age]")].filter((c) => c.checked).map((c) => +c.dataset.age); store.set("ages", S.ages); render(); }
     if (d.zone) { S.zones = [...document.querySelectorAll("[data-zone]")].filter((c) => c.checked).map((c) => c.dataset.zone); render(); }
     if (e.target.name === "jobcol") { S.jobCol = e.target.value; store.set("jobCol", S.jobCol); render(); }

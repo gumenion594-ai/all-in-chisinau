@@ -58,3 +58,15 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
   heights + footprint/type; hold-out MAE 3.3 m vs 6.6 m type defaults). Heights also feed the 3D buildings (bld*.json).
 - Schools weighted by capacity estimated from building floor area (build_school_cap.py, general schools only).
 - build_kb.py → web/data/kb.json: Wikipedia (ro/en/ru) passages about Chișinău; assistant tool city_knowledge (BM25).
+
+## Done: Heritage, Industry, Compare moved
+- The Compare tab is gone. Compare now opens from a "Comparație" button under the municipality area in Admin, Statistics and Zoning (`cmpBox()` in app.js; outlines show only in those modes). Population shows only the population figure; Zoning shows only the total area.
+- **Patrimoniu** (`web/heritage.js`, `scripts/build_heritage.py`):
+  - Data: Wikidata items with heritage designation P1435 in the region box; types are architecture, religious, historic, art, archaeology and nature.
+  - State of conservation comes from Wikidata P5816/P576 and OSM ruins/abandoned/condition tags. Most monuments have none.
+  - Photos are Commons thumbnails (240 px) stored as data URIs in `her_ph_<n>.json`, 40 per chunk, loaded on click.
+- **Industrie** (`scripts/build_industry.py`):
+  - Data: OSM works / industrial / producing crafts / power plants / named industrial landuse, plus Wikidata factories and wineries.
+  - Branches are assigned from tags plus ro/ru name keywords. Non-producing sites are dropped (depots, pumping, transport, telecom).
+  - Industrial zones and quarries are kept as areas.
+  - OSM input subset: `data/raw/osm_her_ind.json`, cut from area/extra_e/extra_n.

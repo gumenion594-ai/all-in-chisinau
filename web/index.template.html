@@ -254,6 +254,22 @@ body.nopanel #elevread { left: calc(14px + env(safe-area-inset-left, 0px)); }
 #lifemenu { width: 330px; max-height: calc(100% - 90px); overflow-y: auto; }
 #lifemenu .stats dd { white-space: nowrap; }
 .rownote { grid-column: 1 / -1; font-size: 11px; color: var(--muted); margin: -2px 0 4px; }
+.kparea { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.kpi1 { margin-top: 0; }
+.cmpbtn { font-size: 12px; }
+.cmpbtn .cmpn { display: inline-block; min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff !important; -webkit-text-fill-color: #fff; font: 700 10.5px/16px var(--body); text-align: center; }
+ul.cmpbox { list-style: none; margin: 8px 0 4px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; display: flex; flex-direction: column; gap: 4px; }
+ul.cmpbox li label { display: flex; align-items: center; gap: 6px; }
+ul.cmpbox li i { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+ul.cmpbox .zl { flex: 1; } ul.cmpbox .za { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lgico { width: 18px; height: 18px; flex: none; vertical-align: middle; }
+.herst { display: inline-block; padding: 1px 7px; border-radius: 9px; font-size: 11.5px; font-weight: 600; color: #fff; }
+.poipop .desc { font-size: 12px; color: var(--muted); margin: 2px 0; }
+#legend li.lglist { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.lglist button { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 2px 0; }
+.lglist button span.zl { flex: 1; text-align: left; }
+.lglist button:hover span.zl { text-decoration: underline; }
+.lglist .za { margin-left: auto; color: var(--muted); font-size: 11.5px; }
 .kpi2 { margin-top: 8px; }
 .kpi2 b { font-size: 20px; color: var(--fg); }
 #legend .zl { flex: 1; min-width: 0; }
@@ -792,7 +808,8 @@ nav.tabs2 { margin-top: -1px; }
   </nav>
   <nav class="tabs tabs2" aria-label="Hărți suplimentare">
     <button class="tab" type="button" data-mode="temp"><svg viewBox="0 0 24 24"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 10v6"/></svg><span data-t="temp"></span></button>
-    <button class="tab" type="button" data-mode="cmp"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="10" height="10" rx="1.5"/><rect x="10" y="4" width="11" height="13" rx="1.5" stroke-dasharray="2.5 2"/><path d="M6 20h12"/></svg><span data-t="cmp"></span></button>
+    <button class="tab" type="button" data-mode="her"><svg viewBox="0 0 24 24"><path d="M3 9l9-5 9 5"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8"/><path d="M3 20.5h18"/></svg><span data-t="her"></span></button>
+    <button class="tab" type="button" data-mode="ind"><svg viewBox="0 0 24 24"><path d="M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17z"/><path d="M7 17h2M12 17h2"/></svg><span data-t="ind"></span></button>
     <button class="tab" type="button" data-mode="stats"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span data-t="stats"></span></button>
   </nav>
   <div class="body">
@@ -844,12 +861,12 @@ nav.tabs2 { margin-top: -1px; }
       <span class="lab" data-t="route"></span>
       <select id="route-sel" aria-label="Route"></select>
     </div>
-    <div class="grp layeropts" data-panel="admin pop zone age temp cmp transit roads stats">
+    <div class="grp layeropts" data-panel="admin pop zone age temp her ind transit roads stats">
       <label class="check"><input type="checkbox" id="only"><span data-t="only"></span></label>
       <p class="small" data-t="keep_hint"></p>
       <div id="keptlist"></div>
     </div>
-    <div class="grp" data-panel="admin pop zone age temp cmp transit roads stats">
+    <div class="grp" data-panel="admin pop zone age temp her ind transit roads stats">
       <ul id="legend"></ul>
     </div>
     <div id="info"></div>
