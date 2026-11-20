@@ -151,7 +151,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("chi-atlas2-" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("chi-atlas2-" + k, JSON.stringify(v)); } catch {} },
 };
-const MAPS = ["admin", "pop", "zone", "age", "temp", "her", "ind", "transit", "roads", "stats"];
+const MAPS = ["admin", "pop", "zone", "age", "temp", "her", "ind", "transit", "roads", "stats", "life"];
 const CMP_MODES = ["admin", "stats", "zone"];   // the comparison with other cities sits under the municipality area
 const SECDIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
 const CMP_KEEP = ["nyc", "berlin", "bucuresti", "balti"];
@@ -1660,7 +1660,7 @@ async function fillRoutes() {
 }
 
 // ================================================================== events
-function renderLife() { const m = document.getElementById("lifemenu"); if (!m.hidden) m.innerHTML = lifeHtml(); }
+function renderLife() { const m = document.getElementById("lifepanel"); if (bm(S.mode) === "life") m.innerHTML = lifeHtml(); }   // "Nivel de trai" is its own tab (no map layer yet)
 async function fillRegions() {
   const sel = document.getElementById("region"), admin = await adminFC();
   const grp = (lvl, label) => {
@@ -1795,7 +1795,7 @@ function bindEvents() {
   let lastTap = { mode: null, t: 0 };
   document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", (e) => {
     const md = b.dataset.mode, now = e.timeStamp;
-    if (lastTap.mode === md && now - lastTap.t < 400) {          // double click / double tap: keep or release this map
+    if (lastTap.mode === md && now - lastTap.t < 400 && md !== "life") {          // double click / double tap: keep or release this map
       S.keep = { ...S.keep, [md]: !S.keep[md] }; lastTap = { mode: null, t: 0 }; render(); return;
     }
     lastTap = { mode: md, t: now };
@@ -1818,7 +1818,7 @@ function bindEvents() {
     m.hidden = !open; $("planbtn").setAttribute("aria-expanded", String(open));
     if (open) renderLife();
   });
-  $("lifemenu").addEventListener("click", (e) => { const c = e.target.dataset?.cur; if (c) { S.cur = c; store.set("cur", c); renderLife(); renderInfo(); } });
+  $("lifepanel").addEventListener("click", (e) => { const c = e.target.dataset?.cur; if (c) { S.cur = c; store.set("cur", c); renderLife(); renderInfo(); } });
   $("newproj").addEventListener("click", () => {});
   radios("base", (v) => { S.base = v; if (v === "elevation") statData(); render(); });
   $("ctx").addEventListener("change", (e) => { S.ctx = e.target.checked; render(); });

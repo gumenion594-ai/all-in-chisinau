@@ -117,7 +117,7 @@ for it in list(items.values()) + osm_extra:
     tp = it.get("tp") or htype(it)
     st = sorted(it["st"])
     if it["dem"] and not any("demol" in s for s in st): st.append("demolat " + it["dem"])
-    removed = (it["d"] or "").startswith("fost ") or any(h.startswith("fost ") for h in it["her"])
+    removed = tp != "arh" and ((it["d"] or "").startswith("fost ") or any(h.startswith("fost ") for h in it["her"]))
     imp = "nat" if re.search(r"importanță națională|national importance", it["d"] or "") else "loc" if re.search(r"importanță locală|local importance", it["d"] or "") else None
     p = {"n": it["n"], "t": tp, "h": sorted(it["her"]), "s": st}
     for k, v in (("q", it["q"]), ("d", it["d"]), ("y", it["inc"]), ("a", it["addr"]), ("ar", sorted(it["arch"])[:3] or None), ("w", it["wiki"]), ("imp", imp), ("x", 1 if removed else None), ("f", it["img"])):

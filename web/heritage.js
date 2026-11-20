@@ -1,5 +1,5 @@
 // ================================================================== Heritage ("Patrimoniu") and Industry ("Industrie") maps
-Object.assign(T.ro, { her: "Patrimoniu", ind: "Industrie" }); Object.assign(T.en, { her: "Heritage", ind: "Industry" }); if (T.ru) Object.assign(T.ru, { her: "Наследие", ind: "Промышленность" });
+Object.assign(T.ro, { her: "Patrimoniu", ind: "Industrie", life_tab: "Nivel de trai" }); Object.assign(T.en, { her: "Heritage", ind: "Industry", life_tab: "Living standard" }); if (T.ru) Object.assign(T.ru, { her: "Наследие", ind: "Промышленность", life_tab: "Уровень жизни" });
 if (S.mode === "cmp") S.mode = "admin";   // the old Compare tab now sits under the municipality area
 if (S.keep?.cmp) delete S.keep.cmp;
 
@@ -72,7 +72,7 @@ async function herRender(on) {
         "symbol-sort-key": ["match", ["get", "imp"], "nat", 0, 1] },
       paint: { "icon-opacity": ["case", ["has", "x"], 0.5, 1] } }, "draw-fill");
     nameLayer("her-names", "her");
-    map.on("click", "her-pts", (e) => { if (S.tool) return; herPopup(e.features[0].properties, e.features[0].geometry.coordinates); });
+    map.on("click", "her-pts", (e) => { if (S.tool) return; herPopup(e.features[0].properties, e.features[0].geometry.coordinates).catch((x) => console.error("herPopup", x)); });
     pointer("her-pts");
   }
   const f = ["all", ["in", ["get", "t"], ["literal", herTypes()]], S.herX ? true : ["!", ["has", "x"]]];
@@ -97,7 +97,7 @@ async function herPopup(p, ll) {
   if (p.ph != null) {
     try {
       const src = (await load(`her_ph_${p.ph}.json`))[p.q];
-      if (src && pp.isOpen()) pp.setHTML(html(`<img class="ph" src="${src}" alt="${esc(p.n)}"><div class="k">${t("photo")}: Wikimedia Commons · <a href="https://commons.wikimedia.org/wiki/File:${encodeURIComponent((p.f || "").replace(/ /g, "_"))}" target="_blank" rel="noopener">${L("autor și licență", "author and licence", "автор и лицензия")}</a></div>`));
+      if (src && pp.isOpen()) pp.setHTML(html(`<img class="ph" src="${src}" alt="${esc(p.n)}"><div class="k">${L("Foto", "Photo", "Фото")}: Wikimedia Commons · <a href="https://commons.wikimedia.org/wiki/File:${encodeURIComponent((p.f || "").replace(/ /g, "_"))}" target="_blank" rel="noopener">${L("autor și licență", "author and licence", "автор и лицензия")}</a></div>`));
     } catch {}
   }
 }
@@ -135,7 +135,7 @@ async function indRender(on) {
         "symbol-sort-key": ["-", 0, ["coalesce", ["get", "a"], 0]] },
       paint: { "icon-opacity": ["case", ["has", "x"], 0.5, 1] } }, "draw-fill");
     nameLayer("ind-names", "ind");
-    map.on("click", "ind-pts", (e) => { if (S.tool) return; indPopup(e.features[0].properties, e.features[0].geometry.coordinates); });
+    map.on("click", "ind-pts", (e) => { if (S.tool) return; indPopup(e.features[0].properties, e.features[0].geometry.coordinates).catch((x) => console.error("indPopup", x)); });
     pointer("ind-pts");
   }
   const d = await load("industry.json"), sel = S.indB ?? d.br.map((b) => b[0]);

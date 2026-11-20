@@ -60,6 +60,7 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 - build_kb.py → web/data/kb.json: Wikipedia (ro/en/ru) passages about Chișinău; assistant tool city_knowledge (BM25).
 
 ## Done: Heritage, Industry, Compare moved
+- "Nivel de trai" is its own tab (#lifepanel, no map layer yet); the toolbar button is hidden.
 - The Compare tab is gone. Compare now opens from a "Comparație" button under the municipality area in Admin, Statistics and Zoning (`cmpBox()` in app.js; outlines show only in those modes). Population shows only the population figure; Zoning shows only the total area.
 - **Patrimoniu** (`web/heritage.js`, `scripts/build_heritage.py`):
   - Data: Wikidata items with heritage designation P1435 in the region box; types are architecture, religious, historic, art, archaeology and nature.
