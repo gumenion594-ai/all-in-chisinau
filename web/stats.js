@@ -29,11 +29,13 @@ const ST_HOW = {
 const ST_COMMON = () => L("Până la 2 km distanța se măsoară pe străzi, trotuare și poteci (OpenStreetMap), nu în linie dreaptă: un obiectiv de peste calea ferată sau un râu poate fi departe chiar dacă pare aproape. La 5 și 10 km, unde contează puțin, se folosește linia dreaptă × 1,3 (ocolișul obișnuit). Scorul 0–100 nu are plafon artificial: 100 = nivelul celor mai bine serviți 1% dintre locuitori, iar restul e proporțional. Media pe unități e ponderată cu numărul de locuitori.",
   "Up to 2 km, distance is measured along streets, sidewalks and paths (OpenStreetMap), not in a straight line: a facility across a railway or a river can be far even if it looks close. At 5 and 10 km, where it matters little, the straight line × 1.3 (usual detour) is used. The 0–100 score has no artificial ceiling: 100 = the level of the best-served 1% of residents, the rest is proportional. Unit averages are weighted by residents.",
   "До 2 км расстояние считается по улицам, тротуарам и дорожкам (OpenStreetMap), а не по прямой: объект за железной дорогой или рекой может быть далеко, даже если кажется близким. На 5 и 10 км, где вклад мал, берётся прямая × 1,3 (обычный крюк). Балл 0–100 без искусственного потолка: 100 = уровень лучше всего обеспеченного 1% жителей, остальное пропорционально. Средние по единицам взвешены по жителям.");
-const ST_CLS = [[0, 20, "#c0272d"], [20, 40, "#f07b3f"], [40, 60, "#f6c85f"], [60, 80, "#8cc665"], [80, 101, "#1f8a4c"]];
+// red–yellow–blue: dark ends, light middle (strong lightness contrast, readable with red–green colour blindness)
+const ST_CLS = [[0, 20, "#a50f2d"], [20, 40, "#f0703c"], [40, 60, "#f9d978"], [60, 80, "#6fa8d6"], [80, 101, "#23418f"]];
+const stInk = (c) => (c === 2 ? "#3a2c00" : "#fff");   // text on a class colour
 const ST_CLN = () => [L("Foarte slab", "Very poor", "Очень плохо"), L("Slab", "Poor", "Плохо"), L("Mediu", "Fair", "Средне"), L("Bun", "Good", "Хорошо"), L("Foarte bun", "Very good", "Очень хорошо")];
-const ST_STOPS = [[0, [165, 0, 38]], [20, [227, 74, 51]], [40, [253, 174, 97]], [55, [254, 224, 139]], [70, [166, 217, 106]], [85, [26, 152, 80]], [100, [0, 104, 55]]];
+const ST_STOPS = [[0, [110, 0, 35]], [15, [190, 30, 45]], [30, [240, 105, 60]], [45, [252, 185, 100]], [55, [250, 232, 150]], [65, [160, 205, 230]], [80, [75, 140, 200]], [100, [25, 45, 125]]];
 const lerpStops = (st, v) => { if (v <= st[0][0]) return st[0][1]; for (let i = 1; i < st.length; i++) if (v <= st[i][0]) { const [a, p] = st[i - 1], [b, c] = st[i], t = (v - a) / (b - a); return p.map((x, k) => x + (c[k] - x) * t); } return st.at(-1)[1]; };
-const RT_GOOD = [[-2, [165, 0, 38]], [-1, [240, 123, 63]], [0, [250, 240, 200]], [1, [140, 198, 101]], [2, [0, 104, 55]]];
+const RT_GOOD = [[-2, [110, 0, 35]], [-1, [240, 105, 60]], [0, [250, 238, 190]], [1, [100, 160, 215]], [2, [25, 45, 125]]];
 const RT_NEU = [[-2, [94, 60, 153]], [-1, [178, 171, 210]], [0, [247, 247, 247]], [1, [253, 184, 99]], [2, [230, 97, 1]]];
 const rgbHex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
 Object.assign(S, { stat: store.get("stat", "green"), stRatio: store.get("stRatio", false), stA: store.get("stA", "green"), stB: store.get("stB", "pop"), stView: store.get("stView", "heat"), stEmpty: store.get("stEmpty", false) });
@@ -111,7 +113,7 @@ async function stTile(url, dem) {
       if (dem) { const h = (m > 0 ? stHeight(key, v, mode === "sqrt") * (dens ? 1 : Math.min(1, m)) : 0) + 32768; a[o] = Math.floor(h / 256); a[o + 1] = Math.floor(h) % 256; a[o + 2] = Math.floor((h % 1) * 256); a[o + 3] = 255; continue; }
       if (m <= 0) { a[o + 3] = 0; continue; }
       const c = stColour(key, v); a[o] = c[0]; a[o + 1] = c[1]; a[o + 2] = c[2];
-      a[o + 3] = dens ? (c[3] ?? 200) : Math.round(215 * Math.min(1, m));
+      a[o + 3] = dens ? (c[3] ?? 200) : Math.round(232 * Math.min(1, m));
     }
   }
   ctx.putImageData(img, 0, 0);
@@ -242,7 +244,7 @@ async function statsLegendAsync() {
   let avg = 0; for (let i = 0; i < G.n; i++) avg += G.vals[k][i] * G.pop[i] * G.inside[i]; avg /= tot;
   const cls = ST_CLN(), rows = ST_CLS.map(([lo, hi, c], i) => [c, cls[i], share(lo, hi), `${lo}–${Math.min(hi, 100)}`]).reverse();
   const poor = share(0, 40);
-  h += `<li class="stkpi"><div><b style="color:${rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#c0272d" : poor > 0.1 ? "#e8590c" : "#1f8a4c"}">${fmt(poor * 100, 0)}%</b><span>${L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
+  h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#a50f2d" : poor > 0.1 ? "#e8590c" : "#23418f"}">${fmt(poor * 100, 0)}%</b><span>${L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
     + `<li class="cap">${L("Câți locuitori au fiecare nivel", "Residents at each level", "Сколько жителей на каждом уровне")}</li>` + stBars(rows);
   if (G.near[k]) {   // median walking distance to the nearest facility, for residents
     const arr = []; for (let i = 0; i < G.n; i++) if (G.inside[i] && G.pop[i] > 0) arr.push([G.near[k][i], G.pop[i]]);
@@ -267,7 +269,7 @@ function statsInfoRows(p) {
   const nm = (d) => (d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(d) + " m");
   const cls = ST_CLN();
   return ["green", "transit", "air", "health", "school"].map((k) => { const v = p["st_" + k], c = ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi);
-    return `<dt>${esc(STN(k))}</dt><dd><b class="stpill" style="background:${ST_CLS[c][2]}">${v}</b> ${cls[c]}${p["sn_" + k] != null ? `<small class="muted"> · ${L("cel mai aproape", "nearest", "ближайшее")} ~${nm(p["sn_" + k])}</small>` : ""}</dd>`; }).join("");
+    return `<dt>${esc(STN(k))}</dt><dd><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${cls[c]}${p["sn_" + k] != null ? `<small class="muted"> · ${L("cel mai aproape", "nearest", "ближайшее")} ~${nm(p["sn_" + k])}</small>` : ""}</dd>`; }).join("");
 }
 // panel controls
 function statsPanel() {
@@ -309,7 +311,7 @@ async function stPointPopup(ll) {
   const CUT = { transit: 10, green: 2, health: 10, school: 10 };
   const nm = (d, s) => (d >= 99999 ? "> " + fmt(CUT[s], 1) + " km" : d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(Math.round(d / 10) * 10) + " m");
   const rows = ["green", "transit", "air", "health", "school"].map((s) => { const v = Math.round(stSample(G.vals[s], ll.lng, ll.lat, G.inside)[0]), c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
-    return `<tr><td>${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]}">${v}</b> ${cls[c]}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}${s === "transit" ? ` · ${G.cum.transit[k]} ${L("linii la ≤ 500 m", "lines within 500 m", "линий в пределах 500 м")}` : s === "school" ? ` · ${G.cum.school[k]} ${L("școli la ≤ 1 km", "schools within 1 km", "школ в пределах 1 км")}` : ""}</small>` : ""}</td></tr>`; }).join("");
+    return `<tr><td>${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${cls[c]}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}${s === "transit" ? ` · ${G.cum.transit[k]} ${L("linii la ≤ 500 m", "lines within 500 m", "линий в пределах 500 м")}` : s === "school" ? ` · ${G.cum.school[k]} ${L("școli la ≤ 1 km", "schools within 1 km", "школ в пределах 1 км")}` : ""}</small>` : ""}</td></tr>`; }).join("");
   const pd = stSample(G.vals.pop, ll.lng, ll.lat, G.inside)[0] * popScale(), jd = stSample(G.vals.jobs, ll.lng, ll.lat, G.inside)[0];
   popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table><small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²</small>`);
 }
