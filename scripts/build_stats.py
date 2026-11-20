@@ -104,56 +104,90 @@ def snap(lon, lat):
 cnode, csnap = snap(cell_lon, cell_lat)
 csnap = np.minimum(csnap, 400)
 
-def access(src_lon, src_lat, weight, d0, cut, name, group=None, ngroups=0):
-    """Gravity sum over all sources reachable within `cut` metres of walking (optionally also split by source group)."""
-    snode, ssnap = snap(np.asarray(src_lon), np.asarray(src_lat))
+# ---------------------------------------------------------------- multi-radius access ("how many can I reach, and how close")
+# For each radius r (500 m, 1, 2, 5, 10 km) count the facilities reachable within r (weighted, with a soft edge ±15%):
+#     value = Σ_r  a_r · ln(1 + C_r)        a = 1 · 0.5 · 0.25 · 0.1 · 0.04
+# A facility close by is counted in every radius, so it weighs most; ln() gives diminishing returns, so hundreds of
+# facilities 5–10 km away cannot outweigh one within 500 m. Radii up to 2 km use walking distance on the street & path
+# network; 5 and 10 km use the straight line × 1.3 (usual detour).  Score = 100 · value / value of the best-served 1%.
+RADII = [(500, 1.0), (1000, 0.5), (2000, 0.25), (5000, 0.1), (10000, 0.04)]
+DET = 1.3
+from scipy.signal import fftconvolve
+CWm, CHm = CX * MX, CY * MY
+ramp = lambda d, r: np.clip((1.15 * r - np.asarray(d)) / (0.3 * r), 0, 1)
+def far_count(src_lon, src_lat, weight, r):
+    P = int(math.ceil(1.15 * r / DET / min(CWm, CHm))) + 1
+    Wg = np.zeros((H + 2 * P, W + 2 * P))
+    for x, y, w in zip(src_lon, src_lat, weight):
+        i, j = int(x / CX) - kx0 + P, int(y / CY) - ky0 + P
+        if 0 <= i < W + 2 * P and 0 <= j < H + 2 * P: Wg[j, i] += w
+    oy, ox = np.mgrid[-P:P + 1, -P:P + 1]
+    C = fftconvolve(Wg, ramp(np.hypot(ox * CWm, oy * CHm) * DET, r), mode="same")[P:P + H, P:P + W]
+    return np.maximum(C[cells[:, 0], cells[:, 1]], 0)
+
+def counts(src_lon, src_lat, weight, name, radii=RADII, group=None, ngroups=0):
+    """C_r per cell for every radius; with groups, also per group for the network radii."""
+    src_lon = np.asarray(src_lon, float); src_lat = np.asarray(src_lat, float); weight = np.asarray(weight, float)
+    snode, ssnap = snap(src_lon, src_lat)
     grp = np.asarray(group if group is not None else np.zeros(len(snode), int))
-    keep = ssnap < 300; snode, ssnap, weight, grp = snode[keep], ssnap[keep], np.asarray(weight, float)[keep], grp[keep]
-    raw = np.zeros(NC); nearest = np.full(NC, np.inf); cum = np.zeros(NC)
-    graw = np.zeros((ngroups, NC), np.float32) if ngroups else None
-    # cells only need sources within cut + their own snap: limit each Dijkstra to `cut`
+    keep = ssnap < 300; snode, ssnap, weight, grp, slon, slat = snode[keep], ssnap[keep], weight[keep], grp[keep], src_lon[keep], src_lat[keep]
+    net = [r for r, _ in radii if r <= 2000]; far = [r for r, _ in radii if r > 2000]
+    C = {r: np.zeros(NC) for r in net}
+    GC = {r: np.zeros((ngroups, NC), np.float32) for r in net} if ngroups else None
     order = np.argsort(snode); snode, ssnap, weight, grp = snode[order], ssnap[order], weight[order], grp[order]
     uniq, inv = np.unique(snode, return_inverse=True)
-    B = 64
-    for s in range(0, len(uniq), B):
-        D = dijkstra(G, directed=False, indices=uniq[s:s + B], limit=cut)
-        Dc = D[:, cnode]                       # (b, NC)
-        for r in range(len(uniq[s:s + B])):
-            members = np.where(inv == s + r)[0]
-            row = Dc[r]
-            ok = np.isfinite(row)
+    lim = 1.15 * max(net)
+    for s in range(0, len(uniq), 64):
+        Dc = dijkstra(G, directed=False, indices=uniq[s:s + 64], limit=lim)[:, cnode]
+        for rr in range(Dc.shape[0]):
+            row = Dc[rr]; ok = np.isfinite(row)
             if not ok.any(): continue
-            for m in members:
+            okidx = np.where(ok)[0]
+            for m in np.where(inv == s + rr)[0]:
                 d = row[ok] + csnap[ok] + ssnap[m]
-                okd = d <= cut
-                idx = np.where(ok)[0][okd]; dd = d[okd]
-                contrib = weight[m] * np.exp(-dd / d0)
-                raw[idx] += contrib
-                if graw is not None: graw[grp[m], idx] += contrib
-                nearest[idx] = np.minimum(nearest[idx], dd)
-                c10 = dd <= 800
-                cum[idx[c10]] += weight[m]
-    log(name, "sources", len(snode), "cells reached", int(np.isfinite(nearest).sum()))
-    return (raw, nearest, cum, graw) if ngroups else (raw, nearest, cum)
+                for r in net:
+                    v = weight[m] * ramp(d, r); C[r][okidx] += v
+                    if GC is not None: GC[r][grp[m], okidx] += v
+    for r in far: C[r] = far_count(slon, slat, weight, r)
+    nearest = dijkstra(G, directed=False, indices=uniq, limit=10000, min_only=True)[cnode] + csnap
+    log(name, "sources", len(snode), {r: round(float(np.percentile(C[r], 50)), 1) for r in C})
+    return (C, nearest, GC) if ngroups else (C, nearest)
 
-def score(raw, R): return np.round(100 * (1 - np.exp(-raw / R))).astype(int)
+def value(C, radii=RADII, unit=1.0): return sum(a * np.log1p(C[r] / unit) for r, a in radii)
+POPC = POP[cells[:, 0], cells[:, 1]]
+def score(v):
+    vmax = float(np.percentile(np.repeat(v[POPC > 0], np.maximum(1, np.round(POPC[POPC > 0] / 5).astype(int))), 99))
+    return np.clip(np.round(100 * v / vmax), 0, 100).astype(int), vmax
 
-res, aux = {}, {}
-# ---------------------------------------------------------------- transit
+res, aux, NORM = {}, {}, {}
+# ---------------------------------------------------------------- transit: lines (each counted once, at its nearest stop)
+TR_RADII = [(300, 1.0), (500, 0.6), (1000, 0.25), (2000, 0.05)]
 stops = [f for f in json.load(open(os.path.join(OUT, "stops.geojson")))["features"] if f["properties"]["k"] in ("bus", "trolleybus")]
-w = [min(12, len([r for r in f["properties"].get("r", []) if not r.startswith("train")]) or 1) for f in stops]
-raw, near, cum = access([f["geometry"]["coordinates"][0] for f in stops], [f["geometry"]["coordinates"][1] for f in stops], w, 250, 1000, "transit")
-res["transit"] = score(raw, 2.5); aux["transit_near"] = near; aux["transit_cum"] = cum
+lines = {}
+for f in stops:
+    for r in f["properties"].get("r", []):
+        if not r.startswith("train"): lines.setdefault(r, []).append(f["geometry"]["coordinates"])
+TC = {r: np.zeros(NC) for r, _ in TR_RADII}
+for ln, pts in lines.items():
+    sn, ss = snap(np.array([p[0] for p in pts]), np.array([p[1] for p in pts]))
+    sn = np.unique(sn[ss < 300])
+    if not len(sn): continue
+    d = dijkstra(G, directed=False, indices=sn, limit=2300, min_only=True)[cnode] + csnap + 20
+    for r, _ in TR_RADII: TC[r] += ramp(d, r)
+sn, ss = snap(np.array([f["geometry"]["coordinates"][0] for f in stops]), np.array([f["geometry"]["coordinates"][1] for f in stops]))
+tnear = dijkstra(G, directed=False, indices=np.unique(sn[ss < 300]), limit=10000, min_only=True)[cnode] + csnap
+res["transit"], NORM["transit"] = score(value(TC, TR_RADII)); aux["transit_near"] = tnear; aux["transit_cum"] = np.round(TC[500])
+log("transit lines", len(lines))
 
 # ---------------------------------------------------------------- health and schools
 pois = json.load(open(os.path.join(OUT, "pois.geojson")))["features"]
 HW = {"hospital": 4, "clinic": 2, "doctors": 1.5, "dentist": 0.5, "laboratory": 0.5}
 hp = [f for f in pois if f["properties"]["c"] == "health" and f["properties"].get("k") in HW]
-raw, near, cum = access([f["geometry"]["coordinates"][0] for f in hp], [f["geometry"]["coordinates"][1] for f in hp], [HW[f["properties"]["k"]] for f in hp], 700, 3000, "health")
-res["health"] = score(raw, 7.0); aux["health_near"] = near; aux["health_cum"] = cum
+C, near = counts([f["geometry"]["coordinates"][0] for f in hp], [f["geometry"]["coordinates"][1] for f in hp], [HW[f["properties"]["k"]] for f in hp], "health")
+res["health"], NORM["health"] = score(value(C, unit=2.0)); aux["health_near"] = near; aux["health_cum"] = C[1000]
 sp = [f for f in pois if f["properties"]["c"] == "school"]
-raw, near, cum = access([f["geometry"]["coordinates"][0] for f in sp], [f["geometry"]["coordinates"][1] for f in sp], [1] * len(sp), 600, 2500, "school")
-res["school"] = score(raw, 0.8); aux["school_near"] = near; aux["school_cum"] = cum
+C, near = counts([f["geometry"]["coordinates"][0] for f in sp], [f["geometry"]["coordinates"][1] for f in sp], [1] * len(sp), "school")
+res["school"], NORM["school"] = score(value(C)); aux["school_near"] = near; aux["school_cum"] = np.round(C[1000])
 
 # ---------------------------------------------------------------- public green space, weighted by how usable it is
 # Each public green area gets a category from what OpenStreetMap shows inside it, and a weight (editable in the app):
@@ -231,21 +265,24 @@ for gi, c in enumerate(greens):
             if ha < 0.03: continue
             pt = inter.representative_point()
             src_lon.append(pt.x); src_lat.append(pt.y); src_w.append(ha); src_g.append(gi)
-raw, near, cum, graw = access(src_lon, src_lat, src_w, 400, 1600, "green", src_g, len(greens))
-COEF = {"a": 1.0, "s": 0.5, "n": 0.2}; GREEN_R = 5.0
-wraw = sum(COEF[c["cat"]] * graw[i] for i, c in enumerate(greens))
-res["green"] = score(wraw, GREEN_R); aux["green_near"] = near; aux["green_cum"] = cum
-# for the app: named areas (≥ 2 ha) separately so their category can be changed; the rest summed per category
-GREEN_OUT = {"coef": COEF, "R": GREEN_R, "rest": {}, "areas": []}
-rest = {k: np.zeros(NC) for k in "asn"}
+GR_RADII = [(500, 1.0), (1000, 0.5), (2000, 0.25)]   # parks are used close to home: nothing beyond 2 km
+GUNIT = 2.0   # ha: ln(1 + ha/2) — a 2 ha square counts, a 100 ha park counts more but not 50 times more
+_, near, GC = counts(src_lon, src_lat, src_w, "green", GR_RADII, src_g, len(greens))
+COEF = {"a": 1.0, "s": 0.5, "n": 0.2}
+GCw = {r: sum(COEF[c["cat"]] * GC[r][i] for i, c in enumerate(greens)) for r, _ in GR_RADII}
+res["green"], NORM["green"] = score(value(GCw, GR_RADII, GUNIT)); aux["green_near"] = near; aux["green_cum"] = GCw[1000]
+GREEN_R = {"radii": GR_RADII, "unit": GUNIT, "vmax": NORM["green"]}
+GREEN_OUT = {"coef": COEF, "norm": GREEN_R, "rest": {}, "areas": []}
+rest = {k: {r: np.zeros(NC) for r, _ in GR_RADII} for k in "asn"}
 flat = cells[:, 0] * W + cells[:, 1]
 for i, c in enumerate(greens):
     if c["n"] and c["ha"] >= 2:
-        nz = np.where(graw[i] > 0.002)[0]
+        nz = np.where(GC[2000][i] > 0.002)[0]
         lon, lat = to_ll(c["g"].representative_point()).coords[0]
         GREEN_OUT["areas"].append({"id": c["osm"], "n": c["n"], "cat": c["cat"], "ha": round(c["ha"], 1), "uha": round(c["use"].area / 1e4, 1), "km": round(c["pkm"], 1),
-                                   "c": [round(lon, 5), round(lat, 5)], "k": flat[nz].tolist(), "v": [round(float(x), 3) for x in graw[i][nz]]})
-    else: rest[c["cat"]] += graw[i]
+                                   "c": [round(lon, 5), round(lat, 5)], "k": flat[nz].tolist(), "v": {str(r): [round(float(x), 2) for x in GC[r][i][nz]] for r, _ in GR_RADII}})
+    else:
+        for r, _ in GR_RADII: rest[c["cat"]][r] += GC[r][i]
 GREEN_OUT["areas"].sort(key=lambda a: -a["ha"])
 log("named green areas", len(GREEN_OUT["areas"]), "by cat", {k: sum(1 for a in GREEN_OUT["areas"] if a["cat"] == k) for k in "asn"})
 
@@ -297,9 +334,10 @@ def full(v, nod=-1, dec=0):
     return [round(float(x), dec) if dec else int(x) for x in a.ravel()]
 out = {"kx0": kx0, "ky0": ky0, "W": W, "H": H, "dx": CX, "dy": CY,
        "s": {k: full(v) for k, v in res.items()},
-       "near": {k: full(np.minimum(aux[k + "_near"], 9999)) for k in ("transit", "health", "school", "green")},
-       "cum": {"transit": full(aux["transit_cum"]), "green": full(aux["green_cum"], dec=1), "health": full(aux["health_cum"], dec=1), "school": full(aux["school_cum"])},
-       "green": {**GREEN_OUT, "rest": {k: full(v, 0, 3) for k, v in rest.items()}},
+       "near": {k: full(np.minimum(np.round(aux[k + "_near"]), 99999)) for k in ("transit", "health", "school", "green")},
+       "norm": NORM,
+       "cum": {"transit": full(aux["transit_cum"]), "green": full(aux["green_cum"], dec=1), "health": full(aux["health_cum"], dec=1), "school": full(aux["school_cum"])},   # transit: lines within 500 m; others: weight within 1 km
+       "green": {**GREEN_OUT, "rest": {k: {str(r): full(v[r], 0, 2) for r, _ in GR_RADII} for k, v in rest.items()}},
        "pop": [round(float(x), 1) for x in POP.ravel()], "jobs": [round(float(x), 1) for x in JOBS.ravel()]}
 json.dump(out, open(os.path.join(OUT, "statgrid.json"), "w"), separators=(",", ":"))
 log("statgrid.json", round(os.path.getsize(os.path.join(OUT, "statgrid.json")) / 1e6, 2), "MB")
@@ -308,3 +346,6 @@ for k, v in res.items():
     print(k, "pop-weighted mean", round(float((v * pw).sum()), 1), "share of residents <40:", round(float(pw[v < 40].sum()) * 100, 1), "%")
 for k in ("transit", "health", "school", "green"):
     nn = aux[k + "_near"]; print(k, "median nearest (m, residents)", int(np.median(np.repeat(nn[popc > 0], 1))))
+for nm, lon, lat in [("centru", 28.835, 47.024), ("Botanica Dacia", 28.86, 46.985), ("Ciocana", 28.89, 47.04), ("Buiucanii Noi", 28.79, 47.03), ("Durlesti", 28.76, 47.02), ("Codru", 28.80, 46.975), ("Bacioi", 28.885, 46.912), ("Budesti", 28.98, 47.07), ("Truseni", 28.70, 47.07)]:
+    i, j = int(lon / CX) - kx0, int(lat / CY) - ky0; k = np.where((cells[:, 0] == j) & (cells[:, 1] == i))[0]
+    if len(k): k = k[0]; print(nm, {s: int(res[s][k]) for s in res}, "lines<=500m", int(aux["transit_cum"][k]), "near school m", int(aux["school_near"][k]))
