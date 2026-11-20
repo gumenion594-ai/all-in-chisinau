@@ -81,7 +81,7 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
 
 ## Done: tab renames, density of places, census demography, Statistics tab
 - Tabs: the stats map is now labelled **Vizualizare**; the living-standard tab (`life`) is **Statistici**; the toolbar View menu is **Hartă**. Internal mode keys are unchanged.
-- **Densitatea obiectivelor** (Vizualizare, under industrial density): hidden statistics `poi_<cat>`, one per View-menu category, chosen with `#stpoi`. Counts per cell, smoothed with box∘box, per km². Size is not counted. Colours and hills are scaled to the category's P99. Units use quantile breaks; the legend shows counts per 10k residents.
+- **Densitatea obiectivelor** (Vizualizare, under industrial density): hidden statistics `poi_<cat>`, one per View-menu category, chosen with `#stpoi`. Counts per cell, Gaussian-smoothed (σ = 400 m, kernel to 3σ), per km². Size is not counted. Colours and hills are scaled to the category's P99. Units use quantile breaks; the legend shows counts per 10k residents.
 - **Demografie** (Population → Ce arăți): `scripts/build_demography.py` reads the BNS RPL2024 xlsx files (data/raw/rpl2024; tables 8.3, 8.4, 11.17/23/27/31/33, 12.2, 12.6) and writes `web/data/demo.json`.
   - `web/demo.js` colours the units. Level 1 = sum of its level-2 units. City neighbourhoods inherit their sector (paler); villages have their own figures.
   - Indicators: % children, % working age, % above working age, dependency ratio, ageing index, women per 100 men.

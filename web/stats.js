@@ -36,6 +36,15 @@ S.stPoi = store.get("stPoi", "shop");
 for (const c of CATS) STK["poi_" + c] = { ro: "Densitate: " + T.ro.cat[c], en: "Density: " + T.en.cat[c], ru: "Плотность: " + (T.ru?.cat?.[c] || T.en.cat[c]), q: -1, hid: 1, poi: c,
   d: ["Câte obiective de acest tip sunt pe km² (din meniul Hartă → Obiective). Fiecare contează la fel, indiferent de mărime.", "How many places of this kind per km² (from the Map → Places menu). Each counts the same, whatever its size.", "Сколько объектов этого типа на км² (из меню «Карта» → «Объекты»). Каждый считается одинаково, независимо от размера."] };
 const isPoi = (k) => k?.startsWith("poi_");
+// separable Gaussian blur on the grid (sigma in cells, kernel to 3 sigma, sums to 1 → counts are preserved): a place spreads
+// gradually over ~1 km instead of stopping at the edge of a small square
+function gauss(a, W, H, sig) {
+  const r = Math.ceil(sig * 3), k = []; let t = 0; for (let i = -r; i <= r; i++) { const v = Math.exp((-i * i) / (2 * sig * sig)); k.push(v); t += v; } for (let i = 0; i < k.length; i++) k[i] /= t;
+  const tmp = new Float32Array(W * H), out = new Float32Array(W * H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = a[j * W + i]; if (!v) continue; for (let d = -r; d <= r; d++) { const ii = i + d; if (ii >= 0 && ii < W) tmp[j * W + ii] += v * k[d + r]; } }
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) { const v = tmp[j * W + i]; if (!v) continue; for (let d = -r; d <= r; d++) { const jj = j + d; if (jj >= 0 && jj < H) out[jj * W + i] += v * k[d + r]; } }
+  return out;
+}
 Object.assign(T.ro, { stats: "Vizualizare", view: "Hartă", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Visualisation", view: "Map", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Визуализация", view: "Карта", showloc: "Показывать моё местоположение на карте" });
 const STN = (k) => L(STK[k].ro, STK[k].en, STK[k].ru);
 const ST_HOW = {
@@ -87,10 +96,10 @@ async function statGrid() {
   if (vals.height) for (let i = 0; i < n; i++) vals.height[i] /= 10;
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
   vals.jobs = Float32Array.from(box(jobs), (v, k) => (v / cellKm2) * inside[k]);
-  try {   // places of every kind from the View menu: count per cell, smoothed over ~450 m, per km²
+  try {   // places of every kind from the View menu: count per cell, Gaussian-smoothed (σ = 400 m, fades out by ~1.2 km), per km²
     const pf = await load("pois.geojson"), cnt = {}; for (const c of CATS) cnt[c] = new Float32Array(n);
     for (const f of pf.features) { const c = f.properties.c; if (!cnt[c]) continue; const [x, y] = f.geometry.coordinates, i = Math.floor(x / dx) - kx0, j = Math.floor(y / dy) - ky0; if (i >= 0 && j >= 0 && i < W && j < H) cnt[c][j * W + i] += 1; }
-    for (const c of CATS) vals["poi_" + c] = Float32Array.from(box(box(cnt[c])), (v, k) => (v / cellKm2) * inside[k]);
+    for (const c of CATS) vals["poi_" + c] = Float32Array.from(gauss(cnt[c], W, H, 400 / (dy * 110570)), (v, k) => (v / cellKm2) * inside[k]);
     g.poiCnt = cnt;
   } catch {}
   if (g.ind) vals.ind = Float32Array.from(box(Float32Array.from(g.ind)), (v, k) => (v / (cellKm2 * 100)) * inside[k]);   // m² of production space per hectare
