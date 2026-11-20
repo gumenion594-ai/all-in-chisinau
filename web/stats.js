@@ -273,10 +273,10 @@ function statsInfoRows(p) {
 function statsPanel() {
   const opts = Object.keys(STK).map((k) => `<option value="${k}">${esc(STN(k))}</option>`).join("");
   const el = document.getElementById("stpanel"); if (!el) return;
-  el.innerHTML = `<span class="lab">${L("Statistica", "Statistic", "Показатель")}</span>
-    <div class="seg stlistsel">${Object.keys(STK).map((k) => `<label><input type="radio" name="stat" value="${k}" ${!S.stRatio && S.stat === k ? "checked" : ""}><b>${esc(STN(k))}</b></label>`).join("")}
-    <label class="stratio"><input type="radio" name="stat" value="__ratio" ${S.stRatio ? "checked" : ""}><b>➗ ${L("Raportează două statistici", "Ratio of two statistics", "Соотношение двух показателей")}</b></label></div>
+  el.innerHTML = `<div class="seg stlistsel stratiosel"><label class="stratio"><input type="radio" name="stat" value="__ratio" ${S.stRatio ? "checked" : ""}><b>${L("Raportează două statistici", "Ratio of two statistics", "Соотношение двух показателей")}</b></label></div>
     <div class="strat" ${S.stRatio ? "" : "hidden"}><select id="stA" aria-label="A">${opts}</select><span>÷</span><select id="stB" aria-label="B">${opts}</select><button type="button" class="btn ghost sm" id="stswap" title="${L("Inversează", "Swap", "Поменять")}">⇄</button></div>
+    <span class="lab">${L("Statistica", "Statistic", "Показатель")}</span>
+    <div class="seg stlistsel">${Object.keys(STK).map((k) => `<label><input type="radio" name="stat" value="${k}" ${!S.stRatio && S.stat === k ? "checked" : ""}><b>${esc(STN(k))}</b></label>`).join("")}</div>
     <span class="lab">${t("popview")}</span>
     ${stEmptyOk() ? `<label class="check stempty"><input type="checkbox" id="stempty" ${S.stEmpty ? "checked" : ""}><span>${L("Arată și teritoriile nelocuite", "Also show uninhabited land", "Показывать и незаселённые территории")}<small>${L("Colorează și locurile unde încă nu locuiește nimeni, ca să vezi dacă un teren pentru construcție are deja acces bun. Clic pe hartă pentru valorile din acel punct.", "Also colours places where nobody lives yet, to check whether a building site already has good access. Click the map for the values at that spot.", "Окрашивает и места, где пока никто не живёт, чтобы проверить, есть ли у участка под застройку хороший доступ. Щёлкните по карте, чтобы увидеть значения в точке.")}</small></span></label>` : ""}
     <div class="seg row3">${[["units", t("pv_units")], ["heat", t("pv_heat")], ["hills", t("pv_hills")]].map(([v, l]) => `<label><input type="radio" name="stview" value="${v}" ${S.stView === v ? "checked" : ""}><b>${l}</b></label>`).join("")}</div>`;
