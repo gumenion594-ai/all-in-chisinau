@@ -9,10 +9,12 @@ CACHE = os.path.join(ROOT, "data", "raw", "kb"); os.makedirs(CACHE, exist_ok=Tru
 OUT = os.path.join(ROOT, "web", "data", "kb.json")
 UA = {"User-Agent": "city-atlas-prototype/1.0 (educational; wikipedia API)"}
 
+OFFLINE = os.environ.get("KB_OFFLINE") == "1"   # build only from the cache (no network)
 def api(lang, **q):
+    if OFFLINE: raise RuntimeError("offline")
     q.update(format="json", formatversion=2)
     url = f"https://{lang}.wikipedia.org/w/api.php?" + urllib.parse.urlencode(q)
-    for i in range(8):
+    for i in range(8 if lang != "ru" else 1):
         try:
             time.sleep(3)
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40) as r: return json.load(r)
@@ -57,7 +59,8 @@ CORE = {
 src, P = [], []
 seen = set()
 def add(lang, title):
-    e = extract(lang, title)
+    try: e = extract(lang, title)
+    except Exception as ex: print("skip", lang, title, str(ex)[:80]); return 0
     if not e or len(e["text"]) < 400 or (lang, e["title"]) in seen: return 0
     seen.add((lang, e["title"]))
     si = len(src); src.append([lang, e["title"], f"https://{lang}.wikipedia.org/wiki/" + urllib.parse.quote(e["title"].replace(" ", "_"))])
@@ -84,7 +87,10 @@ def add(lang, title):
 for lang, titles in CORE.items():
     for t in titles: print(lang, t, add(lang, t))
 # articles linked from the main Romanian article whose title mentions Chișinău (streets, buildings, institutions…)
-extra = [t for t in links("ro", "Chișinău") if "Chișinău" in t or "Chișinăului" in t]
+try: extra = [t for t in links("ro", "Chișinău") if "Chișinău" in t or "Chișinăului" in t]
+except Exception as ex: print("links failed", ex); extra = []
+if OFFLINE:   # every cached Romanian article not in the core list
+    extra = [d["title"] for f in sorted(os.listdir(CACHE)) if f.startswith("ro_") for d in [json.load(open(os.path.join(CACHE, f)))] if d]
 print("linked", len(extra))
 for t in extra[:180]: add("ro", t)
 json.dump({"src": src, "p": P}, open(OUT, "w"), ensure_ascii=False, separators=(",", ":"))
