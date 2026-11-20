@@ -6,7 +6,7 @@
 const T = {
   ro: {
     title: "All in Chișinău", sec_home: "Acasă", sec_archive: "Documente", sec_settings: "Setări", sec_chat: "Asistent", sec_atlas: "Atlas", sec_projects: "Proiecte și petiții", sec_transit: "Transport", sec_guide: "Ghid turistic", sec_news: "Noutăți", sec_account: "Cont", admin: "Admin", pop: "Populație", zone: "Zonare", places: "Locuri",
-    transit: "Transport", roads: "Drumuri", level: "Nivel administrativ",
+    transit: "Transport public", roads: "Drumuri", level: "Nivel administrativ",
     l1: "1 · Sectoare", l1d: "5 sectoare, cu tot teritoriul suburban",
     l2: "2 · Primării și sectoare urbane", l2d: "Orașe, comune și orașul Chișinău pe sectoare",
     l3: "3 · Cartiere și sate", l3d: "Cartiere urbane, orașe și sate (fiecare sat separat)", l4: "4 · Microcartiere", l4d: "Cele mai mici unități: microcartiere și părți de sat; din ele se construiesc proiectele",
@@ -73,7 +73,7 @@ const T = {
   },
   en: {
     title: "All in Chișinău", sec_home: "Home", sec_archive: "Documents", sec_settings: "Settings", sec_chat: "Assistant", sec_atlas: "Atlas", sec_projects: "Projects & petitions", sec_transit: "Transport", sec_guide: "Tourist guide", sec_news: "News", sec_account: "Account", admin: "Admin", pop: "Population", zone: "Land use", places: "Places",
-    transit: "Transport", roads: "Roads", level: "Administrative level",
+    transit: "Public transport", roads: "Roads", level: "Administrative level",
     l1: "1 · Sectors", l1d: "5 sectors, including all suburban land",
     l2: "2 · Mayoralties & urban sectors", l2d: "Towns, communes, and Chișinău city by sector",
     l3: "3 · Neighbourhoods & villages", l3d: "Urban neighbourhoods, towns and villages (each village separate)", l4: "4 · Sub-neighbourhoods", l4d: "The smallest units: sub-neighbourhoods and parts of villages; projects are built from them",
@@ -151,6 +151,11 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem("chi-atlas2-" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("chi-atlas2-" + k, JSON.stringify(v)); } catch {} },
 };
+// road types the Roads map can show or hide
+const ROADT = { mag: [["motorway", "motorway_link", "trunk", "trunk_link"], "Magistrale / naționale", "Trunk / national", "Магистрали / национальные"],
+  pri: [["primary", "primary_link"], "Străzi principale", "Main streets", "Главные улицы"], sec: [["secondary", "secondary_link"], "Secundare", "Secondary", "Второстепенные"],
+  ter: [["tertiary", "tertiary_link"], "De legătură (terțiare)", "Connecting (tertiary)", "Соединительные"], loc: [["residential", "unclassified", "living_street"], "Locale și rezidențiale", "Local and residential", "Местные и жилые"] };
+const ROAD_EXTRA = ["ped", "bike", "proj"];
 const MAPS = ["admin", "pop", "zone", "age", "temp", "her", "ind", "transit", "roads", "stats", "life"];
 const CMP_MODES = ["admin", "stats", "zone"];   // the comparison with other cities sits under the municipality area
 const SECDIR = { Ciocana: ["Est", "East"], Centru: ["Sud-Vest", "South-West"], "Rîșcani": ["Nord", "North"], Botanica: ["Sud", "South"], Buiucani: ["Nord-Vest", "North-West"] };
@@ -171,7 +176,7 @@ const S = {
   cur: store.get("cur", "lei"), date: todayISO(), popView: store.get("popView", "units"), popWhat: store.get("popWhat", "pop"), hillSqrt: store.get("hillSqrt", false), jobCol: store.get("jobCol", "dens"), jobTypes: store.get("jobTypes", null),
   ctx: store.get("ctx", true), scen: store.get("scen", "census"), base: store.get("base", "standard"), labels: store.get("labels", true), names: store.get("names", true),
   outside: false, d3: false, terrain: false,
-  modes: { trolleybus: true, bus: true, minibus: true, train: true }, route: "", ring: store.get("ring", false), cmp: {},
+  modes: { trolleybus: true, bus: true, minibus: true, train: true }, roadT: store.get("roadT", [...Object.keys(ROADT), ...ROAD_EXTRA]), tnum: store.get("tnum", true), route: "", ring: store.get("ring", false), cmp: {},
   zones: null, cats: store.get("cats2", []),
   selected: null, tool: null, draw: { pts: [], done: false, center: null, radius: 1000 },
 };
@@ -760,6 +765,8 @@ const ensure = {
       const rs = [...(f.properties.r || [])].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, "ro", { numeric: true }));
       const key = rs[0] || ""; let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
       f.properties.col = TCOL[h % TCOL.length]; f.properties.main = key;
+      const nums = (pre) => { const a = rs.filter((r) => r.startsWith(pre) && !r.includes("-")).map((r) => r.slice(pre.length)).sort((x, y) => x.localeCompare(y, "ro", { numeric: true })); return a.length > 6 ? a.slice(0, 6).join(" · ") + " +" + (a.length - 6) : a.join(" · "); };
+      f.properties.tn = nums("trolleybus:"); f.properties.bn = nums("bus:");
     }
     map.addSource("tlines", { type: "geojson", data: lines });
     map.addSource("tstops", { type: "geojson", data: stops });
@@ -770,6 +777,17 @@ const ensure = {
         "line-width": ["interpolate", ["linear"], ["zoom"], 10, ["min", 4, ["+", 0.6, ["*", 0.25, ["get", "nr"]]]], 16, ["min", 10, ["+", 2, ["*", 0.6, ["get", "nr"]]]]] } }, "admin-fill");
     map.addLayer({ id: "tlines-hl", type: "line", source: "tlines", filter: ["in", "__none__", ["get", "r"]], layout: { "line-cap": "round", "line-join": "round" },
       paint: { "line-color": "#f59f00", "line-width": ["interpolate", ["linear"], ["zoom"], 10, 4, 16, 10] } }, "train-line");
+    for (const [id, col] of [["badge-t", P.mode.trolleybus], ["badge-b", P.mode.bus]]) {   // rounded badge that stretches around the route numbers
+      const r = 2, w = 24, c = document.createElement("canvas"); c.width = c.height = w * r; const g = c.getContext("2d"); g.scale(r, r);
+      g.fillStyle = col; g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.beginPath(); g.roundRect(1, 1, w - 2, w - 2, 6); g.fill(); g.stroke();
+      if (!map.hasImage(id)) map.addImage(id, g.getImageData(0, 0, w * r, w * r), { pixelRatio: r, stretchX: [[14, 34]], stretchY: [[14, 34]], content: [10, 8, 38, 40] });
+    }
+    for (const [id, prop, img, off] of [["tnum-t", "tn", "badge-t", -0.9], ["tnum-b", "bn", "badge-b", 0.9]]) {
+      map.addLayer({ id, type: "symbol", source: "tlines", minzoom: 12, filter: ["!=", ["get", prop], ""],
+        layout: { "symbol-placement": "line", "symbol-spacing": 420, "text-field": ["get", prop], "text-font": ["Inter Medium"], "text-size": 11, "text-offset": [0, off],
+          "text-rotation-alignment": "viewport", "icon-rotation-alignment": "viewport", "icon-image": img, "icon-text-fit": "both", "icon-text-fit-padding": [1, 4, 1, 4], "text-padding": 6 },
+        paint: { "text-color": "#ffffff" } }, "draw-fill");
+    }
     map.addLayer({ id: "tstops", type: "circle", source: "tstops", minzoom: 11.5,
       paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 6], "circle-color": "#fff",
         "circle-stroke-color": ["match", ["get", "k"], "trolleybus", P.mode.trolleybus, "train", P.mode.train, P.mode.bus], "circle-stroke-width": 1.6 } }, "draw-fill");
@@ -1016,11 +1034,13 @@ async function render() {
   map.setPaintProperty("roads-base", "line-opacity", onImg ? 0.35 : b === "elevation" ? 0.6 : 1);
   map.setFilter("roads-base", b === "simple" ? ["in", ["get", "c"], ["literal", ["motorway", "trunk", "primary", "secondary", "tertiary", "motorway_link", "trunk_link", "primary_link"]]] : ["!=", ["get", "c"], "pedestrian"]);
   vis("roads-base", !has("roads") && !only); vis("roads-lanes", has("roads")); vis("roads-casing", has("roads"));
+  { const cls = Object.entries(ROADT).filter(([k]) => S.roadT.includes(k)).flatMap(([, v]) => v[0]); const rf = ["in", ["get", "c"], ["literal", cls.length ? cls : ["__none__"]]]; map.setFilter("roads-lanes", rf); map.setFilter("roads-casing", rf); }
   if (has("roads") && !has("zone")) map.setPaintProperty("landuse", "fill-opacity", only ? 0 : ["match", ["get", "z"], "water", 0.7, 0.12]);
   if (has("roads")) await ensure.roads();
-  ["bike", "bike-lane", "ped", "proj", "proj-casing"].forEach((id) => vis(id, has("roads")));
+  [["bike", "bike"], ["bike-lane", "bike"], ["ped", "ped"], ["proj", "proj"], ["proj-casing", "proj"]].forEach(([id, g]) => vis(id, has("roads") && S.roadT.includes(g)));
   if (has("transit")) await ensure.transit();
   ["tlines", "tlines-casing", "tlines-hl", "tstops"].forEach((id) => vis(id, has("transit")));
+  vis("tnum-t", has("transit") && S.tnum && S.modes.trolleybus); vis("tnum-b", has("transit") && S.tnum && S.modes.bus);
   vis("train-line", has("transit") && S.modes.train); vis("train-stops", has("transit") && S.modes.train);
   if (map.getLayer("tlines")) {
     const ms = Object.keys(S.modes).filter((k) => S.modes[k]);
@@ -1269,17 +1289,20 @@ function renderLegend() {
       + (ZS ? `<li class="zrow"><i style="background:transparent;border-style:dashed"></i><span class="zl">${t("unmapped")}</span>${za("other")}</li><li class="zrow"><b class="zl">Total</b><b class="za">${fmt(ZS.total, 1)} km² · 100%</b></li>` : "");
     if (!DATA.__zs) load("zone_stats.json").then((z) => { DATA.__zs = z; renderLegend(); });
   } else if (m === "transit") {
-    h = ["trolleybus", "bus", "minibus", "train"].map((k) => `<li><label><input type="checkbox" data-mode="${k}" ${S.modes[k] ? "checked" : ""}><i class="ln thick" style="border-color:${P.mode[k]}"></i>${t(k)}</label></li>`).join("")
+    h = `<li><label class="check"><input type="checkbox" data-tnum="1" ${S.tnum ? "checked" : ""}> ${L("Numerele liniilor pe hartă", "Route numbers on the map", "Номера маршрутов на карте")}</label></li>` + ["trolleybus", "bus", "minibus", "train"].map((k) => `<li><label><input type="checkbox" data-mode="${k}" ${S.modes[k] ? "checked" : ""}><i class="ln thick" style="border-color:${P.mode[k]}"></i>${t(k)}</label></li>`).join("")
       + `<li class="cap">${L("Fiecare linie are culoarea ei (pe segmentele comune se vede linia principală); grosimea = numărul de rute. Apasă pe o linie pentru rute.", "Each line has its own colour (shared segments show the main line); width = number of routes. Tap a line for its routes.")}</li>`
   } else if (m === "roads") {
-    h = `<li class="cap">${t("lanes")}</li>`
+    const on = (k) => (S.roadT.includes(k) ? "checked" : ""), RC = { mag: P.road.trunk, pri: P.road.primary, sec: P.road.secondary, ter: P.road.tertiary, loc: P.road.other };
+    h = `<li class="cap">${L("Tipuri de drum (bifează ce vrei să vezi)", "Road types (tick what to show)", "Типы дорог (отметьте, что показывать)")}</li>`
+      + Object.entries(ROADT).map(([k, v]) => `<li><label><input type="checkbox" data-roadt="${k}" ${on(k)}><i class="ln thick" style="border-color:${RC[k]}"></i><span class="zl">${L(v[1], v[2], v[3])}</span></label></li>`).join("")
+      + `<li><label><input type="checkbox" data-roadt="ped" ${on("ped")}><i class="ln" style="border-color:#e8590c;border-top-width:4px"></i><span class="zl">${t("ped")}</span></label></li>`
+      + `<li><label><input type="checkbox" data-roadt="bike" ${on("bike")}><i class="ln" style="border-color:#13a36b"></i><span class="zl">${t("bike")}</span></label></li>`
+      + (S.roadT.includes("bike") ? `<li class="small"><i class="ln" style="border-color:#13a36b"></i> ${t("track")} · <i class="ln dash" style="border-color:#13a36b"></i> ${t("lane")}</li>` : "")
+      + `<li><label><input type="checkbox" data-roadt="proj" ${on("proj")}><i class="ln dot" style="border-color:#d6336c"></i><span class="zl">${t("projects")}</span></label></li>`
+      + (S.roadT.includes("proj") ? `<li class="small"><i class="ln dot" style="border-color:#d6336c"></i> ${t("construction")} · <i class="ln dot" style="border-color:#7048e8"></i> ${t("proposed")}</li>` : "")
+      + `<li class="cap">${t("lanes")}</li>`
       + [1, 2, 4, 6].map((n) => `<li><i class="ln" style="border-top-width:${Math.max(1, n * 1.6)}px;border-color:${P.road.primary}"></i>${n} ${n === 1 ? L("bandă", "lane") : L("benzi", "lanes")}</li>`).join("")
-      + `<li><i class="ln" style="border-color:${P.road.motorway}"></i>${L("Magistrale / naționale", "Trunk / national")}</li>`
-      + `<li><i class="ln" style="border-color:${P.road.secondary}"></i>${L("Secundare", "Secondary")}</li>`
       + `<li><i class="ln" style="border-color:${P.road.other};opacity:.55"></i>${t("lanes_est")}</li>`
-      + `<li><i class="ln" style="border-color:#e8590c;border-top-width:4px"></i>${t("ped")}</li>`
-      + `<li class="cap">${t("bike")}</li><li><i class="ln" style="border-color:#13a36b"></i>${t("track")}</li><li><i class="ln dash" style="border-color:#13a36b"></i>${t("lane")}</li>`
-      + `<li class="cap">${t("projects")}</li><li><i class="ln dot" style="border-color:#d6336c"></i>${t("construction")}</li><li><i class="ln dot" style="border-color:#7048e8"></i>${t("proposed")}</li>`
       + `<li class="cap">${L("Centura orașului", "Ring road", "Кольцевая дорога")}</li><li><label><input type="checkbox" data-ring="1" ${S.ring ? "checked" : ""}><i class="ln thick" style="border-color:#0b7285"></i>${t("ring")}</label></li>`
       + (S.ring ? `<li><i class="ln thick" style="border-color:#0b7285"></i>${t("ring_ex")}</li><li><i class="ln thick dash" style="border-color:#7048e8"></i>${t("ring_pr")}</li><li><i class="ln thick dash" style="border-color:#e8590c"></i>${t("ring_ap")}</li>` : "");
   }
@@ -1898,6 +1921,8 @@ function bindEvents() {
   $("legend").addEventListener("change", (e) => {
     const d = e.target.dataset;
     if (d.age !== undefined) { S.ages = [...document.querySelectorAll("[data-age]")].filter((c) => c.checked).map((c) => +c.dataset.age); store.set("ages", S.ages); render(); }
+    if (d.roadt) { S.roadT = [...document.querySelectorAll("[data-roadt]")].filter((c) => c.checked).map((c) => c.dataset.roadt); store.set("roadT", S.roadT); render(); }
+    if (d.tnum) { S.tnum = e.target.checked; store.set("tnum", S.tnum); render(); }
     if (d.zone) { S.zones = [...document.querySelectorAll("[data-zone]")].filter((c) => c.checked).map((c) => c.dataset.zone); render(); }
     if (e.target.name === "jobcol") { S.jobCol = e.target.value; store.set("jobCol", S.jobCol); render(); }
     if (d.hillsqrt) { S.hillSqrt = e.target.checked; store.set("hillSqrt", S.hillSqrt); render(); }
