@@ -31,7 +31,12 @@ const STK = {
   jobs:    { ro: "Locuri de muncă", en: "Jobs", ru: "Рабочие места", q: -1,
     d: ["Locuri de muncă pe km² (estimare).", "Jobs per km² (estimate).", "Рабочих мест на км² (оценка)."] },
 };
-Object.assign(T.ro, { stats: "Statistici", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Statistics", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Статистика", showloc: "Показывать моё местоположение на карте" });
+// density of places of one kind from the View menu (shops, cafés, schools…): simple count per km², size not counted
+S.stPoi = store.get("stPoi", "shop");
+for (const c of CATS) STK["poi_" + c] = { ro: "Densitate: " + T.ro.cat[c], en: "Density: " + T.en.cat[c], ru: "Плотность: " + (T.ru?.cat?.[c] || T.en.cat[c]), q: -1, hid: 1, poi: c,
+  d: ["Câte obiective de acest tip sunt pe km² (din meniul Hartă → Obiective). Fiecare contează la fel, indiferent de mărime.", "How many places of this kind per km² (from the Map → Places menu). Each counts the same, whatever its size.", "Сколько объектов этого типа на км² (из меню «Карта» → «Объекты»). Каждый считается одинаково, независимо от размера."] };
+const isPoi = (k) => k?.startsWith("poi_");
+Object.assign(T.ro, { stats: "Vizualizare", view: "Hartă", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Visualisation", view: "Map", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Визуализация", view: "Карта", showloc: "Показывать моё местоположение на карте" });
 const STN = (k) => L(STK[k].ro, STK[k].en, STK[k].ru);
 const ST_HOW = {
   ind: ["Pentru fiecare loc de producție din meniul Industrie (fabrici, vinării, cariere, ferme, sere, centrale) se adună clădirile care stau pe terenul lui: suprafața la sol × numărul de niveluri (înălțimea / 4,5 m). Așa, o uzină cu hale de 50 000 m² cântărește de sute de ori mai mult decât un atelier. Carierele și parcurile fotovoltaice, care produc în aer liber, primesc 5% din suprafața terenului. Firmele cu profil necunoscut și terenurile industriale fără nume contează pe jumătate, pentru că o parte pot fi depozite. Depozitele, bazele de transport, stațiile de gaz, posturile de transformare și atelierele de reparații nu sunt incluse: acolo nu se produce nimic. Valoarea e în m² de spații de producție la hectar, netezită pe pătrate de 150 m.",
@@ -82,6 +87,12 @@ async function statGrid() {
   if (vals.height) for (let i = 0; i < n; i++) vals.height[i] /= 10;
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
   vals.jobs = Float32Array.from(box(jobs), (v, k) => (v / cellKm2) * inside[k]);
+  try {   // places of every kind from the View menu: count per cell, smoothed over ~450 m, per km²
+    const pf = await load("pois.geojson"), cnt = {}; for (const c of CATS) cnt[c] = new Float32Array(n);
+    for (const f of pf.features) { const c = f.properties.c; if (!cnt[c]) continue; const [x, y] = f.geometry.coordinates, i = Math.floor(x / dx) - kx0, j = Math.floor(y / dy) - ky0; if (i >= 0 && j >= 0 && i < W && j < H) cnt[c][j * W + i] += 1; }
+    for (const c of CATS) vals["poi_" + c] = Float32Array.from(box(box(cnt[c])), (v, k) => (v / cellKm2) * inside[k]);
+    g.poiCnt = cnt;
+  } catch {}
   if (g.ind) vals.ind = Float32Array.from(box(Float32Array.from(g.ind)), (v, k) => (v / (cellKm2 * 100)) * inside[k]);   // m² of production space per hectare
   // municipal reference for the ratio: resident-weighted average for scores, average density where people live or work
   const ref = {}; let pw = 0; for (let k = 0; k < n; k++) pw += pop[k] * muni[k];
@@ -120,12 +131,20 @@ function stSample(F, lon, lat, M = SG.mask) {   // normalized bilinear sampling 
   return m > 0.05 ? [s / m, a] : [0, 0];
 }
 const IND_K = 4;   // production m²/ha → the colour / hill scale used for densities
-const IND_UBR = [0, 25, 75, 200, 500, 1000];   // whole units: averages over homes, fields and forests too
+const IND_UBR = [0, 25, 75, 200, 500, 1000];
+const POI_UBR = {};   // whole units: averages over homes, fields and forests too
 const IND_BR = [0, 100, 500, 1500, 3000, 6000], IND_COL = ["#f3f0fa", "#d9cff2", "#b39ae3", "#8a63d2", "#6741d9", "#3b1f8f"];
+const POI_K = {};
+function poiK(key) {   // colour / hill scale: the city's busiest spots of this kind reach the top of the scale
+  if (POI_K[key]) return POI_K[key];
+  const a = Array.from(SG.vals[key]).filter((v) => v > 0).sort((x, y) => x - y), p = a.length ? a[Math.floor(a.length * 0.99)] : 1;
+  return (POI_K[key] = 16000 / Math.max(p, 0.5));
+}
 function stColour(key, v) {
   if (key.startsWith("r~")) { const [, A, B] = key.split("~"), p = stPol(A, B); return lerpStops(p === 0 ? RT_NEU : RT_GOOD, p < 0 ? -v : v); }
   if (key === "height") return htCol(v);
   if (key === "ind") return hillCol(v * IND_K);
+  if (isPoi(key)) return hillCol(v * poiK(key));
   if (STK[key].q < 0) return hillCol(v);
   return lerpStops(ST_STOPS, v);
 }
@@ -134,12 +153,13 @@ function stHeight(key, v, sq) {
   if (key === "height") return v * 22;
   if (key === "flood") return (100 - v) * 12;   // flood risk: the riskier, the higher the hill
   if (key === "ind") return hillH(v * IND_K, sq);
+  if (isPoi(key)) return hillH(v * poiK(key), sq);
   if (STK[key].q < 0) return hillH(v, sq);
   return sq ? Math.sqrt(v / 100) * 1200 : v * 12;
 }
 async function stTile(url, dem) {
   const [key0, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number), all = key0.endsWith("~e"), key = all ? key0.slice(0, -2) : key0;
-  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0, M = all || key === "ind" || key.includes("~ind") ? SG.inside : SG.mask;   // industry also stands where nobody lives
+  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0, M = all || key === "ind" || key.includes("~ind") || isPoi(key) || key.includes("~poi_") ? SG.inside : SG.mask;   // industry also stands where nobody lives
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
   const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), a = img.data, n = 2 ** z;
   for (let py = 0; py < N; py++) {
@@ -174,23 +194,24 @@ async function ensureStats() {
     const p = f.properties; if (!f.geometry) continue;
     const pg = prepGeom(f.geometry), [x0, y0, x1, y1] = pg.bbox;
     const i0 = Math.max(0, Math.floor((x0 - G.x0) / G.dx)), i1 = Math.min(G.W - 1, Math.ceil((x1 - G.x0) / G.dx)), j0 = Math.max(0, Math.floor((y0 - G.y0) / G.dy)), j1 = Math.min(G.H - 1, Math.ceil((y1 - G.y0) / G.dy));
-    const acc = {}, near = {}, mine = []; let wp = 0, wa = 0, ind = 0;
+    const acc = {}, near = {}, mine = [], cellsAll = []; let wp = 0, wa = 0, ind = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = j * G.W + i; if (!G.inside[k] || !pg.has(G.x0 + i * G.dx, G.y0 + j * G.dy)) continue;
-      const w = G.pop[k] > 0 ? G.pop[k] : 0; wp += w; wa += 1; if (w > 0) mine.push(k); if (G.g.ind) ind += G.g.ind[k];
+      const w = G.pop[k] > 0 ? G.pop[k] : 0; wp += w; wa += 1; if (w > 0) mine.push(k); cellsAll.push(k); if (G.g.ind) ind += G.g.ind[k];
       for (const s of ["green", "transit", "air", "health", "school", "slope", "flood", "height"]) { if (!G.vals[s]) continue; acc[s] ??= [0, 0]; acc[s][0] += G.vals[s][k] * w; acc[s][1] += G.vals[s][k]; }
       for (const s in G.near) { near[s] ??= 0; near[s] += Math.min(3000, G.near[s][k]) * w; }
     }
     if (!wa) continue;
     ST_CELLS.set(p.id, Int32Array.from(mine));
     if (G.g.ind) { p.ind_m2 = ind; p.idens = Math.round(ind / (wa * G.cellKm2 * 100)); }
+    if (G.g.poiCnt) for (const c in G.g.poiCnt) { let s = 0; for (const k of cellsAll) s += G.g.poiCnt[c][k]; p["pc_" + c] = s; p["pd_" + c] = Math.round((s / (wa * G.cellKm2)) * 10) / 10; }
     for (const s in acc) p["st_" + s] = s === "height" ? Math.round((wp > 0 ? acc[s][0] / wp : acc[s][1] / wa) * 10) / 10 : Math.round(wp > 0 ? acc[s][0] / wp : acc[s][1] / wa);
     if (wp > 0) for (const s in near) p["sn_" + s] = Math.round(near[s] / wp / 10) * 10;
   }
   admin.__stats = true;
   return admin;
 }
-const stUnitVal = (p, k) => (k === "pop" ? (p.dens || 0) * popScale() : k === "jobs" ? p.jdens || 0 : k === "ind" ? p.idens || 0 : p["st_" + k]);
+const stUnitVal = (p, k) => (k === "pop" ? (p.dens || 0) * popScale() : k === "jobs" ? p.jdens || 0 : k === "ind" ? p.idens || 0 : isPoi(k) ? p["pd_" + k.slice(4)] || 0 : p["st_" + k]);
 function stUnitRatios(admin) {   // what the unit's residents experience: the map's value averaged over their cells (weighted by residents)
   const F = stField(`r~${S.stA}~${S.stB}`), G = SG;
   for (const f of admin.features) { const p = f.properties, c = ST_CELLS.get(p.id); if (!c || !c.length) { p.st_r = null; continue; } let s = 0, w = 0; for (const k of c) { s += F[k] * G.pop[k]; w += G.pop[k]; } p.st_r = Math.round((s / w) * 100) / 100; }
@@ -199,13 +220,18 @@ async function stApplyUnits() {
   const admin = await ensureStats(), A = S.stA, B = S.stB, key = stKey();
   if (S.stRatio) stUnitRatios(admin);
   map.getSource("admin")?.setData(admin);
-  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" || S.stat === "height" || S.stat === "ind" ? null : "st_" + S.stat;
+  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" || S.stat === "height" || S.stat === "ind" || isPoi(S.stat) ? null : "st_" + S.stat;
   let col;
   if (prop) {
     const stops = S.stRatio ? (stPol(A, B) === 0 ? RT_NEU : RT_GOOD) : ST_STOPS, flip = S.stRatio && stPol(A, B) < 0;
     col = ["interpolate", ["linear"], ["*", flip ? -1 : 1, ["to-number", ["get", prop]]], ...stops.flatMap(([v, c]) => [v, rgbHex(c)])];
     col = ["case", ["has", prop], ["case", ["==", ["get", prop], null], "#cccccc", col], "#cccccc"];
   } else if (S.stat === "pop") { const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000]; col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], pal().pop[0]]; br.slice(1).forEach((v, i) => col.push(v, pal().pop[i + 1])); }
+  else if (isPoi(S.stat)) { await statGrid();
+    const u = admin.features.filter((f) => f.properties.lvl === S.level && f.properties["pd_" + S.stPoi] > 0).map((f) => f.properties["pd_" + S.stPoi]).sort((a, b) => a - b);
+    const q = (t) => u.length ? u[Math.min(u.length - 1, Math.floor(u.length * t))] : 1, B = [0, q(0.2), q(0.4), q(0.6), q(0.8), q(0.95)];
+    for (let i = 1; i < B.length; i++) { const r = B[i] < 1 ? Math.round(B[i] * 10) / 10 : Math.round(B[i]); B[i] = Math.max(r, B[i - 1] + (B[i - 1] < 1 ? 0.1 : 1)); }   // strictly ascending, rounded
+    POI_UBR[S.stat] = B; col = ["step", ["coalesce", ["get", "pd_" + S.stPoi], 0], IND_COL[0]]; B.slice(1).forEach((v, i) => col.push(v, IND_COL[i + 1])); }
   else if (S.stat === "ind") { col = ["step", ["coalesce", ["get", "idens"], 0], IND_COL[0]]; IND_UBR.slice(1).forEach((v, i) => col.push(v, IND_COL[i + 1])); }
   else if (S.stat === "height") col = ["interpolate", ["linear"], ["coalesce", ["get", "st_height"], 0], ...HT_STOPS.slice(1).flatMap(([v, c]) => [v, rgbHex(c.slice(0, 3))])];
   else { col = ["step", ["coalesce", ["get", "jdens"], 0], JOBCOL[0]]; JOBBR.slice(1).forEach((v, i) => col.push(v, JOBCOL[i + 1])); }
@@ -286,6 +312,22 @@ async function statsLegendAsync() {
       + how(k);
     return h;
   }
+  if (isPoi(k)) {
+    const c = k.slice(4), mu = admin.features.find((f) => f.properties.lvl === "mun" && [REF(), "both"].includes(f.properties.sc))?.properties;
+    let cnt = 0; for (let i = 0; i < G.n; i++) cnt += (G.g.poiCnt?.[c]?.[i] || 0) * G.muni[i];
+    const pop = (mu?.pop || 0) * popScale();
+    const lvl3 = admin.features.filter((f) => f.properties.lvl === 3 && [REF(), "both"].includes(f.properties.sc) && f.properties.pop * popScale() >= 1500 && f.properties["pc_" + c] != null).map((f) => f.properties);
+    const per = (p) => (p["pc_" + c] / (p.pop * popScale())) * 10000;
+    const top = [...lvl3].sort((a, b) => per(b) - per(a)).slice(0, 5), low = [...lvl3].sort((a, b) => per(a) - per(b)).slice(0, 5);
+    const li = (p) => `<button type="button" class="stu" data-stunit="${p.id}"><span>${esc(nameOf(p))}</span><b>${fmt(per(p), 1)}</b></button>`;
+    const B = POI_UBR[k];
+    h += `<li class="stkpi"><div><b style="color:#6741d9">${fmt(cnt)}</b><span>${L("în municipiu", "in the municipality", "в муниципии")}</span></div>${pop ? `<div><b style="color:#6741d9">${fmt((cnt / pop) * 10000, 1)}</b><span>${L("la 10.000 de locuitori", "per 10,000 residents", "на 10 000 жителей")}</span></div>` : ""}${mu?.km2 ? `<div><b style="color:#6741d9">${fmt(cnt / mu.km2, 1)}</b><span>${L("pe km²", "per km²", "на км²")}</span></div>` : ""}</li>`
+      + (S.stView === "units" && B ? `<li class="cap">${L("Obiective pe km²", "Places per km²", "Объектов на км²")}</li>` + B.map((v, i) => `<li><i style="background:${IND_COL[i]}"></i>${fmt(v, v < 10 ? 1 : 0)}${B[i + 1] != null ? "–" + fmt(B[i + 1], B[i + 1] < 10 ? 1 : 0) : "+"}</li>`).join("")
+        : `<li class="cap">${L("Densitate", "Density", "Плотность")}</li><li><span class="ramp heatramp"></span></li><li class="rampl"><span>${t("low")}</span><span>${t("high")}</span></li>`)
+      + (lvl3.length ? `<li class="cap">${L("Cele mai multe la 10.000 de locuitori", "Most per 10,000 residents", "Больше всего на 10 000 жителей")}</li><li class="stlist good">${top.map(li).join("")}</li><li class="cap">${L("Cele mai puține la 10.000 de locuitori", "Fewest per 10,000 residents", "Меньше всего на 10 000 жителей")}</li><li class="stlist bad">${low.map(li).join("")}</li>` : "")
+      + `<li class="small">${L("Fiecare obiectiv contează la fel: un chioșc cât un supermarket. Sursa: OpenStreetMap; unde datele lipsesc, densitatea apare mai mică decât în realitate.", "Every place counts the same: a kiosk as much as a supermarket. Source: OpenStreetMap; where data are missing, density looks lower than it is.", "Каждый объект считается одинаково: киоск как супермаркет. Источник: OpenStreetMap; где данных нет, плотность выглядит ниже реальной.")}</li>`;
+    return h;
+  }
   if (k === "ind") {
     const mu = admin.features.find((f) => f.properties.lvl === "mun" && [REF(), "both"].includes(f.properties.sc))?.properties;
     let totM = 0; for (let i = 0; i < G.n; i++) totM += (G.g.ind[i] || 0) * G.muni[i];
@@ -346,7 +388,7 @@ function statsPanel() {
   el.innerHTML = `<div class="seg stlistsel stratiosel"><label class="stratio"><input type="radio" name="stat" value="__ratio" ${S.stRatio ? "checked" : ""}><b>${L("Raportează două statistici", "Ratio of two statistics", "Соотношение двух показателей")}</b></label></div>
     <div class="strat" ${S.stRatio ? "" : "hidden"}><select id="stA" aria-label="A">${opts}</select><span>÷</span><select id="stB" aria-label="B">${opts}</select><button type="button" class="btn ghost sm" id="stswap" title="${L("Inversează", "Swap", "Поменять")}">⇄</button></div>
     <span class="lab">${L("Statistica", "Statistic", "Показатель")}</span>
-    <div class="seg stlistsel">${Object.keys(STK).map((k) => `<label><input type="radio" name="stat" value="${k}" ${!S.stRatio && S.stat === k ? "checked" : ""}><b>${esc(STN(k))}</b></label>`).join("")}</div>
+    <div class="seg stlistsel">${Object.keys(STK).filter((k) => !STK[k].hid).map((k) => `<label><input type="radio" name="stat" value="${k}" ${!S.stRatio && S.stat === k ? "checked" : ""}><b>${esc(STN(k))}</b></label>` + (k === "ind" ? `<label><input type="radio" name="stat" value="__poi" ${!S.stRatio && isPoi(S.stat) ? "checked" : ""}><b>${L("Densitatea obiectivelor", "Density of places", "Плотность объектов")}</b></label>${!S.stRatio && isPoi(S.stat) ? `<select id="stpoi" class="stpoisel" aria-label="${L("Tipul obiectivului", "Kind of place", "Тип объекта")}">${CATS.map((c) => `<option value="${c}" ${S.stPoi === c ? "selected" : ""}>${esc(t("cat")[c])}</option>`).join("")}</select>` : ""}` : "")).join("")}</div>
     <span class="lab">${t("popview")}</span>
     ${stEmptyOk() ? `<label class="check stempty"><input type="checkbox" id="stempty" ${S.stEmpty ? "checked" : ""}><span>${L("Arată și teritoriile nelocuite", "Also show uninhabited land", "Показывать и незаселённые территории")}<small>${L("Colorează și locurile unde încă nu locuiește nimeni, ca să vezi dacă un teren pentru construcție are deja acces bun. Clic pe hartă pentru valorile din acel punct.", "Also colours places where nobody lives yet, to check whether a building site already has good access. Click the map for the values at that spot.", "Окрашивает и места, где пока никто не живёт, чтобы проверить, есть ли у участка под застройку хороший доступ. Щёлкните по карте, чтобы увидеть значения в точке.")}</small></span></label>` : ""}
     <div class="seg ${statAge() ? "row2" : "row3"}">${(statAge() ? [["heat", L("Hartă 2D", "2D map", "2D-карта")], ["hills", L("Clădiri 3D", "3D buildings", "3D-здания")]] : [["units", t("pv_units")], ["heat", t("pv_heat")], ["hills", t("pv_hills")]]).map(([v, l]) => `<label><input type="radio" name="stview" value="${v}" ${(S.stView === v || (statAge() && v === "heat" && S.stView === "units")) ? "checked" : ""}><b>${l}</b></label>`).join("")}</div>`;
@@ -355,7 +397,8 @@ function statsPanel() {
 function statsSave() { for (const k of ["stat", "stRatio", "stA", "stB", "stView", "stEmpty"]) store.set(k, S[k]); }
 document.addEventListener("change", (e) => {
   const tg = e.target; if (!tg.closest?.("#stpanel")) return;
-  if (tg.name === "stat") { if (tg.value === "__ratio") S.stRatio = true; else { S.stRatio = false; S.stat = tg.value; } }
+  if (tg.name === "stat") { if (tg.value === "__ratio") S.stRatio = true; else if (tg.value === "__poi") { S.stRatio = false; S.stat = "poi_" + S.stPoi; } else { S.stRatio = false; S.stat = tg.value; } }
+  if (tg.id === "stpoi") { S.stPoi = tg.value; S.stat = "poi_" + tg.value; store.set("stPoi", S.stPoi); }
   if (tg.name === "stview") S.stView = tg.value;
   if (tg.id === "stA") S.stA = tg.value;
   if (tg.id === "stB") S.stB = tg.value;

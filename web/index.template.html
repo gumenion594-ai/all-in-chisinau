@@ -67,6 +67,7 @@ nav.tabs { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 
 .seg input { margin: 2px 0 0; accent-color: var(--accent); grid-row: span 2; }
 .seg b { font: 700 13px var(--display); }
 .stratiosel { margin: 2px 0 6px; } .stratiosel label { border-style: dashed; }
+.stpoisel { margin: 2px 0 4px 22px; width: calc(100% - 22px); }
 .stlistsel { gap: 4px; } .stlistsel label { padding: 6px 10px; } .stlistsel input { grid-row: auto; }
 .strat { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 6px; align-items: center; margin: 6px 0 4px; } .strat select { min-width: 0; padding: 6px; border-radius: 8px; border: 1px solid var(--rule); background: var(--paper, #fff); color: inherit; font: inherit; font-size: 12.5px; }
 #legend li.stbars { display: block; } .stbar { display: grid; grid-template-columns: 12px minmax(84px, 1.1fr) 1fr 36px; gap: 6px; align-items: center; margin: 3px 0; font-size: 12.5px; }
@@ -829,13 +830,14 @@ nav.tabs2 { margin-top: -1px; }
     </div>
     <div class="grp" data-panel="pop">
       <span class="lab" data-t="popwhat"></span>
-      <div class="seg row3">
+      <div class="seg row2">
         <label><input type="radio" name="popwhat" value="pop"><b data-t="pw_pop"></b></label>
         <label><input type="radio" name="popwhat" value="jobs"><b data-t="pw_jobs"></b></label>
         <label><input type="radio" name="popwhat" value="ratio"><b data-t="pw_ratio"></b></label>
+        <label><input type="radio" name="popwhat" value="demo"><b data-t="pw_demo"></b></label>
       </div>
-      <span class="lab" data-t="popview"></span>
-      <div class="seg row3">
+      <span class="lab" data-t="popview" id="pvlab"></span>
+      <div class="seg row3" id="pvseg">
         <label><input type="radio" name="popview" id="pv-u" value="units"><b data-t="pv_units"></b></label>
         <label><input type="radio" name="popview" id="pv-h" value="heat"><b data-t="pv_heat"></b></label>
         <label><input type="radio" name="popview" id="pv-3" value="hills"><b data-t="pv_hills"></b></label>

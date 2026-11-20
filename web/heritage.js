@@ -1,5 +1,5 @@
 // ================================================================== Heritage ("Patrimoniu") and Industry ("Industrie") maps
-Object.assign(T.ro, { her: "Patrimoniu", ind: "Industrie", life_tab: "Nivel de trai" }); Object.assign(T.en, { her: "Heritage", ind: "Industry", life_tab: "Living standard" }); if (T.ru) Object.assign(T.ru, { her: "Наследие", ind: "Промышленность", life_tab: "Уровень жизни" });
+Object.assign(T.ro, { her: "Patrimoniu", ind: "Industrie", life_tab: "Statistici" }); Object.assign(T.en, { her: "Heritage", ind: "Industry", life_tab: "Statistics" }); if (T.ru) Object.assign(T.ru, { her: "Наследие", ind: "Промышленность", life_tab: "Статистика" });
 if (S.mode === "cmp") S.mode = "admin";   // the old Compare tab now sits under the municipality area
 if (S.keep?.cmp) delete S.keep.cmp;
 

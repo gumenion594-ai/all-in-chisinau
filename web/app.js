@@ -512,7 +512,8 @@ const RATIO_HOW = () => `<li><details class="how"><summary>${L("Cum se calculeaz
   <li>${L("Media municipiului e ~0,49 locuri de muncă la un locuitor (copiii, elevii, pensionarii nu lucrează), deci 1 nu e „normalul”: sub ~0,35 e zonă-dormitor, peste ~1 e centru de muncă.", "The municipal average is ~0.49 jobs per resident (children, pupils and pensioners don't work), so 1 is not the “normal”: below ~0.35 is a dormitory area, above ~1 a job centre.")}</li>
   <li>${L("Nu sunt fluxuri reale de navetă (de unde unde merge fiecare): pentru asta ar trebui date de la transport sau de la operatorii mobili. E un indicator de echilibru.", "These are not real commuting flows (who travels from where to where): that needs transport or mobile-operator data. It is a balance indicator.")}</li></ol></details></li>`;
 const JOBCOL_PICK = () => `<li class="cap">${L("Culoare", "Colour")}</li><li class="seg jobcol">${[["dens", L("Densitate", "Density")], ["type", L("Tip de activitate", "Type of activity")]].map(([v, l]) => `<label><input type="radio" name="jobcol" value="${v}" ${S.jobCol === v ? "checked" : ""}><span>${l}</span></label>`).join("")}</li>`;
-const heatLike = () => S.popView === "heat" || S.popView === "hills";
+const popV = () => (S.popWhat === "demo" ? "units" : S.popView);   // demographics exist only per unit
+const heatLike = () => popV() === "heat" || popV() === "hills";
 // ---------------------------------------------------------------- population as terrain: denser areas become higher hills
 const GRIDS = {};
 const gridFile = (w) => (w.startsWith("jobs") ? "jobgrid.geojson" : "popgrid.geojson");
@@ -944,7 +945,7 @@ async function render() {
   }
   const setR = (name, v) => document.querySelectorAll(`input[name=${name}]`).forEach((r) => (r.checked = r.value === String(v)));
   setR("zoneview", S.zoneView);
-  setR("level", S.level); setR("scen", S.scen); setR("reform", S.ref); setR("base", S.base); setR("popview", S.popView); setR("popwhat", S.popWhat);
+  setR("level", S.level); setR("scen", S.scen); setR("reform", S.ref); setR("base", S.base); setR("popview", S.popView); setR("popwhat", S.popWhat); document.getElementById("pvseg").hidden = document.getElementById("pvlab").hidden = S.popWhat === "demo";
   document.getElementById("date").value = S.date;
   document.getElementById("todaybtn").hidden = S.date === TODAY;
   document.getElementById("auto_d").textContent = t("auto_d")(REF());
@@ -988,6 +989,8 @@ async function render() {
     map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], P.line, ["has", "scol"], ["get", "scol"], SECTOR_COL]);
     const k = (b === "elevation" ? 0.35 : 1) * (multi ? 0.6 : 1);
     map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.06 * k, ["==", ["get", "kind"], "city"], (onImg ? 0.2 : 0.28) * k, (onImg ? 0.12 : 0.14) * k]);
+  } else if (fillMode === "pop" && S.popWhat === "demo") {
+    await demoApply();
   } else if (fillMode === "pop" && !heatLike()) {
     if (S.popWhat !== "pop") await ensureJobs();
     const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000];
@@ -1084,9 +1087,9 @@ async function render() {
   const tempOn = has("temp");
   if (tempOn) await ensure.temp();
   if (map.getLayer("temp")) { vis("temp", tempOn); updateTempImage(); }
-  const hills = has("pop") && S.popView === "hills", hw = S.popWhat === "ratio" ? "ratio" : wantJobs() ? jobsKey() : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
+  const hills = has("pop") && popV() === "hills", hw = S.popWhat === "ratio" ? "ratio" : wantJobs() ? jobsKey() : "pop", hm = S.hillSqrt ? "sqrt" : "lin", hsrc = `pd-${hw}-${hm}`;
   const cm = jobTypeCol() ? "t" : "c";
-  const ratioFlat = has("pop") && S.popView === "heat" && (hw === "ratio" || cm === "t");   // commuting / job types "heat map": the same colours, flat
+  const ratioFlat = has("pop") && popV() === "heat" && (hw === "ratio" || cm === "t");   // commuting / job types "heat map": the same colours, flat
   if (hills) await ensure.popdem(hw, hm, cm); else if (ratioFlat) await ensure.popcol(hw, cm);
   for (const l of map.getStyle().layers) {
     if (l.id.startsWith("pcol-")) vis(l.id, (hills || ratioFlat) && l.id === `pcol-${hw}-${cm}`);
@@ -1150,7 +1153,7 @@ async function renderLabels() {
     let txt = nameOf(p).replace(/^Chișinău – (sectorul )?/, "").replace(/ sector$/, "");
     if (p.lvl === 2 && p.kind === "city") txt = "Chișinău · " + txt;
     const dir = p.lvl === 1 && (m === "admin" || m === "pop") && SECDIR[p.sector] ? L(SECDIR[p.sector][0], SECDIR[p.sector][1]) : null;
-    el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (stLbl && p[stLbl] != null ? `<small>${stLbl === "st_r" ? stRatioFmt(S.stA, S.stB, p[stLbl]) : fmt(p[stLbl]) + "/100"}</small>` : "") + (m === "pop" ? (S.popWhat === "jobs" && p.jobs != null ? `<small>${fmt(p.jobs)} ${L("locuri de muncă", "jobs")}</small>` : S.popWhat === "ratio" && p.jr != null ? `<small>${fmt(p.jr / popScale(), 2)} ${L("locuri/locuitor", "jobs/resident")}</small>` : p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "") : "")
+    el.innerHTML = `<span>${esc(txt)}</span>` + (dir ? `<em class="dir">(${dir})</em>` : "") + (stLbl && p[stLbl] != null ? `<small>${stLbl === "st_r" ? stRatioFmt(S.stA, S.stB, p[stLbl]) : fmt(p[stLbl]) + "/100"}</small>` : "") + (m === "pop" ? (S.popWhat === "demo" ? (p.dm != null && !p.dmi ? `<small>${fmt(p.dm, 1)}${DEMO[S.demo][4] === "%" ? "%" : ""}</small>` : "") : S.popWhat === "jobs" && p.jobs != null ? `<small>${fmt(p.jobs)} ${L("locuri de muncă", "jobs")}</small>` : S.popWhat === "ratio" && p.jr != null ? `<small>${fmt(p.jr / popScale(), 2)} ${L("locuri/locuitor", "jobs/resident")}</small>` : p.pop ? `<small>${fmt(p.pop * popScale())}</small>` : "") : "")
       + (tmap && tmap.u?.[p.id] != null ? `<b class="tval">${fmt(tmap.u[p.id], 1)} °C</b>` : "");
     labelMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lx, p.ly]).addTo(map));
   }
@@ -1188,6 +1191,8 @@ function renderLegend() {
     h = Object.entries(P.sector).map(([k, c]) => `<li><i style="background:${c}"></i>${L(`Sectorul ${k}`, `${k} sector`)}${SECDIR[k] ? ` <span class="small">(${L(SECDIR[k][0], SECDIR[k][1])})</span>` : ""}</li>`).join("")
       + `<li><i class="ln" style="border-color:${P.accent}"></i>${L("Limita municipiului", "Municipality border")}${REF() === "ref" ? " (2027)" : ""}</li>`
       + (S.ctx ? `<li><i class="ln dash" style="border-color:${P.line}"></i>${t("lvlname").ctx}</li>` : "");
+  } else if (m === "pop" && S.popWhat === "demo") {
+    h = demoLegend();
   } else if (m === "pop" && S.popWhat === "ratio" && heatLike()) {
     const lab = [L("cartier-dormitor", "dormitory area"), L("mai mulți locuitori", "more residents"), L("mai mulți locuitori", "more residents"), L("echilibru", "balanced"), L("mai multe locuri de muncă", "more jobs"), L("centru de muncă", "job centre")];
     h = `<li class="cap">${L("Locuri de muncă la un locuitor", "Jobs per resident")}</li>` + RATIOBR.map((v, i) => `<li><i style="background:${RATIOCOL[i]}"></i>${fmt(v, 2)}${RATIOBR[i + 1] != null ? "–" + fmt(RATIOBR[i + 1], 2) : "+"} <span class="small">${lab[i]}</span></li>`).join("")
@@ -1660,7 +1665,7 @@ async function fillRoutes() {
 }
 
 // ================================================================== events
-function renderLife() { const m = document.getElementById("lifepanel"); if (bm(S.mode) === "life") m.innerHTML = lifeHtml(); }   // "Nivel de trai" is its own tab (no map layer yet)
+function renderLife() { const m = document.getElementById("lifepanel"); if (bm(S.mode) !== "life") return; m.innerHTML = lifeHtml() + `<div id="lifex"><div class="loading"><span class="spin"></span>…</div></div>`; lifeExtraHtml().then((h) => { const x = document.getElementById("lifex"); if (x) x.innerHTML = h; }).catch((e) => console.error("lifeExtra", e)); }   // "Nivel de trai" is its own tab (no map layer yet)
 async function fillRegions() {
   const sel = document.getElementById("region"), admin = await adminFC();
   const grp = (lvl, label) => {
