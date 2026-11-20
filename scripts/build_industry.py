@@ -75,15 +75,15 @@ for e in list(S.nodes.values()) + list(S.ways.values()) + list(S.rels.values()):
         p = {"n": nm or ("Sere" if "greenhouse" in (lu or "") + (t.get("building") or "") else "Fermă"), "b": "agri", "a": round(area / 1e4, 2) if area else None, "src": "OSM", "k": lu or t.get("building")}
         if t.get("produce") or t.get("product"): p["pr"] = t.get("produce") or t.get("product")
         if t.get("operator") and t.get("operator") != nm: p["op"] = t["operator"]
-        farms.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {k: v for k, v in p.items() if v is not None}})
+        farms.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {k: v for k, v in p.items() if v is not None}, "_g": g})
         continue
     if not nm and lu == "industrial" and area >= 3000 and g is not None:   # unnamed industrial site: kept, marked as such
         c = centre(e, g)
-        if c: anon.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Teren industrial fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "industrial"}}, g))
+        if c: anon.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Teren industrial fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "industrial"}, "_g": g}, g))
         continue
     if not nm and t.get("building") in ("industrial", "manufacture", "factory") and area >= 600 and g is not None:
         c = centre(e, g)
-        if c: anonb.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Clădire industrială fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "building"}}, g))
+        if c: anonb.append(({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {"n": "Clădire industrială fără nume", "b": "anon", "a": round(area / 1e4, 2), "src": "OSM", "k": "building"}, "_g": g}, g))
         continue
     key = ind or cr or ("power_plant" if pw == "plant" else None) or ("quarry" if lu == "quarry" else None) or mm
     if not nm and not (key in TAGMAP or key in ("power_plant", "quarry")): continue
@@ -104,7 +104,7 @@ for e in list(S.nodes.values()) + list(S.ways.values()) + list(S.rels.values()):
     if t.get("start_date"): p["y"] = t["start_date"][:4]
     if t.get("disused") == "yes" or "disused:industrial" in t or t.get("abandoned") == "yes": p["x"] = 1
     p["src"] = "OSM"; p["k"] = key
-    pts.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {k: v for k, v in p.items() if v is not None}})
+    pts.append({"type": "Feature", "geometry": {"type": "Point", "coordinates": [round(c[0], 6), round(c[1], 6)]}, "properties": {k: v for k, v in p.items() if v is not None}, "_g": g})
 
 # Wikidata producers
 WDCLS = {"fabrică": None, "vinărie": "wine", "semiconductor fabrication plant": "metal", "combined heat and power station": "energy", "editură": "print", "afacere": None}
@@ -148,6 +148,78 @@ for f in pts:
     generic = f["properties"]["n"] in LBL.values() or f["properties"]["n"] == "Întreprindere"
     if f["properties"]["b"] != "anon" and f["properties"]["n"] not in ("Fermă", "Sere", "Stână") and any(norm(g["properties"]["n"]) == n and abs(g["geometry"]["coordinates"][0] - x) < 0.0055 and abs(g["geometry"]["coordinates"][1] - y) < 0.0036 for g in keep): continue
     keep.append(f)
+# ---- second check: is something actually PRODUCED here? Drop services and networks; move named producers to their branch
+NOT_PROD = re.compile(r"\bgaz(e|ul)?\b|gas collector|transformare|post de distribuț|punct(ul)? (termic|central de încălzire|de distribuț)|^pdc-|distribuț(ie|ia) a energ|centrul tehnologic de distribuț|"
+    r"meteorolog|^administrația|contabilitate|^cantina|biseric|funer|agenția|pompieri|^laborator|institutul de proiect|institutul de cercet|^orange$|union fenosa|premier energy|"
+    r"centru de comutare|radarelor|realty|regia comunal|serviciul exploatarea|serviciul rețele|transport|courier|logistic|autohof|service\b|serviceauto|dezmembrare|^depou|"
+    r"reparați|reparație|caroserie|centrul auto|east-auto|autolab|baza auto|angro|magazin|showroom|încercarea mașinilor|azil|asociația obștească|clubul de echitație|canton silvic|"
+    r"ocolul silvic|^vila |metal uzat|fier uzat|platform[aă] de stocare|baza de metal|bază de materiale|danvaldor|compania de construcții|energoconstrucț|moldagroconstrucț|"
+    r"coloana mecanizată|electromontaj|termomontaj|electro tir|colectare a tutunului|comercializarea|coop\b|coopimex|angrocoop|life med|mold-didactica|suflante|stație compresor|"
+    r"neutralizare a apelor|decantare|baza de combustibil|deznisipator|stația de epurare|epurare a apelor|secția de întreținere|ateliere și cămine|^atelier$|cântar|"
+    r"ipotecă|teritoriul fostei|fostul teritoriu|fosta bază|drumuri (chișinău|ialoveni)|asidcons|direcția specializată|tehnica agricol|piese|truck parts|agroteh|"
+    r"ingeocad|protecția|green valley|^tris$|relaxe|^cristina$|^mihaela$|^aurelia$|^agga$|^aiart$|dzen flower|pereflex|ziphouse|apa canal|apă canal|secția electromecanică|"
+    r"tehgaz|incorgaz|agazelor|funeb|secția distribuție|institutul de tehnică|meșterul dibaci|demol auto|parcul nistrean|stația de stat|^post de|^punct de|^nod |^nodul|^stația principală|^stație de reglare|^stația de gaz|ionex-trans|magas trans|primtrans|politrans|luntracom|trans ager|"
+    r"gal transervice|profservice|cfm$|ialserviceauto|imoxservice|tehnoservice|romalex|vioniservice|rufi-express|eangro|valandex|bază agricolă|brigad[aă] de tractoare|fermă de tractoare", re.I)
+RECLASS = [("food", r"abator|lavaș|lavas|nuci|nucă|nuca|biomilk|frig|arctica|oloiniț|prometeu|katifia|farmina|ferma cu origini"),
+           ("chem", r"nefis|fertilitatea|farmaceutic|pharma|plastilin"), ("text", r"miltex|stofe|steaua-reds"), ("build", r"teracot|travertin|mozaic|calcar"),
+           ("wood", r"forestcom|bafimob|peleț|cherestea|confecționarea mobilei|^codru s\.|mobil"), ("agri", r"apinord|prisac|apicol|albin|gospodăria țărănească|stupi"),
+           ("metal", r"inox|fier-art|baslift|cabling|making equipment|industrial manufacturing|europrofill|kurtoglu|frigidere din|alimentarmaș|ateliere experimentale mecanice|bimetcom|metioris|ferex"),
+           ("print", r"grafit-art|decogravura|plastilin"), ("wine", r"apă pură|îmbuteliere|cram[aă]|winery")]
+RECLASS = [(b, re.compile(rx, re.I)) for b, rx in RECLASS]
+k2 = []
+for f in keep:
+    pr = f["properties"]
+    if NOT_PROD.search(pr["n"]) and pr["b"] != "anon": continue
+    for b, rx in RECLASS:
+        if rx.search(pr["n"]): pr["b"] = b; break
+    k2.append(f)
+print("not producing, removed:", len(keep) - len(k2)); keep = k2
+
+# ---- production floor area: buildings standing on each producing site (footprint × storeys of ~4.5 m)
+import numpy as np
+from shapely.geometry import shape as _shape
+B = []
+for fn in ("buildings_a.geojson", "buildings_b.geojson"):
+    for f in json.load(open(os.path.join(D, fn)))["features"]:
+        try: g = _shape(f["geometry"])
+        except Exception: continue
+        B.append((g, f["properties"].get("h", 6), f["properties"].get("t", "yes")))
+KM = 111320 * math.cos(math.radians(47)) * 110570
+bt = STRtree([b[0].representative_point() for b in B])
+used = set()
+OPEN = {"quarry", "power_plant"}   # open-air production (quarries, solar parks): a share of the site area
+sites = []
+for f in keep:
+    g = f.get("_g"); x, y = f["geometry"]["coordinates"]
+    if g is None or g.is_empty: g = _P(x, y).buffer(0.0008)   # point only: ~60 m around it
+    sites.append((f, g))
+sites.sort(key=lambda s: s[1].area)   # small sites first: a building belongs to the most specific site
+cellw = {}
+sg = json.load(open(os.path.join(D, "statgrid.json")))
+W, H, kx0, ky0, CX, CY = sg["W"], sg["H"], sg["kx0"], sg["ky0"], sg["dx"], sg["dy"]
+IND = np.zeros(W * H)
+def add(x, y, v):
+    i, j = int(x / CX) - kx0, int(y / CY) - ky0
+    if 0 <= i < W and 0 <= j < H: IND[j * W + i] += v
+for f, g in sites:
+    pr = f["properties"]; fl = 0.0; x, y = f["geometry"]["coordinates"]
+    for bi in bt.query(g, predicate="intersects"):
+        if bi in used: continue
+        bg, h, t = B[bi]
+        if t in ("house", "detached", "apartments", "residential", "church", "school", "kindergarten"): continue
+        used.add(bi)
+        a = bg.area * KM; v = a * max(1.0, round(h / 4.5)); fl += v
+        c = bg.representative_point(); add(c.x, c.y, v * (0.5 if pr["b"] in ("anon", "other") else 1))
+    if (pr.get("k") in OPEN or "fotovoltaic" in pr["n"].lower() or pr["n"].lower().startswith("carier")) and g.area > 0:
+        v = 0.05 * g.area * KM; fl += v; c = g.representative_point(); add(c.x, c.y, v)
+    if fl < 150:   # a small workshop at least
+        x, y = f["geometry"]["coordinates"]; add(x, y, (150 - fl) * (0.5 if pr["b"] in ("anon", "other") else 1)); fl = 150
+    pr["fl"] = int(round(fl, -1))
+for f in keep: f.pop("_g", None)
+sg["ind"] = [int(round(v)) for v in IND]
+json.dump(sg, open(os.path.join(D, "statgrid.json"), "w"), separators=(",", ":"))
+print("production floor area in the grid, km²:", round(IND.sum() / 1e6, 2), "largest:", sorted(((f["properties"]["fl"], f["properties"]["n"]) for f in keep), reverse=True)[:12])
+
 from collections import Counter
 print("enterprises", len(keep), Counter(f["properties"]["b"] for f in keep), "zones", len(zones))
 print([f["properties"]["n"] for f in keep if f["properties"]["b"] == "other"][:80])

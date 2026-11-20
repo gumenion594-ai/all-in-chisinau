@@ -73,3 +73,8 @@ fetch_area.py (+ extra_e/extra_n strips) → build_layers.py → build_msb.py �
   - OSM input subset: `data/raw/osm_her_ind.json`, made by `scripts/extract_osm_her_ind.py` from area/extra_e/extra_n.
   - Also included: farms and greenhouses (named ones, or unnamed ones of at least 0.5 ha).
   - Unnamed industrial sites (at least 0.3 ha, with no named enterprise on them) and unnamed industrial buildings (at least 600 m², outside zones) form the grey "anon" branch.
+- **Densitate industrială** (Statistics, key `ind`):
+  - `build_industry.py` also writes `statgrid.ind`: production floor m² per 150 m cell.
+  - Floor area = buildings on each production site × storeys (h / 4.5 m). Open-air quarries and solar parks get 5% of their site area. The unknown-profile and unnamed branches count ×0.5.
+  - A second check (`NOT_PROD`) drops non-producing places: gas, transformer posts, repair shops, transport, depots, offices. `RECLASS` moves named producers out of "other" into their branch.
+  - Pipeline: build_stats → build_heights → build_flood → **build_industry** (all of them write statgrid.json).

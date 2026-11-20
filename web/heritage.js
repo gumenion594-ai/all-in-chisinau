@@ -152,7 +152,7 @@ async function indPopup(p, ll) {
     ${p.x ? `<div class="k">${L("Inactivă / abandonată (după OSM)", "Inactive / abandoned (per OSM)", "Не работает (по OSM)")}</div>` : ""}
     ${p.d ? `<div class="desc">${esc(p.d)}</div>` : ""}${p.pr ? `<div>${L("Produse", "Products", "Продукция")}: ${esc(String(p.pr).replace(/;/g, ", "))}</div>` : ""}
     ${p.op ? `<div>${L("Operator", "Operator", "Оператор")}: ${esc(p.op)}</div>` : ""}${p.ad ? `<div>${t("addr")}: ${esc(p.ad)}</div>` : ""}
-    ${p.y ? `<div>${L("Din", "Since", "С")}: ${esc(p.y)}</div>` : ""}${p.a ? `<div>${L("Suprafața terenului", "Site area", "Площадь участка")}: ${fmt(p.a, p.a < 10 ? 1 : 0)} ha</div>` : ""}
+    ${p.y ? `<div>${L("Din", "Since", "С")}: ${esc(p.y)}</div>` : ""}${p.a ? `<div>${L("Suprafața terenului", "Site area", "Площадь участка")}: ${fmt(p.a, p.a < 10 ? 1 : 0)} ha</div>` : ""}${p.fl > 150 ? `<div>${L("Spații de producție (estimare)", "Production floor space (estimate)", "Производственные площади (оценка)")}: ~${fmt(p.fl)} m²</div>` : ""}
     ${web ? `<div>${t("web")}: <a href="${esc(web)}" target="_blank" rel="noopener">${esc(web.replace(/^https?:\/\//, "").slice(0, 40))}</a></div>` : ""}
     <div class="small">${L("Sursa", "Source", "Источник")}: ${p.src === "Wikidata" ? "Wikidata" : "OpenStreetMap"}</div></div>`);
 }

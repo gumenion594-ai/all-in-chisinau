@@ -26,12 +26,17 @@ const STK = {
     d: ["Perioada în care au fost construite clădirile.", "When the buildings were built.", "Когда построены здания."] },
   pop:     { ro: "Populație", en: "Population", ru: "Население", q: -1,
     d: ["Locuitori pe km² (recensământul 2024).", "Residents per km² (2024 census).", "Жителей на км² (перепись 2024)."] },
+  ind:     { ro: "Densitate industrială", en: "Industrial density", ru: "Промышленная плотность", q: -1,
+    d: ["Spații de producție (m² de hale și clădiri ale fabricilor, fermelor, centralelor) la hectar. Întreprinderile mari dau valori mult mai mari.", "Production floor space (m² of halls and buildings of factories, farms, power plants) per hectare. Large enterprises give much higher values.", "Производственные площади (м² цехов и зданий заводов, ферм, станций) на гектар. Крупные предприятия дают гораздо большие значения."] },
   jobs:    { ro: "Locuri de muncă", en: "Jobs", ru: "Рабочие места", q: -1,
     d: ["Locuri de muncă pe km² (estimare).", "Jobs per km² (estimate).", "Рабочих мест на км² (оценка)."] },
 };
 Object.assign(T.ro, { stats: "Statistici", showloc: "Arată locația mea pe hartă" }); Object.assign(T.en, { stats: "Statistics", showloc: "Show my location on the map" }); if (T.ru) Object.assign(T.ru, { stats: "Статистика", showloc: "Показывать моё местоположение на карте" });
 const STN = (k) => L(STK[k].ro, STK[k].en, STK[k].ru);
 const ST_HOW = {
+  ind: ["Pentru fiecare loc de producție din meniul Industrie (fabrici, vinării, cariere, ferme, sere, centrale) se adună clădirile care stau pe terenul lui: suprafața la sol × numărul de niveluri (înălțimea / 4,5 m). Așa, o uzină cu hale de 50 000 m² cântărește de sute de ori mai mult decât un atelier. Carierele și parcurile fotovoltaice, care produc în aer liber, primesc 5% din suprafața terenului. Firmele cu profil necunoscut și terenurile industriale fără nume contează pe jumătate, pentru că o parte pot fi depozite. Depozitele, bazele de transport, stațiile de gaz, posturile de transformare și atelierele de reparații nu sunt incluse: acolo nu se produce nimic. Valoarea e în m² de spații de producție la hectar, netezită pe pătrate de 150 m.",
+        "For every production site in the Industry menu (factories, wineries, quarries, farms, greenhouses, power plants) the buildings standing on its land are added up: footprint × storeys (height / 4.5 m). So a plant with 50,000 m² of halls weighs hundreds of times more than a workshop. Quarries and solar parks, which produce in the open, get 5% of their site area. Firms of unknown activity and unnamed industrial sites count half, since some may be warehouses. Warehouses, transport depots, gas stations, transformer posts and repair shops are not included: nothing is produced there. The value is m² of production space per hectare, smoothed over 150 m squares.",
+        "Для каждого места производства из меню «Промышленность» (заводы, винзаводы, карьеры, фермы, теплицы, станции) суммируются здания на его участке: площадь застройки × число уровней (высота / 4,5 м). Так завод с цехами на 50 000 м² весит в сотни раз больше мастерской. Карьеры и солнечные парки, работающие под открытым небом, получают 5% площади участка. Фирмы с неизвестным профилем и безымянные промплощадки считаются наполовину, так как часть из них может быть складами. Склады, транспортные базы, газовые станции, трансформаторные пункты и ремонтные мастерские не учитываются: там ничего не производится. Значение — м² производственных площадей на гектар, сглаженное по квадратам 150 м."],
   green: ["Toate parcurile, grădinile publice, bazele de odihnă și pădurile până la 2 km pe jos (parcurile se folosesc aproape de casă). Se ignoră spațiile private și petele mici de iarbă (sub 0,3 ha; păduri sub 1 ha). Se adună hectarele la 500 m, 1 km și 2 km, fiecare hectar după cât de amenajat e (amenajat 100%, semi-amenajat 50%, natural 20%, vezi mai jos); fiecare sumă trece printr-un logaritm, cu ponderile 1 · 0,5 · 0,25: un scuar de 2 ha contează, un parc de 100 ha contează mai mult, dar nu de 50 de ori.", "All parks, public gardens, recreation grounds and forests up to 2 km on foot (parks are used close to home). Private gardens and small grass patches are ignored (under 0.3 ha; forests under 1 ha). Hectares within 500 m, 1 km and 2 km are added up, each by how landscaped it is (landscaped 100%, semi 50%, natural 20%, see below); each sum goes through a logarithm, weighted 1 · 0.5 · 0.25: a 2 ha square counts, a 100 ha park counts more, but not 50 times more.", "Все парки, общественные сады, зоны отдыха и леса до 2 км пешком (парками пользуются рядом с домом). Частные участки и мелкие газоны не учитываются (меньше 0,3 га; леса меньше 1 га). Суммируются гектары в пределах 500 м, 1 и 2 км, каждый по благоустройству (благоустроенный 100%, частично 50%, естественный 20%, см. ниже); каждая сумма проходит через логарифм, веса 1 · 0,5 · 0,25: сквер в 2 га учитывается, парк в 100 га — больше, но не в 50 раз."],
   transit: ["Fiecare linie de autobuz, troleibuz sau rutieră se numără o singură dată, la stația ei cea mai apropiată de tine (pe jos). Se numără câte linii diferite ai la 300 m, 500 m, 1 km și 2 km; fiecare număr trece printr-un logaritm, cu ponderile 1 · 0,6 · 0,25 · 0,05. Așa, mai multe linii aproape dau o valoare mai mare, dar a 30-a linie adaugă mai puțin decât a doua. Trenul nu e inclus; frecvența curselor nu e cunoscută, deci toate liniile cântăresc la fel.", "Each bus, trolleybus or minibus line counts once, at its stop nearest to you (on foot). It counts how many different lines you have within 300 m, 500 m, 1 km and 2 km; each count goes through a logarithm, weighted 1 · 0.6 · 0.25 · 0.05. So more lines nearby give a higher value, but the 30th line adds less than the second. Trains are not included; service frequency is unknown, so all lines weigh the same.", "Каждая линия автобуса, троллейбуса или маршрутки считается один раз — у ближайшей к вам остановки (пешком). Считается, сколько разных линий в пределах 300 м, 500 м, 1 и 2 км; каждое число проходит через логарифм, веса 1 · 0,6 · 0,25 · 0,05. Больше линий рядом — выше значение, но 30-я линия добавляет меньше второй. Поезд не включён; частота рейсов неизвестна, поэтому все линии весят одинаково."],
   health: ["Spital = 4, policlinică / centru medical = 2, cabinet = 1,5, stomatologie sau laborator = 0,5. Se numără câte obiective sunt la 500 m, 1 km, 2 km, 5 km și 10 km pe jos. Pentru fiecare rază, numărul trece printr-un logaritm (primul obiectiv contează mult, al 100-lea foarte puțin), iar razele au ponderi 1 · 0,5 · 0,25 · 0,1 · 0,04. Un obiectiv apropiat intră în toate razele, deci valorează cel mai mult; sute de obiective la 5–10 km nu pot întrece unul aflat la 500 m. Farmaciile nu sunt incluse.", "Hospital = 4, polyclinic / health centre = 2, doctor's practice = 1.5, dentist or lab = 0.5. It counts how many facilities are within 500 m, 1 km, 2 km, 5 km and 10 km on foot. For each radius the count goes through a logarithm (the first facility counts a lot, the 100th very little) and the radii are weighted 1 · 0.5 · 0.25 · 0.1 · 0.04. A facility close by falls in every radius, so it weighs most; hundreds of facilities 5–10 km away cannot outweigh one within 500 m. Pharmacies are not included.", "Больница = 4, поликлиника / медцентр = 2, кабинет = 1,5, стоматология или лаборатория = 0,5. Считается, сколько объектов в пределах 500 м, 1, 2, 5 и 10 км пешком. Для каждого радиуса число проходит через логарифм (первый объект весит много, сотый — очень мало), радиусы имеют веса 1 · 0,5 · 0,25 · 0,1 · 0,04. Близкий объект попадает во все радиусы и весит больше всего; сотни объектов в 5–10 км не перевесят один в 500 м. Аптеки не включены."],
@@ -77,6 +82,7 @@ async function statGrid() {
   if (vals.height) for (let i = 0; i < n; i++) vals.height[i] /= 10;
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
   vals.jobs = Float32Array.from(box(jobs), (v, k) => (v / cellKm2) * inside[k]);
+  if (g.ind) vals.ind = Float32Array.from(box(Float32Array.from(g.ind)), (v, k) => (v / (cellKm2 * 100)) * inside[k]);   // m² of production space per hectare
   // municipal reference for the ratio: resident-weighted average for scores, average density where people live or work
   const ref = {}; let pw = 0; for (let k = 0; k < n; k++) pw += pop[k] * muni[k];
   for (const k in vals) { let s = 0; if (STK[k].q > 0) { for (let i = 0; i < n; i++) s += vals[k][i] * pop[i] * muni[i]; ref[k] = s / pw; } else { let c = 0; for (let i = 0; i < n; i++) if (mask[i] === 1) { s += vals[k][i]; c++; } ref[k] = s / c; } }
@@ -113,9 +119,13 @@ function stSample(F, lon, lat, M = SG.mask) {   // normalized bilinear sampling 
   let s = 0, m = 0, a = 0; for (let t = 0; t < 4; t++) { const q = ws[t] * I[ks[t]]; s += F[ks[t]] * q; m += q; a += ws[t] * M[ks[t]]; }
   return m > 0.05 ? [s / m, a] : [0, 0];
 }
+const IND_K = 4;   // production m²/ha → the colour / hill scale used for densities
+const IND_UBR = [0, 25, 75, 200, 500, 1000];   // whole units: averages over homes, fields and forests too
+const IND_BR = [0, 100, 500, 1500, 3000, 6000], IND_COL = ["#f3f0fa", "#d9cff2", "#b39ae3", "#8a63d2", "#6741d9", "#3b1f8f"];
 function stColour(key, v) {
   if (key.startsWith("r~")) { const [, A, B] = key.split("~"), p = stPol(A, B); return lerpStops(p === 0 ? RT_NEU : RT_GOOD, p < 0 ? -v : v); }
   if (key === "height") return htCol(v);
+  if (key === "ind") return hillCol(v * IND_K);
   if (STK[key].q < 0) return hillCol(v);
   return lerpStops(ST_STOPS, v);
 }
@@ -123,12 +133,13 @@ function stHeight(key, v, sq) {
   if (key.startsWith("r~")) return v * 260;
   if (key === "height") return v * 22;
   if (key === "flood") return (100 - v) * 12;   // flood risk: the riskier, the higher the hill
+  if (key === "ind") return hillH(v * IND_K, sq);
   if (STK[key].q < 0) return hillH(v, sq);
   return sq ? Math.sqrt(v / 100) * 1200 : v * 12;
 }
 async function stTile(url, dem) {
   const [key0, mode, ...zxy] = url.split("/"), [z, x, y] = zxy.map(Number), all = key0.endsWith("~e"), key = all ? key0.slice(0, -2) : key0;
-  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0, M = all ? SG.inside : SG.mask;
+  await statGrid(); const F = stField(key), dens = !key.startsWith("r~") && STK[key].q < 0, M = all || key === "ind" || key.includes("~ind") ? SG.inside : SG.mask;   // industry also stands where nobody lives
   const N = 256, cv = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(N, N) : Object.assign(document.createElement("canvas"), { width: N, height: N });
   const ctx = cv.getContext("2d"), img = ctx.createImageData(N, N), a = img.data, n = 2 ** z;
   for (let py = 0; py < N; py++) {
@@ -163,22 +174,23 @@ async function ensureStats() {
     const p = f.properties; if (!f.geometry) continue;
     const pg = prepGeom(f.geometry), [x0, y0, x1, y1] = pg.bbox;
     const i0 = Math.max(0, Math.floor((x0 - G.x0) / G.dx)), i1 = Math.min(G.W - 1, Math.ceil((x1 - G.x0) / G.dx)), j0 = Math.max(0, Math.floor((y0 - G.y0) / G.dy)), j1 = Math.min(G.H - 1, Math.ceil((y1 - G.y0) / G.dy));
-    const acc = {}, near = {}, mine = []; let wp = 0, wa = 0;
+    const acc = {}, near = {}, mine = []; let wp = 0, wa = 0, ind = 0;
     for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
       const k = j * G.W + i; if (!G.inside[k] || !pg.has(G.x0 + i * G.dx, G.y0 + j * G.dy)) continue;
-      const w = G.pop[k] > 0 ? G.pop[k] : 0; wp += w; wa += 1; if (w > 0) mine.push(k);
+      const w = G.pop[k] > 0 ? G.pop[k] : 0; wp += w; wa += 1; if (w > 0) mine.push(k); if (G.g.ind) ind += G.g.ind[k];
       for (const s of ["green", "transit", "air", "health", "school", "slope", "flood", "height"]) { if (!G.vals[s]) continue; acc[s] ??= [0, 0]; acc[s][0] += G.vals[s][k] * w; acc[s][1] += G.vals[s][k]; }
       for (const s in G.near) { near[s] ??= 0; near[s] += Math.min(3000, G.near[s][k]) * w; }
     }
     if (!wa) continue;
     ST_CELLS.set(p.id, Int32Array.from(mine));
+    if (G.g.ind) { p.ind_m2 = ind; p.idens = Math.round(ind / (wa * G.cellKm2 * 100)); }
     for (const s in acc) p["st_" + s] = s === "height" ? Math.round((wp > 0 ? acc[s][0] / wp : acc[s][1] / wa) * 10) / 10 : Math.round(wp > 0 ? acc[s][0] / wp : acc[s][1] / wa);
     if (wp > 0) for (const s in near) p["sn_" + s] = Math.round(near[s] / wp / 10) * 10;
   }
   admin.__stats = true;
   return admin;
 }
-const stUnitVal = (p, k) => (k === "pop" ? (p.dens || 0) * popScale() : k === "jobs" ? p.jdens || 0 : p["st_" + k]);
+const stUnitVal = (p, k) => (k === "pop" ? (p.dens || 0) * popScale() : k === "jobs" ? p.jdens || 0 : k === "ind" ? p.idens || 0 : p["st_" + k]);
 function stUnitRatios(admin) {   // what the unit's residents experience: the map's value averaged over their cells (weighted by residents)
   const F = stField(`r~${S.stA}~${S.stB}`), G = SG;
   for (const f of admin.features) { const p = f.properties, c = ST_CELLS.get(p.id); if (!c || !c.length) { p.st_r = null; continue; } let s = 0, w = 0; for (const k of c) { s += F[k] * G.pop[k]; w += G.pop[k]; } p.st_r = Math.round((s / w) * 100) / 100; }
@@ -187,13 +199,14 @@ async function stApplyUnits() {
   const admin = await ensureStats(), A = S.stA, B = S.stB, key = stKey();
   if (S.stRatio) stUnitRatios(admin);
   map.getSource("admin")?.setData(admin);
-  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" || S.stat === "height" ? null : "st_" + S.stat;
+  const prop = S.stRatio ? "st_r" : S.stat === "pop" || S.stat === "jobs" || S.stat === "height" || S.stat === "ind" ? null : "st_" + S.stat;
   let col;
   if (prop) {
     const stops = S.stRatio ? (stPol(A, B) === 0 ? RT_NEU : RT_GOOD) : ST_STOPS, flip = S.stRatio && stPol(A, B) < 0;
     col = ["interpolate", ["linear"], ["*", flip ? -1 : 1, ["to-number", ["get", prop]]], ...stops.flatMap(([v, c]) => [v, rgbHex(c)])];
     col = ["case", ["has", prop], ["case", ["==", ["get", prop], null], "#cccccc", col], "#cccccc"];
   } else if (S.stat === "pop") { const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000]; col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], pal().pop[0]]; br.slice(1).forEach((v, i) => col.push(v, pal().pop[i + 1])); }
+  else if (S.stat === "ind") { col = ["step", ["coalesce", ["get", "idens"], 0], IND_COL[0]]; IND_UBR.slice(1).forEach((v, i) => col.push(v, IND_COL[i + 1])); }
   else if (S.stat === "height") col = ["interpolate", ["linear"], ["coalesce", ["get", "st_height"], 0], ...HT_STOPS.slice(1).flatMap(([v, c]) => [v, rgbHex(c.slice(0, 3))])];
   else { col = ["step", ["coalesce", ["get", "jdens"], 0], JOBCOL[0]]; JOBBR.slice(1).forEach((v, i) => col.push(v, JOBCOL[i + 1])); }
   map.setPaintProperty("admin-fill", "fill-color", col);
@@ -271,6 +284,20 @@ async function statsLegendAsync() {
       + `<li class="small">${L(`Surse: <b>${fmt(hs.osm || 0)}</b> clădiri cu înălțime exactă din OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> estimate cu modelul. Testat pe ${fmt(hs.test_n || 0)} clădiri cu înălțime cunoscută (nefolosite la antrenare): eroare medie <b>${fmt(hs.mae || 0, 1)} m</b>, ±3 m în ${hs.within3 || 0}% din cazuri (ghicirea după tipul clădirii: ${fmt(hs.mae_default || 0, 1)} m). Cel mai puțin precis la clădirile foarte înalte.`, `Sources: <b>${fmt(hs.osm || 0)}</b> buildings with exact height from OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> estimated by the model. Tested on ${fmt(hs.test_n || 0)} buildings of known height (not used for training): mean error <b>${fmt(hs.mae || 0, 1)} m</b>, within ±3 m in ${hs.within3 || 0}% of cases (guessing by building type: ${fmt(hs.mae_default || 0, 1)} m). Least precise for very tall buildings.`, `Источники: <b>${fmt(hs.osm || 0)}</b> зданий с точной высотой из OpenStreetMap, <b>${fmt(hs.ghsl || 0)}</b> оценены моделью. Проверка на ${fmt(hs.test_n || 0)} зданиях с известной высотой (не использованных при обучении): средняя ошибка <b>${fmt(hs.mae || 0, 1)} м</b>, ±3 м в ${hs.within3 || 0}% случаев (оценка по типу здания: ${fmt(hs.mae_default || 0, 1)} м). Менее точно для очень высоких зданий.`)}</li>`
       + pickHtml(L("Cartierele cu clădirile cele mai înalte", "Neighbourhoods with the tallest buildings", "Районы с самыми высокими зданиями"), pick(val, 4, false), val, (v) => fmt(v, 1) + " m", "")
       + how(k);
+    return h;
+  }
+  if (k === "ind") {
+    const mu = admin.features.find((f) => f.properties.lvl === "mun" && [REF(), "both"].includes(f.properties.sc))?.properties;
+    let totM = 0; for (let i = 0; i < G.n; i++) totM += (G.g.ind[i] || 0) * G.muni[i];
+    const val = (q) => q.idens;
+    const lvl3 = admin.features.filter((f) => f.properties.lvl === 3 && [REF(), "both"].includes(f.properties.sc) && f.properties.idens != null).map((f) => f.properties);
+    const top = lvl3.sort((a, b) => b.idens - a.idens).slice(0, 7);
+    h += `<li class="stkpi"><div><b style="color:#6741d9">${fmt(totM / 1e6, 2)}</b><span>${L("milioane m² de spații de producție în municipiu", "million m² of production space in the municipality", "млн м² производственных площадей в муниципии")}</span></div>${mu?.km2 ? `<div><b style="color:#6741d9">${fmt(totM / (mu.km2 * 100), 0)}</b><span>${L("m² la hectar, în medie", "m² per hectare on average", "м² на гектар в среднем")}</span></div>` : ""}</li>`
+      + `<li class="cap">${L("Spații de producție la hectar", "Production space per hectare", "Производственные площади на гектар")}</li>`
+      + (S.stView === "units" ? IND_UBR : IND_BR).map((v, i, B) => `<li><i style="background:${S.stView === "units" ? IND_COL[i] : rgbHex(hillCol(Math.max(v, 40) * IND_K + 1).slice(0, 3))}"></i>${fmt(v)}${B[i + 1] != null ? "–" + fmt(B[i + 1]) : "+"} m²/ha</li>`).join("")
+      + (S.stView === "units" ? `<li class="small">${L("Pe unități, valoarea e media pe toată suprafața (inclusiv case, câmpuri, păduri), deci e mai mică decât în zonele industriale propriu-zise.", "For units the value is the average over the whole area (homes, fields and forests included), so it is lower than inside the industrial zones themselves.", "По единицам значение усреднено по всей площади (включая жильё, поля, леса), поэтому оно ниже, чем в самих промзонах.")}</li>` : "")
+      + `<li class="cap">${L("Cartierele cu cea mai mare densitate industrială", "Neighbourhoods with the highest industrial density", "Районы с самой высокой промышленной плотностью")}</li><li class="stlist">${top.map((p) => `<button type="button" class="stu" data-stunit="${p.id}"><span>${esc(nameOf(p))}</span><b>${fmt(p.idens)} m²/ha</b></button>`).join("")}</li>`
+      + `<li class="small">${L("Deschide meniul Industrie ca să vezi fiecare întreprindere.", "Open the Industry menu to see every enterprise.", "Откройте меню «Промышленность», чтобы увидеть каждое предприятие.")}</li>` + how(k);
     return h;
   }
   if (st.q < 0) {
@@ -356,8 +383,8 @@ async function stPointPopup(ll) {
     : s === "flood" && G.hand ? `<br><small class="muted">${G.hand[k] >= 990 ? L("departe de râuri și pâraie", "far from rivers and streams", "далеко от рек и ручьёв") : `~${fmt(G.hand[k] / 10, 1)} m ${L("deasupra cursului de apă", "above the watercourse", "над водотоком")} · ${fmt(G.wdist[k])} m ${L("până la apă", "to the water", "до воды")}`}</small>` : "";
   const rows = ["green", "transit", "air", "health", "school", "slope", "flood"].filter((s) => G.vals[s]).map((s) => { const v = Math.round(stSample(G.vals[s], ll.lng, ll.lat, G.inside)[0]), c = Math.max(0, ST_CLS.findIndex(([lo, hi]) => v >= lo && v < hi));
     return `<tr><td>${esc(STN(s))}</td><td><b class="stpill" style="background:${ST_CLS[c][2]};color:${stInk(c)}">${v}</b> ${clsOf(s, c)}${extra(s)}${G.near[s] ? `<br><small class="muted">${L("cel mai aproape", "nearest", "ближайшее")}: ${nm(G.near[s][k], s)} ${L("pe jos", "on foot", "пешком")}${s === "transit" ? ` · ${G.cum.transit[k]} ${L("linii la ≤ 500 m", "lines within 500 m", "линий в пределах 500 м")}` : s === "school" ? ` · ~${fmt(G.cum.school[k])} ${L("locuri în școli la ≤ 1 km", "school places within 1 km", "мест в школах в пределах 1 км")}` : ""}</small>` : ""}</td></tr>`; }).join("");
-  const pd = stSample(G.vals.pop, ll.lng, ll.lat, G.inside)[0] * popScale(), jd = stSample(G.vals.jobs, ll.lng, ll.lat, G.inside)[0];
-  popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table>${G.vals.height ? (() => { const hv = stSample(G.vals.height, ll.lng, ll.lat, G.inside)[0]; return hv > 1 ? `<small>${esc(STN("height"))}: ~${fmt(hv, 1)} m ${L("în medie", "on average", "в среднем")}${G.hmax?.[k] ? ` · ${L("cea mai înaltă", "tallest", "самое высокое")} ~${fmt(G.hmax[k])} m` : ""}</small><br>` : ""; })() : ""}<small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²</small>`);
+  const pd = stSample(G.vals.pop, ll.lng, ll.lat, G.inside)[0] * popScale(), jd = stSample(G.vals.jobs, ll.lng, ll.lat, G.inside)[0], idn = G.vals.ind ? stSample(G.vals.ind, ll.lng, ll.lat, G.inside)[0] : 0;
+  popup(ll, `<b>${esc(where || L("Punct pe hartă", "Point on the map", "Точка на карте"))}</b><table class="stpt">${rows}</table>${G.vals.height ? (() => { const hv = stSample(G.vals.height, ll.lng, ll.lat, G.inside)[0]; return hv > 1 ? `<small>${esc(STN("height"))}: ~${fmt(hv, 1)} m ${L("în medie", "on average", "в среднем")}${G.hmax?.[k] ? ` · ${L("cea mai înaltă", "tallest", "самое высокое")} ~${fmt(G.hmax[k])} m` : ""}</small><br>` : ""; })() : ""}<small>${L("Locuitori", "Residents", "Жители")}: ~${fmt(Math.round(pd / 50) * 50)} / km² · ${L("Locuri de muncă", "Jobs", "Рабочие места")}: ~${fmt(Math.round(jd / 50) * 50)} / km²${idn >= 20 ? ` · ${esc(STN("ind"))}: ${fmt(Math.round(idn / 10) * 10)} m²/ha` : ""}</small>`);
 }
 
 // ---------------------------------------------------------------- green space: weights by how landscaped it is (editable by the city hall)
