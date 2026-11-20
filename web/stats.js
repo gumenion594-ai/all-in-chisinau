@@ -119,6 +119,7 @@ function stColour(key, v) {
 function stHeight(key, v, sq) {
   if (key.startsWith("r~")) return v * 260;
   if (key === "height") return v * 22;
+  if (key === "flood") return (100 - v) * 12;   // flood risk: the riskier, the higher the hill
   if (STK[key].q < 0) return hillH(v, sq);
   return sq ? Math.sqrt(v / 100) * 1200 : v * 12;
 }
