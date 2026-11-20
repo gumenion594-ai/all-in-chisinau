@@ -29,13 +29,13 @@ const ST_HOW = {
 const ST_COMMON = () => L("Până la 2 km distanța se măsoară pe străzi, trotuare și poteci (OpenStreetMap), nu în linie dreaptă: un obiectiv de peste calea ferată sau un râu poate fi departe chiar dacă pare aproape. La 5 și 10 km, unde contează puțin, se folosește linia dreaptă × 1,3 (ocolișul obișnuit). Scorul 0–100 nu are plafon artificial: 100 = nivelul celor mai bine serviți 1% dintre locuitori, iar restul e proporțional. Media pe unități e ponderată cu numărul de locuitori.",
   "Up to 2 km, distance is measured along streets, sidewalks and paths (OpenStreetMap), not in a straight line: a facility across a railway or a river can be far even if it looks close. At 5 and 10 km, where it matters little, the straight line × 1.3 (usual detour) is used. The 0–100 score has no artificial ceiling: 100 = the level of the best-served 1% of residents, the rest is proportional. Unit averages are weighted by residents.",
   "До 2 км расстояние считается по улицам, тротуарам и дорожкам (OpenStreetMap), а не по прямой: объект за железной дорогой или рекой может быть далеко, даже если кажется близким. На 5 и 10 км, где вклад мал, берётся прямая × 1,3 (обычный крюк). Балл 0–100 без искусственного потолка: 100 = уровень лучше всего обеспеченного 1% жителей, остальное пропорционально. Средние по единицам взвешены по жителям.");
-// red–yellow–blue: dark ends, light middle (strong lightness contrast, readable with red–green colour blindness)
-const ST_CLS = [[0, 20, "#a50f2d"], [20, 40, "#f0703c"], [40, 60, "#f9d978"], [60, 80, "#6fa8d6"], [80, 101, "#23418f"]];
+// red–yellow–green with strong lightness contrast: dark ends, bright middle
+const ST_CLS = [[0, 20, "#9b0d23"], [20, 40, "#ef6a2f"], [40, 60, "#fbe36b"], [60, 80, "#7cc24a"], [80, 101, "#0b6b2e"]];
 const stInk = (c) => (c === 2 ? "#3a2c00" : "#fff");   // text on a class colour
 const ST_CLN = () => [L("Foarte slab", "Very poor", "Очень плохо"), L("Slab", "Poor", "Плохо"), L("Mediu", "Fair", "Средне"), L("Bun", "Good", "Хорошо"), L("Foarte bun", "Very good", "Очень хорошо")];
-const ST_STOPS = [[0, [110, 0, 35]], [15, [190, 30, 45]], [30, [240, 105, 60]], [45, [252, 185, 100]], [55, [250, 232, 150]], [65, [160, 205, 230]], [80, [75, 140, 200]], [100, [25, 45, 125]]];
+const ST_STOPS = [[0, [110, 0, 30]], [15, [185, 20, 40]], [30, [240, 100, 45]], [45, [252, 190, 80]], [55, [253, 236, 120]], [65, [175, 220, 110]], [80, [70, 165, 75]], [100, [0, 85, 40]]];
 const lerpStops = (st, v) => { if (v <= st[0][0]) return st[0][1]; for (let i = 1; i < st.length; i++) if (v <= st[i][0]) { const [a, p] = st[i - 1], [b, c] = st[i], t = (v - a) / (b - a); return p.map((x, k) => x + (c[k] - x) * t); } return st.at(-1)[1]; };
-const RT_GOOD = [[-2, [110, 0, 35]], [-1, [240, 105, 60]], [0, [250, 238, 190]], [1, [100, 160, 215]], [2, [25, 45, 125]]];
+const RT_GOOD = [[-2, [110, 0, 30]], [-1, [240, 100, 45]], [0, [253, 240, 180]], [1, [120, 195, 90]], [2, [0, 85, 40]]];
 const RT_NEU = [[-2, [94, 60, 153]], [-1, [178, 171, 210]], [0, [247, 247, 247]], [1, [253, 184, 99]], [2, [230, 97, 1]]];
 const rgbHex = (c) => "#" + c.map((x) => Math.round(x).toString(16).padStart(2, "0")).join("");
 Object.assign(S, { stat: store.get("stat", "green"), stRatio: store.get("stRatio", false), stA: store.get("stA", "green"), stB: store.get("stB", "pop"), stView: store.get("stView", "heat"), stEmpty: store.get("stEmpty", false) });
@@ -244,7 +244,7 @@ async function statsLegendAsync() {
   let avg = 0; for (let i = 0; i < G.n; i++) avg += G.vals[k][i] * G.pop[i] * G.inside[i]; avg /= tot;
   const cls = ST_CLN(), rows = ST_CLS.map(([lo, hi, c], i) => [c, cls[i], share(lo, hi), `${lo}–${Math.min(hi, 100)}`]).reverse();
   const poor = share(0, 40);
-  h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#a50f2d" : poor > 0.1 ? "#e8590c" : "#23418f"}">${fmt(poor * 100, 0)}%</b><span>${L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
+  h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#9b0d23" : poor > 0.1 ? "#e8590c" : "#0b6b2e"}">${fmt(poor * 100, 0)}%</b><span>${L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
     + `<li class="cap">${L("Câți locuitori au fiecare nivel", "Residents at each level", "Сколько жителей на каждом уровне")}</li>` + stBars(rows);
   if (G.near[k]) {   // median walking distance to the nearest facility, for residents
     const arr = []; for (let i = 0; i < G.n; i++) if (G.inside[i] && G.pop[i] > 0) arr.push([G.near[k][i], G.pop[i]]);
