@@ -22,6 +22,8 @@ const STK = {
     sub: ["< 0,7 m deasupra apei", "0,7–1,5 m", "1,5–3 m", "3–6 m", "> 6 m"], poor: ["dintre locuitori stau în zone cu risc mare sau foarte mare", "of residents live in high or very high risk areas", "жителей живут в зонах высокого или очень высокого риска"] },
   height:  { ro: "Înălțimea clădirilor", en: "Building height", ru: "Высота зданий", q: -1,
     d: ["Înălțimea medie a clădirilor (ponderată cu suprafața lor) în fiecare zonă de 150 m.", "Average building height (weighted by footprint) in each 150 m square.", "Средняя высота зданий (взвешенная по площади) в каждом квадрате 150 м."] },
+  age:     { ro: "Vechimea clădirilor", en: "Building age", ru: "Возраст зданий", q: 0,
+    d: ["Perioada în care au fost construite clădirile.", "When the buildings were built.", "Когда построены здания."] },
   pop:     { ro: "Populație", en: "Population", ru: "Население", q: -1,
     d: ["Locuitori pe km² (recensământul 2024).", "Residents per km² (2024 census).", "Жителей на км² (перепись 2024)."] },
   jobs:    { ro: "Locuri de muncă", en: "Jobs", ru: "Рабочие места", q: -1,
@@ -67,6 +69,7 @@ async function statGrid() {
   const cellKm2 = (dx * 111.32 * Math.cos((47 * Math.PI) / 180)) * (dy * 110.57);
   const inside = new Float32Array(n), pop = Float32Array.from(g.pop), jobs = Float32Array.from(g.jobs);
   for (let k = 0; k < n; k++) inside[k] = g.s.green[k] >= 0 ? 1 : 0;
+  const muni = g.mun ? Float32Array.from(g.mun, (v, k) => v * inside[k]) : inside;   // municipality only: legend shares, rankings, averages
   const act = box(Float32Array.from(pop, (p, k) => p + jobs[k] * 0.5));
   const mask = Float32Array.from(inside, (v, k) => v * (act[k] >= 1.5 ? 1 : 0));   // where people live or work
   const vals = {};
@@ -75,12 +78,12 @@ async function statGrid() {
   vals.pop = Float32Array.from(box(pop), (v, k) => (v / cellKm2) * inside[k]);
   vals.jobs = Float32Array.from(box(jobs), (v, k) => (v / cellKm2) * inside[k]);
   // municipal reference for the ratio: resident-weighted average for scores, average density where people live or work
-  const ref = {}; let pw = 0; for (let k = 0; k < n; k++) pw += pop[k] * inside[k];
-  for (const k in vals) { let s = 0; if (STK[k].q > 0) { for (let i = 0; i < n; i++) s += vals[k][i] * pop[i] * inside[i]; ref[k] = s / pw; } else { let c = 0; for (let i = 0; i < n; i++) if (mask[i] === 1) { s += vals[k][i]; c++; } ref[k] = s / c; } }
+  const ref = {}; let pw = 0; for (let k = 0; k < n; k++) pw += pop[k] * muni[k];
+  for (const k in vals) { let s = 0; if (STK[k].q > 0) { for (let i = 0; i < n; i++) s += vals[k][i] * pop[i] * muni[i]; ref[k] = s / pw; } else { let c = 0; for (let i = 0; i < n; i++) if (mask[i] === 1) { s += vals[k][i]; c++; } ref[k] = s / c; } }
   // resident-weighted distribution of every statistic → percentile (position in the city's ranking)
   const dist = {};
-  for (const k in vals) { const idx = []; for (let i = 0; i < n; i++) if (inside[i] && pop[i] > 0) idx.push(i); idx.sort((a, b) => vals[k][a] - vals[k][b]); let c = 0; const v = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { c += pop[i]; v[t] = vals[k][i]; cw[t] = c; }); dist[k] = { v, cw, tot: c }; }
-  SG = { slopep: g.slope_pct, hand: g.hand, wdist: g.wdist, hmax: g.hmax, hsrc: g.hsrc, g, box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
+  for (const k in vals) { const idx = []; for (let i = 0; i < n; i++) if (muni[i] && pop[i] > 0) idx.push(i); idx.sort((a, b) => vals[k][a] - vals[k][b]); let c = 0; const v = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { c += pop[i]; v[t] = vals[k][i]; cw[t] = c; }); dist[k] = { v, cw, tot: c }; }
+  SG = { muni, slopep: g.slope_pct, hand: g.hand, wdist: g.wdist, hmax: g.hmax, hsrc: g.hsrc, g, box, dist, W, H, dx, dy, kx0, ky0, x0: (kx0 + 0.5) * dx, y0: (ky0 + 0.5) * dy, n, inside, mask, pop, jobs, vals, ref, near: g.near, cum: g.cum, cellKm2 };
   if (g.green?.areas) await greenLoadCfg();
   return SG;
 }
@@ -144,6 +147,8 @@ async function stTile(url, dem) {
 }
 maplibregl.addProtocol("stcol", (p) => stTile(p.url.replace("stcol://", ""), false));
 maplibregl.addProtocol("stdem", (p) => stTile(p.url.replace("stdem://", ""), true));
+const statAge = () => S.stat === "age" && !S.stRatio;
+if (S.mode === "age") { S.mode = "stats"; S.stat = "age"; }   // the old Building age tab now lives in Statistics
 const stKey = () => (S.stRatio ? `r~${S.stA}~${S.stB}` : S.stat);
 // "show uninhabited land too": only for access / environment statistics (residents and jobs are simply 0 there)
 const stEmptyOk = () => (S.stRatio ? STK[S.stA].q > 0 && STK[S.stB].q > 0 : STK[S.stat].q > 0);
@@ -191,14 +196,15 @@ async function stApplyUnits() {
   } else if (S.stat === "pop") { const s = popScale(), br = [0, 100, 500, 1500, 4000, 8000]; col = ["step", ["*", s, ["coalesce", ["get", "dens"], 0]], pal().pop[0]]; br.slice(1).forEach((v, i) => col.push(v, pal().pop[i + 1])); }
   else if (S.stat === "height") col = ["interpolate", ["linear"], ["coalesce", ["get", "st_height"], 0], ...HT_STOPS.slice(1).flatMap(([v, c]) => [v, rgbHex(c.slice(0, 3))])];
   else { col = ["step", ["coalesce", ["get", "jdens"], 0], JOBCOL[0]]; JOBBR.slice(1).forEach((v, i) => col.push(v, JOBCOL[i + 1])); }
-  map.setPaintProperty("admin-fill", "fill-color", ["case", ["==", ["get", "lvl"], "ctx"], pal().line, col]);
-  map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.05, 0.78]);
+  map.setPaintProperty("admin-fill", "fill-color", col);
+  map.setPaintProperty("admin-fill", "fill-opacity", ["case", ["==", ["get", "lvl"], "ctx"], 0.55, 0.78]);   // neighbouring localities too
   return key;
 }
 // layers (heat = flat colours, hills = same colours on a terrain made from the values)
 async function statsRender(on, only) {
   document.getElementById("as-q")?.setAttribute("placeholder", L("Caută o stradă sau un loc…", "Search a street or a place…", "Найти улицу или место…"));
   if (bm(S.mode) === "stats") { const el = document.getElementById("stpanel"), sig = [S.lang, S.stat, S.stRatio, S.stA, S.stB, S.stView, S.stEmpty].join("|"); if (el && el.dataset.sig !== sig) { statsPanel(); el.dataset.sig = sig; } }
+  if (statAge()) on = false;   // building age uses its own layers (app.js)
   const key = stTileKey(), view = S.stView, sq = S.hillSqrt && !key.startsWith("r~") ? "sqrt" : "lin";
   const want = on && view !== "units" ? `stc-${key}` : null, wantDem = on && view === "hills" ? `std-${key}-${sq}` : null;
   if (want && !map.getSource(want)) {
@@ -225,8 +231,8 @@ function stBars(rows) {   // rows: [colour, label, share 0–1, sub]
 }
 async function statsLegendAsync() {
   const G = await statGrid(), admin = await ensureStats(), key = stKey(), F = stField(key);
-  let tot = 0; for (let k = 0; k < G.n; k++) tot += G.pop[k] * G.inside[k];
-  const share = (lo, hi) => { let s = 0; for (let k = 0; k < G.n; k++) if (G.inside[k] && F[k] >= lo && F[k] < hi) s += G.pop[k]; return s / tot; };
+  let tot = 0; for (let k = 0; k < G.n; k++) tot += G.pop[k] * G.muni[k];
+  const share = (lo, hi) => { let s = 0; for (let k = 0; k < G.n; k++) if (G.muni[k] && F[k] >= lo && F[k] < hi) s += G.pop[k]; return s / tot; };
   const units = admin.features.filter((f) => f.properties.lvl === 3 && [REF(), "both"].includes(f.properties.sc) && f.properties.pop * popScale() >= 1500).map((f) => f.properties);
   const pick = (val, n, asc) => units.filter((p) => val(p) != null).sort((a, b) => (asc ? val(a) - val(b) : val(b) - val(a))).slice(0, n);
   const pickHtml = (title, list, val, fmtv, cls) => `<li class="cap">${title}</li><li class="stlist ${cls}">${list.map((p) => `<button type="button" class="stu" data-stunit="${p.id}"><span>${esc(nameOf(p))}</span><b>${fmtv(val(p))}</b></button>`).join("")}</li>`;
@@ -257,6 +263,7 @@ async function statsLegendAsync() {
   }
   const k = S.stat, st = STK[k];
   h += `<li class="cap">${esc(STN(k))}</li><li class="small">${L(...st.d)}</li>`;
+  h += `<li class="small muted">${L("Harta acoperă și localitățile din jurul municipiului; cifrele și graficele de mai jos sunt doar pentru municipiu.", "The map also covers the localities around the municipality; the figures and charts below are for the municipality only.", "Карта охватывает и населённые пункты вокруг муниципия; цифры и графики ниже — только по муниципию.")}</li>`;
   if (k === "height") {
     const rows = HT_BR.slice(0, -1).map((lo, i) => { const hi = HT_BR[i + 1]; return [rgbHex(htCol(Math.min(lo + 4, 50)).slice(0, 3)), hi < 1000 ? `${lo}–${hi} m` : `> ${lo} m`, share(lo, hi), hi < 1000 ? `~${Math.max(1, Math.round(lo / 3))}–${Math.round(hi / 3)} ${L("etaje", "floors", "этажей")}` : `${L("peste", "over", "более")} ${Math.round(lo / 3)} ${L("etaje", "floors", "этажей")}`]; });
     const hs = G.hsrc || {}, val = (q) => q.st_height;
@@ -273,13 +280,13 @@ async function statsLegendAsync() {
       + `<li class="small">${L("Folosește „Raportează” ca să vezi, de exemplu, unde locuiesc mulți oameni dar accesul la parcuri sau stații e slab.", "Use “Ratio” to see, for example, where many people live but access to parks or stops is poor.", "Используйте «Соотношение», чтобы увидеть, например, где живёт много людей, но доступ к паркам или остановкам плохой.")}</li>`;
     return h;
   }
-  let avg = 0; for (let i = 0; i < G.n; i++) avg += G.vals[k][i] * G.pop[i] * G.inside[i]; avg /= tot;
+  let avg = 0; for (let i = 0; i < G.n; i++) avg += G.vals[k][i] * G.pop[i] * G.muni[i]; avg /= tot;
   const cls = st.cls ? st.cls.map((x) => L(...x)) : ST_CLN(), rows = ST_CLS.map(([lo, hi, c], i) => [c, cls[i], share(lo, hi), st.sub ? st.sub[i] : `${lo}–${Math.min(hi, 100)}`]).reverse();
   const poor = share(0, 40);
   h += `<li class="stkpi"><div><b style="color:${avg >= 40 && avg < 60 ? "#9a6b00" : rgbHex(lerpStops(ST_STOPS, avg))}">${fmt(avg, 0)}</b><span>${L("scor mediu / 100 (ponderat cu locuitorii)", "average score / 100 (weighted by residents)", "средний балл / 100 (взвешен по жителям)")}</span></div><div><b style="color:${poor > 0.25 ? "#9b0d23" : poor > 0.1 ? "#e8590c" : "#0b6b2e"}">${fmt(poor * 100, 0)}%</b><span>${st.poor ? L(...st.poor) : L("dintre locuitori au acces slab sau foarte slab", "of residents have poor or very poor access", "жителей с плохим или очень плохим доступом")}</span></div></li>`
     + `<li class="cap">${L("Câți locuitori au fiecare nivel", "Residents at each level", "Сколько жителей на каждом уровне")}</li>` + stBars(rows);
   if (G.near[k]) {   // median walking distance to the nearest facility, for residents
-    const arr = []; for (let i = 0; i < G.n; i++) if (G.inside[i] && G.pop[i] > 0) arr.push([G.near[k][i], G.pop[i]]);
+    const arr = []; for (let i = 0; i < G.n; i++) if (G.muni[i] && G.pop[i] > 0) arr.push([G.near[k][i], G.pop[i]]);
     arr.sort((a, b) => a[0] - b[0]); let c = 0, med = 0, p90 = 0; for (const [d, w] of arr) { c += w; if (!med && c >= tot / 2) med = d; if (!p90 && c >= tot * 0.9) { p90 = d; break; } }
     const what = { transit: L("o stație", "a stop", "остановка"), green: L("un spațiu verde public", "a public green space", "общественная зелёная зона"), health: L("o unitate medicală", "a health facility", "медучреждение"), school: L("o școală", "a school", "школа") }[k];
     const m = (d) => (d >= 99999 ? (k === "green" ? "> 2 km" : "> 10 km") : d >= 1000 ? fmt(d / 1000, 1) + " km" : fmt(Math.round(d / 10) * 10) + " m");
@@ -307,7 +314,7 @@ function statsInfoRows(p) {
 }
 // panel controls
 function statsPanel() {
-  const opts = Object.keys(STK).map((k) => `<option value="${k}">${esc(STN(k))}</option>`).join("");
+  const opts = Object.keys(STK).filter((k) => k !== "age").map((k) => `<option value="${k}">${esc(STN(k))}</option>`).join("");
   const el = document.getElementById("stpanel"); if (!el) return;
   el.innerHTML = `<div class="seg stlistsel stratiosel"><label class="stratio"><input type="radio" name="stat" value="__ratio" ${S.stRatio ? "checked" : ""}><b>${L("Raportează două statistici", "Ratio of two statistics", "Соотношение двух показателей")}</b></label></div>
     <div class="strat" ${S.stRatio ? "" : "hidden"}><select id="stA" aria-label="A">${opts}</select><span>÷</span><select id="stB" aria-label="B">${opts}</select><button type="button" class="btn ghost sm" id="stswap" title="${L("Inversează", "Swap", "Поменять")}">⇄</button></div>
@@ -315,7 +322,7 @@ function statsPanel() {
     <div class="seg stlistsel">${Object.keys(STK).map((k) => `<label><input type="radio" name="stat" value="${k}" ${!S.stRatio && S.stat === k ? "checked" : ""}><b>${esc(STN(k))}</b></label>`).join("")}</div>
     <span class="lab">${t("popview")}</span>
     ${stEmptyOk() ? `<label class="check stempty"><input type="checkbox" id="stempty" ${S.stEmpty ? "checked" : ""}><span>${L("Arată și teritoriile nelocuite", "Also show uninhabited land", "Показывать и незаселённые территории")}<small>${L("Colorează și locurile unde încă nu locuiește nimeni, ca să vezi dacă un teren pentru construcție are deja acces bun. Clic pe hartă pentru valorile din acel punct.", "Also colours places where nobody lives yet, to check whether a building site already has good access. Click the map for the values at that spot.", "Окрашивает и места, где пока никто не живёт, чтобы проверить, есть ли у участка под застройку хороший доступ. Щёлкните по карте, чтобы увидеть значения в точке.")}</small></span></label>` : ""}
-    <div class="seg row3">${[["units", t("pv_units")], ["heat", t("pv_heat")], ["hills", t("pv_hills")]].map(([v, l]) => `<label><input type="radio" name="stview" value="${v}" ${S.stView === v ? "checked" : ""}><b>${l}</b></label>`).join("")}</div>`;
+    <div class="seg ${statAge() ? "row2" : "row3"}">${(statAge() ? [["heat", L("Hartă 2D", "2D map", "2D-карта")], ["hills", L("Clădiri 3D", "3D buildings", "3D-здания")]] : [["units", t("pv_units")], ["heat", t("pv_heat")], ["hills", t("pv_hills")]]).map(([v, l]) => `<label><input type="radio" name="stview" value="${v}" ${(S.stView === v || (statAge() && v === "heat" && S.stView === "units")) ? "checked" : ""}><b>${l}</b></label>`).join("")}</div>`;
   el.querySelector("#stA").value = S.stA; el.querySelector("#stB").value = S.stB;
 }
 function statsSave() { for (const k of ["stat", "stRatio", "stA", "stB", "stView", "stEmpty"]) store.set(k, S[k]); }
@@ -375,9 +382,9 @@ function greenApply() {   // value = Σ_r a_r · ln(1 + green ha within r / unit
     for (let i = 0; i < n; i++) val[i] += a_r * Math.log1p(C[i] / N.unit);
   }
   for (let i = 0; i < n; i++) v[i] = G.inside[i] ? Math.max(0, Math.min(100, Math.round((100 * val[i]) / N.vmax))) : 0;
-  const idx = []; for (let i = 0; i < n; i++) if (G.inside[i] && G.pop[i] > 0) idx.push(i); idx.sort((a, b) => v[a] - v[b]);
+  const idx = []; for (let i = 0; i < n; i++) if (G.muni[i] && G.pop[i] > 0) idx.push(i); idx.sort((a, b) => v[a] - v[b]);
   let cc = 0; const dv = new Float32Array(idx.length), cw = new Float32Array(idx.length); idx.forEach((i, t) => { cc += G.pop[i]; dv[t] = v[i]; cw[t] = cc; }); G.dist.green = { v: dv, cw, tot: cc };
-  let s = 0; for (let i = 0; i < n; i++) s += v[i] * G.pop[i] * G.inside[i]; G.ref.green = s / cc;
+  let s = 0; for (let i = 0; i < n; i++) s += v[i] * G.pop[i] * G.muni[i]; G.ref.green = s / cc;
 }
 async function greenSave() {
   GCFG.t = new Date().toISOString();

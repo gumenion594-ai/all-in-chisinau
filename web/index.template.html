@@ -130,9 +130,9 @@ body:not(.ready) #info::after { content: "…"; }
 #toolbar { position: absolute; z-index: 6; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(56px + env(safe-area-inset-right, 0px));
   display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 4px; box-shadow: var(--shadow); }
 .tbtn { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--fg); padding: 7px 10px; border-radius: 8px; font: 600 12px var(--body); cursor: pointer; }
-.asearch { position: relative; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; border-radius: 8px; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+.asearch { position: relative; flex: 0 1 260px; min-width: 120px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 8px; border-radius: 8px; background: color-mix(in srgb, var(--fg) 5%, transparent); }
 .asearch > svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; opacity: .6; }
-.asearch input { width: 230px; border: 0; background: transparent; color: var(--fg); font: 500 13px var(--body); padding: 7px 2px; outline: none; }
+.asearch input { width: 100%; min-width: 0; flex: 1; border: 0; background: transparent; color: var(--fg); font: 500 13px var(--body); padding: 7px 2px; outline: none; }
 .asearch input::-webkit-search-cancel-button { display: none; }
 #toolbar:has(.asres:not([hidden])) { z-index: 80; }
 .asx { border: 0; background: none; color: var(--fg); font-size: 18px; line-height: 1; cursor: pointer; opacity: .6; padding: 0 4px; }
@@ -632,8 +632,12 @@ nav.tabs2 { margin-top: -1px; }
 .tab.kept svg { stroke: var(--gold); }
 .hidebar { background: color-mix(in srgb, var(--accent) 8%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 9px; padding: 8px 10px; }
 @media (max-width: 1180px) { .tbtn > span:not(.tip) { display: none; } }
-@media (max-width: 1180px) { .asearch input { width: 170px; } }
+/* the toolbar never runs under the open side panel (350 px + margins); the search box shrinks first */
+#toolbar { max-width: calc(100% - 434px - 14px - 56px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); flex-wrap: wrap; justify-content: flex-end; row-gap: 4px; }
+#toolbar .tsep:first-of-type { display: none; }
+.pop { top: calc(var(--tbh, 50px) + 12px + env(safe-area-inset-top, 0px)) !important; }
 @media (max-width: 640px) {
+  #toolbar { max-width: none; }
   .asearch { flex: 1; min-width: 0; } .asearch input { width: 100%; min-width: 0; } .asres { width: calc(100vw - 24px); }
   .tbtn.plan span:not(.tip), .tsep { display: none; }
   .datebox input { width: 112px; padding: 4px; font-size: 12px; }
@@ -787,7 +791,6 @@ nav.tabs2 { margin-top: -1px; }
     <button class="tab" type="button" data-mode="roads"><svg viewBox="0 0 24 24"><path d="M7 21L10 3M17 21L14 3M12 6v2M12 11v2M12 16v2"/></svg><span data-t="roads"></span></button>
   </nav>
   <nav class="tabs tabs2" aria-label="Hărți suplimentare">
-    <button class="tab" type="button" data-mode="age"><svg viewBox="0 0 24 24"><path d="M4 20V10l8-6 8 6v10"/><path d="M9 20v-6h6v6"/><circle cx="18.5" cy="5.5" r="3"/><path d="M18.5 4v1.6l1 .9"/></svg><span data-t="age"></span></button>
     <button class="tab" type="button" data-mode="temp"><svg viewBox="0 0 24 24"><path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z"/><path d="M12 10v6"/></svg><span data-t="temp"></span></button>
     <button class="tab" type="button" data-mode="cmp"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="10" height="10" rx="1.5"/><rect x="10" y="4" width="11" height="13" rx="1.5" stroke-dasharray="2.5 2"/><path d="M6 20h12"/></svg><span data-t="cmp"></span></button>
     <button class="tab" type="button" data-mode="stats"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span data-t="stats"></span></button>

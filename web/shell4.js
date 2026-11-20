@@ -202,6 +202,9 @@ async function asPick(i) {
 function asClear() { asEl("as-q").value = ""; asEl("as-x").hidden = true; asEl("as-res").hidden = true; ASRES = []; if (map.getSource("aihl")) aiDraw([], false); }
 function atlasSearchBind() {
   const q = asEl("as-q"); if (!q) return;
+  // menus that open from the toolbar sit just below it, also when it wraps onto two rows
+  const tb = document.getElementById("toolbar");
+  if (tb && window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tbh", tb.offsetHeight + "px")).observe(tb);
   q.placeholder = L("Caută o stradă sau un loc…", "Search a street or a place…", "Найти улицу или место…");
   asEl("as-x").setAttribute("aria-label", L("Șterge căutarea", "Clear search", "Очистить поиск"));
   q.addEventListener("input", () => { asEl("as-x").hidden = !q.value; clearTimeout(ASTMR); ASTMR = setTimeout(async () => { ASRES = await runSearch(q.value); ASON = -1; asRender(); }, 140); });

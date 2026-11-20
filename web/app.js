@@ -1059,16 +1059,19 @@ async function render() {
   }
   if (has("transit") && S.ring) await ensure.ring();
   ["ring", "ring-casing", "ring-plan"].forEach((id) => vis(id, has("transit") && S.ring));
-  const ageOn = has("age");
+  // building age: its own map, now shown from Statistics (2D map, or 3D buildings with "3D hills")
+  const ageOn = has("age") || (has("stats") && statAge());
+  const d3 = S.d3 || (ageOn && has("stats") && statAge() && S.stView === "hills");
   if (ageOn) await ensure.agegrid();
-  vis("agegrid", ageOn && !S.d3);
+  vis("agegrid", ageOn && !d3);
+  if (d3 && !S.d3 && map.getPitch() < 35) map.easeTo({ pitch: 55, bearing: -18, zoom: Math.max(map.getZoom(), 14), duration: 900 });
   const ageF = ["in", ["get", "a"], ["literal", S.ages ?? AGE_ORDER]];
   if (map.getLayer("agegrid")) map.setFilter("agegrid", ageF);
   if (map.getLayer("bld-age")) map.setFilter("bld-age", ageF);
   if (has("cmp") || Object.keys(S.cmp).length) await cmpUpdate();
-  if (S.d3 || ageOn) { if (!map.getSource("bld")) { document.getElementById("legend").insertAdjacentHTML("afterbegin", `<li class="loading"><span class="spin"></span>${t("age_load")}</li>`); } await ensure.buildings(); }
-  vis("bld", S.d3 && !only);
-  vis("bld-age", ageOn && !S.d3);
+  if (d3 || ageOn) { if (!map.getSource("bld")) { document.getElementById("legend").insertAdjacentHTML("afterbegin", `<li class="loading"><span class="spin"></span>${t("age_load")}</li>`); } await ensure.buildings(); }
+  vis("bld", d3 && !only);
+  vis("bld-age", ageOn && !d3);
   if (map.getLayer("bld")) map.setFilter("bld", ageOn ? ageF : null);
   if (map.getLayer("bld")) map.setPaintProperty("bld", "fill-extrusion-color", ageOn ? ["match", ["get", "a"], ...AGECOL.flatMap((c, i) => [i, c]), "#ccc"]
     : ["interpolate", ["linear"], ["get", "h"], 3, isDark() ? "#5b6170" : "#ddd8d0", 20, isDark() ? "#7c8396" : "#c3b9ad", 60, isDark() ? "#a8b0c4" : "#9a8c7c"]);
@@ -1171,7 +1174,7 @@ map.on("zoomend", updateLabelVis);
 
 // ================================================================== legend
 function renderLegend() {
-  const el = document.getElementById("legend"), P = pal(), m = bm(S.mode);
+  const el = document.getElementById("legend"), P = pal(), m = bm(S.mode) === "stats" && statAge() ? "age" : bm(S.mode);
   let h = "";
   if (m === "stats") {
     h = statsLegend();

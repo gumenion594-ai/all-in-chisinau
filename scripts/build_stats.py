@@ -42,15 +42,22 @@ def log(*a): print(f"[{time.time()-t0:6.0f}s]", *a, flush=True)
 # ---------------------------------------------------------------- municipality and grid cells
 admin = json.load(open(os.path.join(OUT, "admin.geojson")))["features"]
 mun = unary_union([shape(f["geometry"]) for f in admin if f["properties"]["lvl"] == "mun"]).buffer(0.002)
-minx, miny, maxx, maxy = mun.bounds
+# statistics cover the whole data area around the municipality (neighbouring towns and villages too), with a ~2 km
+# margin inside the edge of the downloaded data so facilities just outside are not missing
+REGION = box(28.535, 46.845, 29.195, 47.205)
+minx, miny, maxx, maxy = REGION.bounds
 kx0, ky0 = int(minx / CX), int(miny / CY); kx1, ky1 = int(maxx / CX), int(maxy / CY)
 W, H = kx1 - kx0 + 1, ky1 - ky0 + 1
-pm = prep(mun)
+pm = prep(REGION); pmun = prep(mun)
 cx = np.array([(kx0 + i + .5) * CX for i in range(W)]); cy = np.array([(ky0 + j + .5) * CY for j in range(H)])
 inside = np.zeros((H, W), bool)
 for j in range(H):
     for i in range(W):
         inside[j, i] = pm.contains(Point(cx[i], cy[j]))
+munm = np.zeros((H, W), bool)
+for j in range(H):
+    for i in range(W):
+        if inside[j, i]: munm[j, i] = pmun.contains(Point(cx[i], cy[j]))
 cells = np.argwhere(inside)            # (j, i)
 NC = len(cells)
 cell_lon = cx[cells[:, 1]]; cell_lat = cy[cells[:, 0]]
@@ -154,7 +161,7 @@ def counts(src_lon, src_lat, weight, name, radii=RADII, group=None, ngroups=0):
     return (C, nearest, GC) if ngroups else (C, nearest)
 
 def value(C, radii=RADII, unit=1.0): return sum(a * np.log1p(C[r] / unit) for r, a in radii)
-POPC = POP[cells[:, 0], cells[:, 1]]
+POPC = POP[cells[:, 0], cells[:, 1]] * munm[cells[:, 0], cells[:, 1]]   # score scales are set on the municipality's residents
 def score(v):
     vmax = float(np.percentile(np.repeat(v[POPC > 0], np.maximum(1, np.round(POPC[POPC > 0] / 5).astype(int))), 99))
     return np.clip(np.round(100 * v / vmax), 0, 100).astype(int), vmax
@@ -215,7 +222,7 @@ for n in S.nodes.values():
     if k: apts.append(to_xy(Point(n["lon"], n["lat"]))); aw.append(AMEN[k])
 atree = STRtree(apts)
 CUR = {"la izvor": "a", "muzeul satului": "s"}   # known exceptions where OSM lacks the details (editable in the app)
-munxy = to_xy(mun.buffer(0.03))
+munxy = to_xy(REGION.buffer(0.03))
 cand = []
 for kind, coll in (("w", S.ways), ("r", S.rels)):
     for oid, o in coll.items():
@@ -322,7 +329,7 @@ indus = np.zeros(NC)
 for k, nb in enumerate(it.query_ball_point(CM, 2000)):
     if nb: d = np.hypot(*(IP[nb] - CM[k]).T); indus[k] = (IW[nb] * np.exp(-d / 400)).sum()
 E = traffic / 1000 + indus * 0.6
-popc = POP[cells[:, 0], cells[:, 1]]
+popc = POP[cells[:, 0], cells[:, 1]] * munm[cells[:, 0], cells[:, 1]]
 ref = np.median(E[popc > 5])
 res["air"] = np.round(100 * np.exp(-E / (2.2 * ref))).astype(int)
 aux["air_traffic"] = traffic; aux["air_indus"] = indus
@@ -365,6 +372,7 @@ out = {"kx0": kx0, "ky0": ky0, "W": W, "H": H, "dx": CX, "dy": CY,
        "slope_pct": full(np.round(aux["slope_pct"] * 10), 0),   # slope in tenths of a percent
        "cum": {"transit": full(aux["transit_cum"]), "green": full(aux["green_cum"], dec=1), "health": full(aux["health_cum"], dec=1), "school": full(aux["school_cum"])},   # transit: lines within 500 m; others: weight within 1 km
        "green": {**GREEN_OUT, "rest": {k: {str(r): full(v[r], 0, 2) for r, _ in GR_RADII} for k, v in rest.items()}},
+       "mun": [int(x) for x in munm.ravel()],
        "pop": [round(float(x), 1) for x in POP.ravel()], "jobs": [round(float(x), 1) for x in JOBS.ravel()]}
 json.dump(out, open(os.path.join(OUT, "statgrid.json"), "w"), separators=(",", ":"))
 log("statgrid.json", round(os.path.getsize(os.path.join(OUT, "statgrid.json")) / 1e6, 2), "MB")
